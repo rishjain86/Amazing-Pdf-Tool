@@ -1,5 +1,9 @@
 // Import PDF-lib from CDN for client-side processing
 import { PDFDocument, degrees, StandardFonts, rgb } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+// Import PDF.js for text extraction
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+
 import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
@@ -15,723 +19,270 @@ window.switchView = (viewId) => {
 };
 
 // --- DYNAMIC UI INJECTION ---
-const mergeContainer = document.getElementById('merge-ui-container');
-const splitContainer = document.getElementById('split-ui-container');
-const compressContainer = document.getElementById('compress-ui-container');
-const rotateContainer = document.getElementById('rotate-ui-container');
-const pagenumbersContainer = document.getElementById('pagenumbers-ui-container');
-const jpgtopdfContainer = document.getElementById('jpgtopdf-ui-container');
-const protectContainer = document.getElementById('protect-ui-container');
-const unlockContainer = document.getElementById('unlock-ui-container');
+const views = ['merge', 'split', 'compress', 'rotate', 'pagenumbers', 'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock'];
+const ui = {};
+views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
 
-// Common CSS for injected elements
 const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; background: rgba(59, 130, 246, 0.05); transition: 0.3s; margin-bottom: 20px;";
 const btnStyle = "background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 15px;";
+const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px;";
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
 
-// Inject UI Elements
-if (mergeContainer) {
-    mergeContainer.innerHTML = `
-        <div id="merge-drop-zone" style="${dropZoneStyle}">
-            <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
-            <h3>Drag & Drop PDFs here</h3>
-            <p style="color: var(--text-secondary); margin-top: 5px;">or click to select files</p>
-            <input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;">
-        </div>
-        <div id="merge-file-list" style="${fileListStyle}"></div>
-        <button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>
+// Helper for single file UI generation
+const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
+        <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
+        <h3>Select PDF to ${title}</h3>
+        <input type="file" id="${id}-file-input" accept="application/pdf" style="display: none;">
+    </div>
+    <div id="${id}-file-info" style="${fileListStyle}"></div>
+    <div id="${id}-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+        ${extraHtml}
+        <button id="btn-${id}-action" style="${btnStyle.replace('var(--accent)', color)}"><i class="fas ${icon}"></i> ${btnText}</button>
+    </div>
+`;
+
+// Inject Multi-file UIs
+if (ui.merge) {
+    ui.merge.innerHTML = `
+        <div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div>
+        <div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>
+    `;
+}
+if (ui.jpgtopdf) {
+    ui.jpgtopdf.innerHTML = `
+        <div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div>
+        <div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>
     `;
 }
 
-if (splitContainer) {
-    splitContainer.innerHTML = `
-        <div id="split-drop-zone" style="${dropZoneStyle}">
-            <i class="fas fa-file-import" style="font-size: 3rem; color: #f59e0b; margin-bottom: 15px;"></i>
-            <h3>Select ONE PDF to Split</h3>
-            <input type="file" id="split-file-input" accept="application/pdf" style="display: none;">
-        </div>
-        <div id="split-file-info" style="${fileListStyle}"></div>
-        <div id="split-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Pages to Extract (e.g., 1-3 or 1,4,5):</label>
-            <input type="text" id="split-ranges" placeholder="e.g. 1-3" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: transparent; color: white; margin-bottom: 15px;">
-            <button id="btn-split-action" style="${btnStyle.replace('var(--accent)', '#f59e0b')}"><i class="fas fa-cut"></i> Split & Download</button>
-        </div>
-    `;
-}
+// Inject Single-file UIs
+if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<label style="color: var(--text-secondary);">Pages to Extract (e.g., 1-3):</label><input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
+if (ui.compress) ui.compress.innerHTML = generateSingleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress PDF');
+if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<label style="color:var(--text-secondary);">Angle:</label><select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
+if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers');
+if (ui.protect) ui.protect.innerHTML = generateSingleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt PDF', `<input type="password" id="protect-password" placeholder="Set Password" style="${inputStyle}">`);
+if (ui.unlock) ui.unlock.innerHTML = generateSingleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock PDF', `<input type="password" id="unlock-password" placeholder="Current Password" style="${inputStyle}">`);
+if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
+if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text (e.g., CONFIDENTIAL)" style="${inputStyle}">`);
+if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
 
-if (compressContainer) {
-    compressContainer.innerHTML = `
-        <div id="compress-drop-zone" style="${dropZoneStyle}">
-            <i class="fas fa-file-archive" style="font-size: 3rem; color: #10b981; margin-bottom: 15px;"></i>
-            <h3>Select PDF to Compress</h3>
-            <input type="file" id="compress-file-input" accept="application/pdf" style="display: none;">
-        </div>
-        <div id="compress-file-info" style="${fileListStyle}"></div>
-        <div id="compress-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Select Compression Level:</label>
-            <select id="compress-level" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
-                <option value="recommended">Recommended Compression (Good Quality, Smaller Size)</option>
-                <option value="extreme">Extreme Compression (Less Quality, Smallest Size)</option>
-            </select>
-            <button id="btn-compress-action" style="${btnStyle.replace('var(--accent)', '#10b981')}"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
-        </div>
-    `;
-}
-
-if (rotateContainer) {
-    rotateContainer.innerHTML = `
-        <div id="rotate-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#3b82f6')}">
-            <i class="fas fa-sync-alt" style="font-size: 3rem; color: #3b82f6; margin-bottom: 15px;"></i>
-            <h3>Select PDF to Rotate</h3>
-            <input type="file" id="rotate-file-input" accept="application/pdf" style="display: none;">
-        </div>
-        <div id="rotate-file-info" style="${fileListStyle}"></div>
-        <div id="rotate-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Select Rotation Angle:</label>
-            <select id="rotate-angle" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
-                <option value="90">Right 90°</option>
-                <option value="180">Upside Down 180°</option>
-                <option value="-90">Left -90°</option>
-            </select>
-            <button id="btn-rotate-action" style="${btnStyle.replace('var(--accent)', '#3b82f6')}"><i class="fas fa-sync-alt"></i> Rotate & Download</button>
-        </div>
-    `;
-}
-
-if (pagenumbersContainer) {
-    pagenumbersContainer.innerHTML = `
-        <div id="pagenumbers-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#6366f1')}">
-            <i class="fas fa-sort-numeric-down" style="font-size: 3rem; color: #6366f1; margin-bottom: 15px;"></i>
-            <h3>Select PDF for Page Numbers</h3>
-            <input type="file" id="pagenumbers-file-input" accept="application/pdf" style="display: none;">
-        </div>
-        <div id="pagenumbers-file-info" style="${fileListStyle}"></div>
-        <div id="pagenumbers-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Select Position:</label>
-            <select id="pagenumbers-position" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
-                <option value="bottom-center">Bottom Center</option>
-                <option value="bottom-right">Bottom Right</option>
-                <option value="top-center">Top Center</option>
-                <option value="top-right">Top Right</option>
-            </select>
-            
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Format:</label>
-            <select id="pagenumbers-format" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
-                <option value="1">1, 2, 3...</option>
-                <option value="Page 1">Page 1, Page 2...</option>
-                <option value="Page 1 of 10">Page 1 of 10, Page 2 of 10...</option>
-            </select>
-
-            <button id="btn-pagenumbers-action" style="${btnStyle.replace('var(--accent)', '#6366f1')}"><i class="fas fa-sort-numeric-down"></i> Add Page Numbers</button>
-        </div>
-    `;
-}
-
-if (jpgtopdfContainer) {
-    jpgtopdfContainer.innerHTML = `
-        <div id="jpgtopdf-drop-zone" style="${dropZoneStyle}">
-            <i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i>
-            <h3>Drag & Drop JPG/PNG Images</h3>
-            <p style="color: var(--text-secondary); margin-top: 5px;">or click to select files</p>
-            <input type="file" id="jpgtopdf-file-input" multiple accept="image/jpeg, image/png" style="display: none;">
-        </div>
-        <div id="jpgtopdf-file-list" style="${fileListStyle}"></div>
-        <button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>
-    `;
-}
-
-if (protectContainer) {
-    protectContainer.innerHTML = `
-        <div id="protect-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#8b5cf6')}">
-            <i class="fas fa-lock" style="font-size: 3rem; color: #8b5cf6; margin-bottom: 15px;"></i>
-            <h3>Select PDF to Protect</h3>
-            <input type="file" id="protect-file-input" accept="application/pdf" style="display: none;">
-        </div>
-        <div id="protect-file-info" style="${fileListStyle}"></div>
-        <div id="protect-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Set Password for PDF:</label>
-            <input type="password" id="protect-password" placeholder="Enter secure password" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: transparent; color: white; margin-bottom: 15px;">
-            <button id="btn-protect-action" style="${btnStyle.replace('var(--accent)', '#8b5cf6')}"><i class="fas fa-shield-alt"></i> Encrypt PDF</button>
-        </div>
-    `;
-}
-
-if (unlockContainer) {
-    unlockContainer.innerHTML = `
-        <div id="unlock-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#06b6d4')}">
-            <i class="fas fa-unlock" style="font-size: 3rem; color: #06b6d4; margin-bottom: 15px;"></i>
-            <h3>Select PDF to Unlock</h3>
-            <input type="file" id="unlock-file-input" accept="application/pdf" style="display: none;">
-        </div>
-        <div id="unlock-file-info" style="${fileListStyle}"></div>
-        <div id="unlock-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Enter current password to remove it:</label>
-            <input type="password" id="unlock-password" placeholder="Enter current PDF password" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: transparent; color: white; margin-bottom: 15px;">
-            <button id="btn-unlock-action" style="${btnStyle.replace('var(--accent)', '#06b6d4')}"><i class="fas fa-unlock"></i> Unlock & Download</button>
-        </div>
-    `;
-}
-
-// --- MERGE LOGIC ---
-let mergeFiles = [];
-const mergeDropZone = document.getElementById('merge-drop-zone');
-const mergeInput = document.getElementById('merge-file-input');
-const mergeList = document.getElementById('merge-file-list');
-const btnMergeAction = document.getElementById('btn-merge-action');
-
-if (mergeDropZone) {
-    mergeDropZone.addEventListener('click', () => mergeInput.click());
-    mergeInput.addEventListener('change', (e) => {
-        const pdfs = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
-        mergeFiles = [...mergeFiles, ...pdfs];
-        renderMergeList();
-    });
-
-    function renderMergeList() {
-        mergeList.innerHTML = '';
-        mergeFiles.forEach((file, index) => {
-            const div = document.createElement('div');
-            div.style = fileItemStyle;
-            div.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                    <div>
-                        <div style="font-weight: 600;">${file.name}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${(file.size/1024/1024).toFixed(2)} MB</div>
-                    </div>
-                </div>
-                <button onclick="removeMergeFile(${index})" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-            `;
-            mergeList.appendChild(div);
-        });
-
-        btnMergeAction.style.display = mergeFiles.length > 1 ? 'block' : 'none';
-        mergeDropZone.style.padding = mergeFiles.length > 0 ? '20px' : '40px 20px';
-    }
-
-    window.removeMergeFile = (index) => {
-        mergeFiles.splice(index, 1);
-        renderMergeList();
-    };
-
-    btnMergeAction.addEventListener('click', async () => {
-        if (mergeFiles.length < 2) return;
-        btnMergeAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        
-        try {
-            const mergedPdf = await PDFDocument.create();
-            for (const file of mergeFiles) {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await PDFDocument.load(arrayBuffer);
-                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-                copiedPages.forEach((page) => mergedPdf.addPage(page));
-            }
-            
-            const pdfBytes = await mergedPdf.save();
-            downloadBlob(pdfBytes, 'Amazing_Merged.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            mergeFiles = [];
-            renderMergeList();
-        } catch (error) {
-            alert("Error during merge. File might be encrypted.");
-        } finally {
-            btnMergeAction.innerHTML = '<i class="fas fa-object-group"></i> Merge Files Now';
-        }
-    });
-}
-
-// --- SPLIT LOGIC ---
-let splitFile = null;
-const splitDropZone = document.getElementById('split-drop-zone');
-const splitInput = document.getElementById('split-file-input');
-const splitInfo = document.getElementById('split-file-info');
-const splitControls = document.getElementById('split-controls');
-const btnSplitAction = document.getElementById('btn-split-action');
-
-if (splitDropZone) {
-    splitDropZone.addEventListener('click', () => splitInput.click());
-    splitInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            splitFile = file;
-            splitDropZone.style.display = 'none';
-            splitInfo.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                        <div style="font-weight: 600;">${file.name}</div>
-                    </div>
-                    <button onclick="resetSplit()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            splitControls.style.display = 'block';
-        }
-    });
-
-    window.resetSplit = () => {
-        splitFile = null;
-        splitInput.value = '';
-        splitDropZone.style.display = 'block';
-        splitInfo.innerHTML = '';
-        splitControls.style.display = 'none';
-    };
-
-    btnSplitAction.addEventListener('click', async () => {
-        const rangeStr = document.getElementById('split-ranges').value;
-        if (!splitFile || !rangeStr) return alert("Please enter a valid page range.");
-        
-        btnSplitAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Extracting...';
-        try {
-            let pagesToExtract = [];
-            const parts = rangeStr.split(',');
-            for (let part of parts) {
-                if (part.includes('-')) {
-                    const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1);
-                    for (let i = start; i <= end; i++) pagesToExtract.push(i);
-                } else {
-                    pagesToExtract.push(parseInt(part.trim()) - 1);
-                }
-            }
-
-            const arrayBuffer = await splitFile.arrayBuffer();
-            const sourcePdf = await PDFDocument.load(arrayBuffer);
-            const newPdf = await PDFDocument.create();
-            
-            const copiedPages = await newPdf.copyPages(sourcePdf, pagesToExtract);
-            copiedPages.forEach((page) => newPdf.addPage(page));
-            
-            const pdfBytes = await newPdf.save();
-            downloadBlob(pdfBytes, 'Amazing_Split.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            resetSplit();
-            document.getElementById('split-ranges').value = '';
-        } catch (error) {
-            alert("Error extracting pages. Ensure page numbers are correct.");
-        } finally {
-            btnSplitAction.innerHTML = '<i class="fas fa-cut"></i> Split & Download';
-        }
-    });
-}
-
-// --- COMPRESS LOGIC ---
-let compressFile = null;
-const compressDropZone = document.getElementById('compress-drop-zone');
-const compressInput = document.getElementById('compress-file-input');
-const compressInfo = document.getElementById('compress-file-info');
-const compressControls = document.getElementById('compress-controls');
-const btnCompressAction = document.getElementById('btn-compress-action');
-
-if (compressDropZone) {
-    compressDropZone.addEventListener('click', () => compressInput.click());
-    compressInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            compressFile = file;
-            compressDropZone.style.display = 'none';
-            compressInfo.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                        <div>
-                            <div style="font-weight: 600;">${file.name}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Original: ${(file.size/1024/1024).toFixed(2)} MB</div>
-                        </div>
-                    </div>
-                    <button onclick="resetCompress()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            compressControls.style.display = 'block';
-        }
-    });
-
-    window.resetCompress = () => {
-        compressFile = null;
-        compressInput.value = '';
-        compressDropZone.style.display = 'block';
-        compressInfo.innerHTML = '';
-        compressControls.style.display = 'none';
-    };
-
-    btnCompressAction.addEventListener('click', async () => {
-        if (!compressFile) return;
-        btnCompressAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Compressing...';
-        
-        try {
-            const arrayBuffer = await compressFile.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer, { updateMetadata: false });
-            
-            const newPdf = await PDFDocument.create();
-            const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            copiedPages.forEach((page) => newPdf.addPage(page));
-            
-            const pdfBytes = await newPdf.save({ useObjectStreams: true });
-            downloadBlob(pdfBytes, 'Amazing_Compressed.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            resetCompress();
-        } catch (error) {
-            alert("Error compressing PDF.");
-        } finally {
-            btnCompressAction.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Compress PDF';
-        }
-    });
-}
-
-// --- ROTATE PDF LOGIC ---
-let rotateFile = null;
-const rotateDropZone = document.getElementById('rotate-drop-zone');
-const rotateInput = document.getElementById('rotate-file-input');
-const rotateInfo = document.getElementById('rotate-file-info');
-const rotateControls = document.getElementById('rotate-controls');
-const btnRotateAction = document.getElementById('btn-rotate-action');
-
-if (rotateDropZone) {
-    rotateDropZone.addEventListener('click', () => rotateInput.click());
-    rotateInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            rotateFile = file;
-            rotateDropZone.style.display = 'none';
-            rotateInfo.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                        <div style="font-weight: 600;">${file.name}</div>
-                    </div>
-                    <button onclick="resetRotate()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            rotateControls.style.display = 'block';
-        }
-    });
-
-    window.resetRotate = () => {
-        rotateFile = null;
-        rotateInput.value = '';
-        rotateDropZone.style.display = 'block';
-        rotateInfo.innerHTML = '';
-        rotateControls.style.display = 'none';
-    };
-
-    btnRotateAction.addEventListener('click', async () => {
-        if (!rotateFile) return;
-        const angleStr = document.getElementById('rotate-angle').value;
-        const rotationAngle = parseInt(angleStr);
-        
-        btnRotateAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rotating...';
-        try {
-            const arrayBuffer = await rotateFile.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            
-            const pages = pdfDoc.getPages();
-            pages.forEach((page) => {
-                const currentRotation = page.getRotation().angle;
-                page.setRotation(degrees(currentRotation + rotationAngle));
-            });
-            
-            const pdfBytes = await pdfDoc.save();
-            downloadBlob(pdfBytes, 'Amazing_Rotated.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            resetRotate();
-        } catch (error) {
-            alert("Error rotating PDF. The file might be protected.");
-        } finally {
-            btnRotateAction.innerHTML = '<i class="fas fa-sync-alt"></i> Rotate & Download';
-        }
-    });
-}
-
-// --- PAGE NUMBERS LOGIC ---
-let pagenumbersFile = null;
-const pagenumbersDropZone = document.getElementById('pagenumbers-drop-zone');
-const pagenumbersInput = document.getElementById('pagenumbers-file-input');
-const pagenumbersInfo = document.getElementById('pagenumbers-file-info');
-const pagenumbersControls = document.getElementById('pagenumbers-controls');
-const btnPagenumbersAction = document.getElementById('btn-pagenumbers-action');
-
-if (pagenumbersDropZone) {
-    pagenumbersDropZone.addEventListener('click', () => pagenumbersInput.click());
-    pagenumbersInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            pagenumbersFile = file;
-            pagenumbersDropZone.style.display = 'none';
-            pagenumbersInfo.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                        <div style="font-weight: 600;">${file.name}</div>
-                    </div>
-                    <button onclick="resetPagenumbers()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            pagenumbersControls.style.display = 'block';
-        }
-    });
-
-    window.resetPagenumbers = () => {
-        pagenumbersFile = null;
-        pagenumbersInput.value = '';
-        pagenumbersDropZone.style.display = 'block';
-        pagenumbersInfo.innerHTML = '';
-        pagenumbersControls.style.display = 'none';
-    };
-
-    btnPagenumbersAction.addEventListener('click', async () => {
-        if (!pagenumbersFile) return;
-        const position = document.getElementById('pagenumbers-position').value;
-        const format = document.getElementById('pagenumbers-format').value;
-        
-        btnPagenumbersAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        try {
-            const arrayBuffer = await pagenumbersFile.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-            
-            const pages = pdfDoc.getPages();
-            const totalPages = pages.length;
-            
-            pages.forEach((page, index) => {
-                const { width, height } = page.getSize();
-                const pageNum = index + 1;
-                
-                let text = `${pageNum}`;
-                if (format === 'Page 1') text = `Page ${pageNum}`;
-                if (format === 'Page 1 of 10') text = `Page ${pageNum} of ${totalPages}`;
-                
-                const textWidth = helveticaFont.widthOfTextAtSize(text, 12);
-                let x = width / 2 - textWidth / 2; // Center default
-                let y = 30; // Bottom default
-                
-                if (position === 'bottom-right') x = width - textWidth - 30;
-                if (position === 'top-center') y = height - 30;
-                if (position === 'top-right') { x = width - textWidth - 30; y = height - 30; }
-                
-                page.drawText(text, {
-                    x: x,
-                    y: y,
-                    size: 12,
-                    font: helveticaFont,
-                    color: rgb(0, 0, 0),
-                });
-            });
-            
-            const pdfBytes = await pdfDoc.save();
-            downloadBlob(pdfBytes, 'Amazing_Numbered.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            resetPagenumbers();
-        } catch (error) {
-            alert("Error adding page numbers. The file might be protected.");
-            console.error(error);
-        } finally {
-            btnPagenumbersAction.innerHTML = '<i class="fas fa-sort-numeric-down"></i> Add Page Numbers';
-        }
-    });
-}
-
-// --- JPG TO PDF LOGIC ---
-let imageFiles = [];
-const imgDropZone = document.getElementById('jpgtopdf-drop-zone');
-const imgInput = document.getElementById('jpgtopdf-file-input');
-const imgList = document.getElementById('jpgtopdf-file-list');
-const btnImgAction = document.getElementById('btn-jpgtopdf-action');
-
-if (imgDropZone) {
-    imgDropZone.addEventListener('click', () => imgInput.click());
-    imgInput.addEventListener('change', (e) => {
-        const imgs = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-        imageFiles = [...imageFiles, ...imgs];
-        renderImageList();
-    });
-
-    function renderImageList() {
-        imgList.innerHTML = '';
-        imageFiles.forEach((file, index) => {
-            const div = document.createElement('div');
-            div.style = fileItemStyle;
-            div.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <i class="fas fa-image" style="color: #eab308; font-size: 1.5rem;"></i>
-                    <div>
-                        <div style="font-weight: 600;">${file.name}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${(file.size/1024/1024).toFixed(2)} MB</div>
-                    </div>
-                </div>
-                <button onclick="removeImageFile(${index})" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-            `;
-            imgList.appendChild(div);
-        });
-
-        btnImgAction.style.display = imageFiles.length > 0 ? 'block' : 'none';
-        imgDropZone.style.padding = imageFiles.length > 0 ? '20px' : '40px 20px';
-    }
-
-    window.removeImageFile = (index) => {
-        imageFiles.splice(index, 1);
-        renderImageList();
-    };
-
-    btnImgAction.addEventListener('click', async () => {
-        if (imageFiles.length === 0) return;
-        btnImgAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
-        
-        try {
-            const pdfDoc = await PDFDocument.create();
-            for (const file of imageFiles) {
-                const arrayBuffer = await file.arrayBuffer();
-                let pdfImage;
-                if (file.type === 'image/png') {
-                    pdfImage = await pdfDoc.embedPng(arrayBuffer);
-                } else if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
-                    pdfImage = await pdfDoc.embedJpg(arrayBuffer);
-                } else continue;
-
-                const imgDims = pdfImage.scale(1);
-                const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
-                page.drawImage(pdfImage, { x: 0, y: 0, width: imgDims.width, height: imgDims.height });
-            }
-            const pdfBytes = await pdfDoc.save();
-            downloadBlob(pdfBytes, 'Amazing_Images.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            imageFiles = [];
-            renderImageList();
-        } catch (error) {
-            alert("Error converting images to PDF.");
-        } finally {
-            btnImgAction.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
-        }
-    });
-}
-
-// --- PROTECT PDF LOGIC ---
-let protectFile = null;
-const protectDropZone = document.getElementById('protect-drop-zone');
-const protectInput = document.getElementById('protect-file-input');
-const protectInfo = document.getElementById('protect-file-info');
-const protectControls = document.getElementById('protect-controls');
-const btnProtectAction = document.getElementById('btn-protect-action');
-
-if (protectDropZone) {
-    protectDropZone.addEventListener('click', () => protectInput.click());
-    protectInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            protectFile = file;
-            protectDropZone.style.display = 'none';
-            protectInfo.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                        <div style="font-weight: 600;">${file.name}</div>
-                    </div>
-                    <button onclick="resetProtect()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            protectControls.style.display = 'block';
-        }
-    });
-
-    window.resetProtect = () => {
-        protectFile = null;
-        protectInput.value = '';
-        protectDropZone.style.display = 'block';
-        protectInfo.innerHTML = '';
-        protectControls.style.display = 'none';
-        document.getElementById('protect-password').value = '';
-    };
-
-    btnProtectAction.addEventListener('click', async () => {
-        const password = document.getElementById('protect-password').value;
-        if (!protectFile || !password) return alert("Please enter a password.");
-        
-        btnProtectAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Encrypting...';
-        try {
-            const arrayBuffer = await protectFile.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            await pdfDoc.encrypt({
-                userPassword: password,
-                ownerPassword: password,
-                permissions: { printing: 'highResolution', modifying: false, copying: false, annotating: false, fillingForms: false, documentAssembly: false },
-            });
-            const pdfBytes = await pdfDoc.save();
-            downloadBlob(pdfBytes, 'Amazing_Protected.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            resetProtect();
-        } catch (error) {
-            alert("Error encrypting PDF. File might be already protected.");
-        } finally {
-            btnProtectAction.innerHTML = '<i class="fas fa-shield-alt"></i> Encrypt PDF';
-        }
-    });
-}
-
-// --- UNLOCK PDF LOGIC ---
-let unlockFile = null;
-const unlockDropZone = document.getElementById('unlock-drop-zone');
-const unlockInput = document.getElementById('unlock-file-input');
-const unlockInfo = document.getElementById('unlock-file-info');
-const unlockControls = document.getElementById('unlock-controls');
-const btnUnlockAction = document.getElementById('btn-unlock-action');
-
-if (unlockDropZone) {
-    unlockDropZone.addEventListener('click', () => unlockInput.click());
-    unlockInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type === 'application/pdf') {
-            unlockFile = file;
-            unlockDropZone.style.display = 'none';
-            unlockInfo.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
-                        <div style="font-weight: 600;">${file.name}</div>
-                    </div>
-                    <button onclick="resetUnlock()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
-                </div>
-            `;
-            unlockControls.style.display = 'block';
-        }
-    });
-
-    window.resetUnlock = () => {
-        unlockFile = null;
-        unlockInput.value = '';
-        unlockDropZone.style.display = 'block';
-        unlockInfo.innerHTML = '';
-        unlockControls.style.display = 'none';
-        document.getElementById('unlock-password').value = '';
-    };
-
-    btnUnlockAction.addEventListener('click', async () => {
-        const password = document.getElementById('unlock-password').value;
-        if (!unlockFile || !password) return alert("Please enter the current password to unlock.");
-        
-        btnUnlockAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unlocking...';
-        try {
-            const arrayBuffer = await unlockFile.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(arrayBuffer, { password: password });
-            const pdfBytes = await pdfDoc.save();
-            downloadBlob(pdfBytes, 'Amazing_Unlocked.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-            resetUnlock();
-        } catch (error) {
-            alert("Error unlocking PDF. The password might be incorrect.");
-            console.error(error);
-        } finally {
-            btnUnlockAction.innerHTML = '<i class="fas fa-unlock"></i> Unlock & Download';
-        }
-    });
-}
-
-// --- UTILITIES ---
+// --- UTILITIES & COMMON SINGLE FILE HANDLER ---
 function downloadBlob(bytes, filename, type) {
     const blob = new Blob([bytes], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function setupSingleFileLogic(id, actionCallback) {
+    const dropZone = document.getElementById(`${id}-drop-zone`);
+    const input = document.getElementById(`${id}-file-input`);
+    const info = document.getElementById(`${id}-file-info`);
+    const controls = document.getElementById(`${id}-controls`);
+    const btn = document.getElementById(`btn-${id}-action`);
+    let currentFile = null;
+
+    if (!dropZone) return;
+
+    dropZone.addEventListener('click', () => input.click());
+    input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            currentFile = file;
+            dropZone.style.display = 'none';
+            info.innerHTML = `<div style="${fileItemStyle}">
+                <div style="display:flex; align-items:center; gap:15px;"><i class="fas fa-file-pdf" style="color:#ef4444; font-size:1.5rem;"></i><b>${file.name}</b></div>
+                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>`;
+            controls.style.display = 'block';
+            
+            document.getElementById(`reset-${id}`).addEventListener('click', () => {
+                currentFile = null; input.value = '';
+                dropZone.style.display = 'block'; info.innerHTML = ''; controls.style.display = 'none';
+            });
+        }
+    });
+
+    btn.addEventListener('click', async () => {
+        if (!currentFile) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        try {
+            await actionCallback(currentFile);
+            await AdManager.showInterstitial();
+            document.getElementById(`reset-${id}`).click();
+        } catch (error) {
+            alert(`Error processing PDF: ${error.message}`);
+            console.error(error);
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    });
+}
+
+// --- LOGIC IMPLEMENTATIONS ---
+
+// Extract Text
+setupSingleFileLogic('extract', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(" ");
+        fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+    }
+    const encoder = new TextEncoder();
+    downloadBlob(encoder.encode(fullText), 'Amazing_Extracted.txt', 'text/plain');
+});
+
+// Watermark PDF
+setupSingleFileLogic('watermark', async (file) => {
+    const text = document.getElementById('watermark-text').value || "CONFIDENTIAL";
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    pdfDoc.getPages().forEach((page) => {
+        const { width, height } = page.getSize();
+        const textSize = 60;
+        const textWidth = font.widthOfTextAtSize(text, textSize);
+        page.drawText(text, {
+            x: width / 2 - textWidth / 2,
+            y: height / 2,
+            size: textSize,
+            font: font,
+            color: rgb(0.75, 0.75, 0.75), // Light Gray
+            opacity: 0.5,
+            rotate: degrees(45),
+        });
+    });
+    
+    const pdfBytes = await pdfDoc.save();
+    downloadBlob(pdfBytes, 'Amazing_Watermarked.pdf', 'application/pdf');
+});
+
+// Sign PDF
+setupSingleFileLogic('sign', async (file) => {
+    const name = document.getElementById('sign-text').value;
+    if (!name) throw new Error("Please type a name to sign.");
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic); // Cursive-like standard font
+    
+    const page = pdfDoc.getPages()[0]; // Sign on first page
+    const { width } = page.getSize();
+    
+    page.drawText(`Signed by: ${name}`, {
+        x: width - 200,
+        y: 50, // Bottom right corner
+        size: 18,
+        font: font,
+        color: rgb(0, 0, 0.8), // Dark blue ink
+    });
+    
+    const pdfBytes = await pdfDoc.save();
+    downloadBlob(pdfBytes, 'Amazing_Signed.pdf', 'application/pdf');
+});
+
+// Protect PDF
+setupSingleFileLogic('protect', async (file) => {
+    const password = document.getElementById('protect-password').value;
+    if (!password) throw new Error("Password required");
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    await pdfDoc.encrypt({ userPassword: password, ownerPassword: password });
+    downloadBlob(await pdfDoc.save(), 'Amazing_Protected.pdf', 'application/pdf');
+});
+
+// Unlock PDF
+setupSingleFileLogic('unlock', async (file) => {
+    const password = document.getElementById('unlock-password').value;
+    if (!password) throw new Error("Current password required");
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { password: password });
+    downloadBlob(await pdfDoc.save(), 'Amazing_Unlocked.pdf', 'application/pdf');
+});
+
+// Compress PDF
+setupSingleFileLogic('compress', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { updateMetadata: false });
+    const newPdf = await PDFDocument.create();
+    const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+    copiedPages.forEach(p => newPdf.addPage(p));
+    downloadBlob(await newPdf.save({ useObjectStreams: true }), 'Amazing_Compressed.pdf', 'application/pdf');
+});
+
+// Rotate PDF
+setupSingleFileLogic('rotate', async (file) => {
+    const angle = parseInt(document.getElementById('rotate-angle').value);
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    pdfDoc.getPages().forEach(p => p.setRotation(degrees(p.getRotation().angle + angle)));
+    downloadBlob(await pdfDoc.save(), 'Amazing_Rotated.pdf', 'application/pdf');
+});
+
+// Split PDF
+setupSingleFileLogic('split', async (file) => {
+    const rangeStr = document.getElementById('split-ranges').value;
+    if (!rangeStr) throw new Error("Range required");
+    let pagesToExtract = [];
+    rangeStr.split(',').forEach(part => {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1);
+            for (let i = start; i <= end; i++) pagesToExtract.push(i);
+        } else {
+            pagesToExtract.push(parseInt(part.trim()) - 1);
+        }
+    });
+    const arrayBuffer = await file.arrayBuffer();
+    const sourcePdf = await PDFDocument.load(arrayBuffer);
+    const newPdf = await PDFDocument.create();
+    const copiedPages = await newPdf.copyPages(sourcePdf, pagesToExtract);
+    copiedPages.forEach(p => newPdf.addPage(p));
+    downloadBlob(await newPdf.save(), 'Amazing_Split.pdf', 'application/pdf');
+});
+
+// Merge PDF Logic (Multi-file)
+let mergeFiles = [];
+if (ui.merge) {
+    const mergeInput = document.getElementById('merge-file-input');
+    document.getElementById('merge-drop-zone').addEventListener('click', () => mergeInput.click());
+    mergeInput.addEventListener('change', (e) => {
+        mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')];
+        renderMergeList();
+    });
+    
+    function renderMergeList() {
+        const list = document.getElementById('merge-file-list');
+        list.innerHTML = '';
+        mergeFiles.forEach((file, i) => {
+            list.innerHTML += `<div style="${fileItemStyle}"><div><b>${file.name}</b></div><button onclick="removeMerge(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`;
+        });
+        document.getElementById('btn-merge-action').style.display = mergeFiles.length > 1 ? 'block' : 'none';
+    }
+    window.removeMerge = (i) => { mergeFiles.splice(i, 1); renderMergeList(); };
+    
+    document.getElementById('btn-merge-action').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-merge-action');
+        btn.innerHTML = 'Processing...';
+        try {
+            const mergedPdf = await PDFDocument.create();
+            for (const file of mergeFiles) {
+                const pdf = await PDFDocument.load(await file.arrayBuffer());
+                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                copiedPages.forEach(p => mergedPdf.addPage(p));
+            }
+            downloadBlob(await mergedPdf.save(), 'Amazing_Merged.pdf', 'application/pdf');
+            await AdManager.showInterstitial();
+            mergeFiles = []; renderMergeList();
+        } catch (e) { alert("Error merging"); }
+        finally { btn.innerHTML = 'Merge Files Now'; }
+    });
 }
