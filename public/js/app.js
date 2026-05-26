@@ -1,9 +1,7 @@
-// Import PDF-lib from CDN for client-side processing
 import { PDFDocument, degrees, StandardFonts, rgb } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
-// Import PDF.js for text extraction
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
-
+import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm'; // For zipping JPGs
 import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
@@ -19,7 +17,7 @@ window.switchView = (viewId) => {
 };
 
 // --- DYNAMIC UI INJECTION ---
-const views = ['merge', 'split', 'compress', 'rotate', 'pagenumbers', 'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock'];
+const views = ['merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten'];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
 
@@ -44,29 +42,22 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
 `;
 
 // Inject Multi-file UIs
-if (ui.merge) {
-    ui.merge.innerHTML = `
-        <div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div>
-        <div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>
-    `;
-}
-if (ui.jpgtopdf) {
-    ui.jpgtopdf.innerHTML = `
-        <div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div>
-        <div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>
-    `;
-}
+if (ui.merge) ui.merge.innerHTML = `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
+if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
 
 // Inject Single-file UIs
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<label style="color: var(--text-secondary);">Pages to Extract (e.g., 1-3):</label><input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
+if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<label style="color: var(--text-secondary);">Pages to Delete (e.g., 2, 4-6):</label><input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
 if (ui.compress) ui.compress.innerHTML = generateSingleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress PDF');
-if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<label style="color:var(--text-secondary);">Angle:</label><select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
+if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
+if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
 if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers');
 if (ui.protect) ui.protect.innerHTML = generateSingleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt PDF', `<input type="password" id="protect-password" placeholder="Set Password" style="${inputStyle}">`);
 if (ui.unlock) ui.unlock.innerHTML = generateSingleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock PDF', `<input type="password" id="unlock-password" placeholder="Current Password" style="${inputStyle}">`);
 if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
 if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text (e.g., CONFIDENTIAL)" style="${inputStyle}">`);
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
+if (ui.flatten) ui.flatten.innerHTML = generateSingleFileUI('flatten', 'fa-layer-group', '#64748b', 'Flatten', 'Flatten Document');
 
 // --- UTILITIES & COMMON SINGLE FILE HANDLER ---
 function downloadBlob(bytes, filename, type) {
@@ -75,6 +66,19 @@ function downloadBlob(bytes, filename, type) {
     const a = document.createElement('a');
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function parseRange(rangeStr) {
+    let pages = [];
+    rangeStr.split(',').forEach(part => {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+        } else {
+            pages.push(parseInt(part.trim()) - 1);
+        }
+    });
+    return [...new Set(pages)].sort((a, b) => a - b);
 }
 
 function setupSingleFileLogic(id, actionCallback) {
@@ -98,7 +102,6 @@ function setupSingleFileLogic(id, actionCallback) {
                 <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
             </div>`;
             controls.style.display = 'block';
-            
             document.getElementById(`reset-${id}`).addEventListener('click', () => {
                 currentFile = null; input.value = '';
                 dropZone.style.display = 'block'; info.innerHTML = ''; controls.style.display = 'none';
@@ -125,6 +128,60 @@ function setupSingleFileLogic(id, actionCallback) {
 
 // --- LOGIC IMPLEMENTATIONS ---
 
+// Delete Pages
+setupSingleFileLogic('delete', async (file) => {
+    const rangeStr = document.getElementById('delete-ranges').value;
+    if (!rangeStr) throw new Error("Range required");
+    const pagesToDelete = parseRange(rangeStr);
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    
+    // Sort descending so deleting doesn't mess up subsequent indices
+    pagesToDelete.sort((a, b) => b - a).forEach(index => {
+        if (index >= 0 && index < pdfDoc.getPageCount()) {
+            pdfDoc.removePage(index);
+        }
+    });
+    
+    downloadBlob(await pdfDoc.save(), 'Amazing_Deleted.pdf', 'application/pdf');
+});
+
+// PDF to JPG (ZIP export)
+setupSingleFileLogic('pdftojpg', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const zip = new JSZip();
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 }); // High quality scale
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        
+        // Convert canvas to base64
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const base64Data = dataUrl.split(',')[1];
+        zip.file(`Page_${i}.jpg`, base64Data, {base64: true});
+    }
+    
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(zipBlob, 'Amazing_Images.zip', 'application/zip');
+});
+
+// Flatten PDF
+setupSingleFileLogic('flatten', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const form = pdfDoc.getForm();
+    if(form) form.flatten();
+    downloadBlob(await pdfDoc.save(), 'Amazing_Flattened.pdf', 'application/pdf');
+});
+
 // Extract Text
 setupSingleFileLogic('extract', async (file) => {
     const arrayBuffer = await file.arrayBuffer();
@@ -146,48 +203,26 @@ setupSingleFileLogic('watermark', async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    
     pdfDoc.getPages().forEach((page) => {
         const { width, height } = page.getSize();
-        const textSize = 60;
-        const textWidth = font.widthOfTextAtSize(text, textSize);
         page.drawText(text, {
-            x: width / 2 - textWidth / 2,
-            y: height / 2,
-            size: textSize,
-            font: font,
-            color: rgb(0.75, 0.75, 0.75), // Light Gray
-            opacity: 0.5,
-            rotate: degrees(45),
+            x: width / 2 - (font.widthOfTextAtSize(text, 60) / 2),
+            y: height / 2, size: 60, font: font, color: rgb(0.75, 0.75, 0.75), opacity: 0.5, rotate: degrees(45),
         });
     });
-    
-    const pdfBytes = await pdfDoc.save();
-    downloadBlob(pdfBytes, 'Amazing_Watermarked.pdf', 'application/pdf');
+    downloadBlob(await pdfDoc.save(), 'Amazing_Watermarked.pdf', 'application/pdf');
 });
 
 // Sign PDF
 setupSingleFileLogic('sign', async (file) => {
     const name = document.getElementById('sign-text').value;
     if (!name) throw new Error("Please type a name to sign.");
-    
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
-    const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic); // Cursive-like standard font
-    
-    const page = pdfDoc.getPages()[0]; // Sign on first page
-    const { width } = page.getSize();
-    
-    page.drawText(`Signed by: ${name}`, {
-        x: width - 200,
-        y: 50, // Bottom right corner
-        size: 18,
-        font: font,
-        color: rgb(0, 0, 0.8), // Dark blue ink
-    });
-    
-    const pdfBytes = await pdfDoc.save();
-    downloadBlob(pdfBytes, 'Amazing_Signed.pdf', 'application/pdf');
+    const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+    const page = pdfDoc.getPages()[0];
+    page.drawText(`Signed by: ${name}`, { x: page.getSize().width - 200, y: 50, size: 18, font: font, color: rgb(0, 0, 0.8) });
+    downloadBlob(await pdfDoc.save(), 'Amazing_Signed.pdf', 'application/pdf');
 });
 
 // Protect PDF
@@ -230,17 +265,8 @@ setupSingleFileLogic('rotate', async (file) => {
 
 // Split PDF
 setupSingleFileLogic('split', async (file) => {
-    const rangeStr = document.getElementById('split-ranges').value;
-    if (!rangeStr) throw new Error("Range required");
-    let pagesToExtract = [];
-    rangeStr.split(',').forEach(part => {
-        if (part.includes('-')) {
-            const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1);
-            for (let i = start; i <= end; i++) pagesToExtract.push(i);
-        } else {
-            pagesToExtract.push(parseInt(part.trim()) - 1);
-        }
-    });
+    const pagesToExtract = parseRange(document.getElementById('split-ranges').value);
+    if (!pagesToExtract.length) throw new Error("Range required");
     const arrayBuffer = await file.arrayBuffer();
     const sourcePdf = await PDFDocument.load(arrayBuffer);
     const newPdf = await PDFDocument.create();
@@ -258,7 +284,6 @@ if (ui.merge) {
         mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')];
         renderMergeList();
     });
-    
     function renderMergeList() {
         const list = document.getElementById('merge-file-list');
         list.innerHTML = '';
@@ -284,5 +309,44 @@ if (ui.merge) {
             mergeFiles = []; renderMergeList();
         } catch (e) { alert("Error merging"); }
         finally { btn.innerHTML = 'Merge Files Now'; }
+    });
+}
+
+// JPG to PDF Logic (Multi-file)
+let imageFiles = [];
+if (ui.jpgtopdf) {
+    const imgInput = document.getElementById('jpgtopdf-file-input');
+    document.getElementById('jpgtopdf-drop-zone').addEventListener('click', () => imgInput.click());
+    imgInput.addEventListener('change', (e) => {
+        imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))];
+        renderImgList();
+    });
+    function renderImgList() {
+        const list = document.getElementById('jpgtopdf-file-list');
+        list.innerHTML = '';
+        imageFiles.forEach((file, i) => {
+            list.innerHTML += `<div style="${fileItemStyle}"><div><b>${file.name}</b></div><button onclick="removeImg(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`;
+        });
+        document.getElementById('btn-jpgtopdf-action').style.display = imageFiles.length > 0 ? 'block' : 'none';
+    }
+    window.removeImg = (i) => { imageFiles.splice(i, 1); renderImgList(); };
+    
+    document.getElementById('btn-jpgtopdf-action').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-jpgtopdf-action');
+        btn.innerHTML = 'Converting...';
+        try {
+            const pdfDoc = await PDFDocument.create();
+            for (const file of imageFiles) {
+                const arrayBuffer = await file.arrayBuffer();
+                let pdfImage = file.type === 'image/png' ? await pdfDoc.embedPng(arrayBuffer) : await pdfDoc.embedJpg(arrayBuffer);
+                const dims = pdfImage.scale(1);
+                const page = pdfDoc.addPage([dims.width, dims.height]);
+                page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
+            }
+            downloadBlob(await pdfDoc.save(), 'Amazing_Images.pdf', 'application/pdf');
+            await AdManager.showInterstitial();
+            imageFiles = []; renderImgList();
+        } catch (e) { alert("Error converting"); }
+        finally { btn.innerHTML = 'Convert to PDF'; }
     });
 }
