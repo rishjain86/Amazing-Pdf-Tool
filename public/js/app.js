@@ -17,7 +17,11 @@ window.switchView = (viewId) => {
 };
 
 // --- DYNAMIC UI INJECTION ---
-const views = ['merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 'crop', 'metadata', 'repair'];
+const views = [
+    'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
+    'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
+    'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf'
+];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
 
@@ -45,9 +49,21 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
 if (ui.merge) ui.merge.innerHTML = `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
 if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
 
+// HTML to PDF uses a completely different UI (Text Area instead of file dropzone)
+if (ui.htmltopdf) {
+    ui.htmltopdf.innerHTML = `
+        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Paste your HTML Code here:</label>
+            <textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello World</h1>\n<p>This is my PDF content.</p>"></textarea>
+            <button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button>
+        </div>
+    `;
+}
+
 // Inject Single-file UIs
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<label style="color: var(--text-secondary);">Pages to Extract (e.g., 1-3):</label><input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
 if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<label style="color: var(--text-secondary);">Pages to Delete (e.g., 2, 4-6):</label><input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
+if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-amount-up', '#8b5cf6', 'Reorder Pages', 'Apply New Order', `<label style="color: var(--text-secondary);">New Page Sequence (e.g., 3, 1, 2):</label><input type="text" id="reorder-input" placeholder="e.g. 3, 1, 2" style="${inputStyle}">`);
 if (ui.compress) ui.compress.innerHTML = generateSingleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress PDF');
 if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
 if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
@@ -55,7 +71,8 @@ if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers
 if (ui.protect) ui.protect.innerHTML = generateSingleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt PDF', `<input type="password" id="protect-password" placeholder="Set Password" style="${inputStyle}">`);
 if (ui.unlock) ui.unlock.innerHTML = generateSingleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock PDF', `<input type="password" id="unlock-password" placeholder="Current Password" style="${inputStyle}">`);
 if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
-if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text (e.g., CONFIDENTIAL)" style="${inputStyle}">`);
+if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text" style="${inputStyle}">`);
+if (ui.imagewatermark) ui.imagewatermark.innerHTML = generateSingleFileUI('imagewatermark', 'fa-images', '#ec4899', 'Add Image Overlay', 'Stamp Image', `<label style="color: var(--text-secondary);">Select Logo/Image (PNG/JPG):</label><input type="file" id="imagewatermark-overlay-input" accept="image/png, image/jpeg" style="${inputStyle}">`);
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
 if (ui.flatten) ui.flatten.innerHTML = generateSingleFileUI('flatten', 'fa-layer-group', '#64748b', 'Flatten', 'Flatten Document');
 if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f6', 'Crop PDF', 'Crop Pages', `<label style="color: var(--text-secondary);">Margin trim (in points):</label><input type="number" id="crop-margin" placeholder="e.g. 20" style="${inputStyle}">`);
@@ -130,6 +147,79 @@ function setupSingleFileLogic(id, actionCallback) {
 }
 
 // --- LOGIC IMPLEMENTATIONS ---
+
+// Reorder Pages
+setupSingleFileLogic('reorder', async (file) => {
+    const orderStr = document.getElementById('reorder-input').value;
+    if (!orderStr) throw new Error("Order sequence is required");
+    const indices = orderStr.split(',').map(n => parseInt(n.trim()) - 1);
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const sourcePdf = await PDFDocument.load(arrayBuffer);
+    const newPdf = await PDFDocument.create();
+    
+    const copiedPages = await newPdf.copyPages(sourcePdf, indices);
+    copiedPages.forEach(p => newPdf.addPage(p));
+    
+    downloadBlob(await newPdf.save(), 'Amazing_Reordered.pdf', 'application/pdf');
+});
+
+// Image Watermark
+setupSingleFileLogic('imagewatermark', async (file) => {
+    const imgInput = document.getElementById('imagewatermark-overlay-input');
+    if (!imgInput.files.length) throw new Error("Please select an image to overlay.");
+    const imgFile = imgInput.files[0];
+    const imgBuffer = await imgFile.arrayBuffer();
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+    let pdfImg;
+    if (imgFile.type === 'image/png') pdfImg = await pdfDoc.embedPng(imgBuffer);
+    else if (imgFile.type === 'image/jpeg' || imgFile.type === 'image/jpg') pdfImg = await pdfDoc.embedJpg(imgBuffer);
+    else throw new Error("Unsupported image format.");
+
+    const dims = pdfImg.scale(0.5); // Scale image down
+
+    pdfDoc.getPages().forEach(page => {
+        const { width, height } = page.getSize();
+        page.drawImage(pdfImg, {
+            x: width / 2 - dims.width / 2,
+            y: height / 2 - dims.height / 2,
+            width: dims.width,
+            height: dims.height,
+            opacity: 0.5
+        });
+    });
+    
+    downloadBlob(await pdfDoc.save(), 'Amazing_ImgWatermark.pdf', 'application/pdf');
+});
+
+// HTML to PDF (No PDF input required)
+if (ui.htmltopdf) {
+    document.getElementById('btn-htmltopdf-action').addEventListener('click', async () => {
+        const htmlContent = document.getElementById('html-input').value;
+        if (!htmlContent) return alert("Please enter HTML code.");
+        
+        const btn = document.getElementById('btn-htmltopdf-action');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+        
+        try {
+            const opt = { 
+                margin: 1, 
+                filename: 'Amazing_Converted.pdf', 
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
+            };
+            await html2pdf().set(opt).from(htmlContent).save();
+            await AdManager.showInterstitial();
+        } catch(e) {
+            alert("Error converting HTML to PDF.");
+        } finally {
+            btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF';
+            document.getElementById('html-input').value = '';
+        }
+    });
+}
 
 // Delete Pages
 setupSingleFileLogic('delete', async (file) => {
