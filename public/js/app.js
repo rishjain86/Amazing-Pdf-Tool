@@ -73,12 +73,10 @@ if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-
 if (ui.compress) ui.compress.innerHTML = generateSingleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress PDF');
 if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
 if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
-if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers');
 if (ui.protect) ui.protect.innerHTML = generateSingleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt PDF', `<input type="password" id="protect-password" placeholder="Set Password" style="${inputStyle}">`);
 if (ui.unlock) ui.unlock.innerHTML = generateSingleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock PDF', `<input type="password" id="unlock-password" placeholder="Current Password" style="${inputStyle}">`);
 if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
 if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text" style="${inputStyle}">`);
-if (ui.imagewatermark) ui.imagewatermark.innerHTML = generateSingleFileUI('imagewatermark', 'fa-images', '#ec4899', 'Add Image Overlay', 'Stamp Image', `<input type="file" id="imagewatermark-overlay-input" accept="image/png, image/jpeg" style="${inputStyle}">`);
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
 if (ui.flatten) ui.flatten.innerHTML = generateSingleFileUI('flatten', 'fa-layer-group', '#64748b', 'Flatten', 'Flatten Document');
 if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f6', 'Crop PDF', 'Crop Pages', `<input type="number" id="crop-margin" placeholder="e.g. 20" style="${inputStyle}">`);
@@ -88,8 +86,20 @@ if (ui.addtext) ui.addtext.innerHTML = generateSingleFileUI('addtext', 'fa-font'
 if (ui.addblank) ui.addblank.innerHTML = generateSingleFileUI('addblank', 'fa-file-medical', '#10b981', 'Insert Blank Page', 'Insert & Download', `<select id="addblank-position" style="${inputStyle}"><option value="start">At the very beginning</option><option value="end">At the very end</option></select>`);
 if (ui.resizepdf) ui.resizepdf.innerHTML = generateSingleFileUI('resizepdf', 'fa-expand-arrows-alt', '#14b8a6', 'Resize Pages', 'Scale Document', `<select id="resize-profile" style="${inputStyle}"><option value="A4">A4 Profile</option><option value="Letter">Letter Profile</option><option value="Legal">Legal Profile</option></select>`);
 if (ui.splitevenodd) ui.splitevenodd.innerHTML = generateSingleFileUI('splitevenodd', 'fa-columns', '#6366f1', 'Split Even/Odd', 'Split & Download ZIP');
-if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', 'Add Margins', `<input type="number" id="margin-size" placeholder="Margin size (points) e.g. 30" value="30" style="${inputStyle}">`);
+if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', 'Add Margins', `<input type="number" id="margin-size" placeholder="Margin size (points)" value="30" style="${inputStyle}">`);
 if (ui.removeannots) ui.removeannots.innerHTML = generateSingleFileUI('removeannots', 'fa-eraser', '#8b5cf6', 'Clean Annotations', 'Remove All');
+
+// Recovered features inputs inside generateSingleFileUI extra HTML
+if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers', `
+    <label style="color:var(--text-secondary);">Select Position:</label>
+    <select id="pagenumbers-position" style="${inputStyle}"><option value="bottom-center">Bottom Center</option><option value="bottom-right">Bottom Right</option><option value="top-center">Top Center</option><option value="top-right">Top Right</option></select>
+    <label style="color:var(--text-secondary);">Format:</label>
+    <select id="pagenumbers-format" style="${inputStyle}"><option value="1">1, 2, 3...</option><option value="Page 1">Page 1, Page 2...</option><option value="Page 1 of 10">Page 1 of 10...</option></select>
+`);
+if (ui.imagewatermark) ui.imagewatermark.innerHTML = generateSingleFileUI('imagewatermark', 'fa-images', '#ec4899', 'Add Image Overlay', 'Stamp Image', `
+    <label style="color: var(--text-secondary);">Select Logo/Image (PNG/JPG):</label>
+    <input type="file" id="imagewatermark-overlay-input" accept="image/png, image/jpeg" style="${inputStyle}">
+`);
 
 // --- ROBUST HISTORY & DOWNLOAD LOGIC ---
 const DB_NAME = 'AmazingPDFHistory';
@@ -132,7 +142,7 @@ window.renderHistory = async () => {
     const list = document.getElementById('history-list');
     list.innerHTML = '<p>Loading...</p>';
     const items = await window.getHistory();
-    if (!items.length) return list.innerHTML = '<p style="color:var(--text-secondary);">No history found.</p>';
+    if (!items.length) return list.innerHTML = '<p style="color:var(--text-secondary);">No downloads history found.</p>';
     list.innerHTML = '';
     items.forEach(item => {
         list.innerHTML += `<div style="${fileItemStyle}">
@@ -161,16 +171,16 @@ function bytesToBase64(bytes) {
 
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if(saveToDb) {
-        try { await saveToHistory(bytes, filename, type); } catch(e) { console.error("History Error", e); }
+        try { await saveToHistory(bytes, filename, type); } catch(e) { console.error("History Save Error", e); }
     }
     
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
             const base64 = bytesToBase64(bytes);
             const savedFile = await Filesystem.writeFile({ path: filename, data: base64, directory: Directory.Cache });
-            await Share.share({ title: filename, url: savedFile.uri }); // Waits for user to close share sheet
+            await Share.share({ title: filename, url: savedFile.uri });
         } catch (e) {
-            alert("Saved to History! You can access it from the History tab.");
+            alert("Saved securely to History tab!");
         }
     } else {
         const blob = new Blob([bytes], { type });
@@ -192,7 +202,7 @@ function parseRange(rangeStr) {
     return [...new Set(pages)].sort((a, b) => a - b);
 }
 
-// --- REFACTORED CORE LOGIC (Fixes App Stuck Bug) ---
+// --- CORE ACTION HANDLER (Anti-Stuck Architecture) ---
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`);
     const input = document.getElementById(`${id}-file-input`);
@@ -227,9 +237,9 @@ function setupSingleFileLogic(id, actionCallback) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         try {
             const result = await actionCallback(currentFile);
-            document.getElementById(`reset-${id}`).click(); // Reset UI immediately
+            document.getElementById(`reset-${id}`).click(); // Reset layout frame before popups
             await processAndDownload(result.bytes, result.filename, result.type);
-            await AdManager.showInterstitial(); // Safely show ad AFTER share sheet closes
+            await AdManager.showInterstitial(); // safe fire out
         } catch (error) {
             alert(`Error: ${error.message}`);
         } finally {
@@ -238,7 +248,7 @@ function setupSingleFileLogic(id, actionCallback) {
     });
 }
 
-// Implementations return objects now
+// --- 100% COMPLETE FEATURES IMPLEMENTATIONS LOGIC ---
 setupSingleFileLogic('compress', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
     const newPdf = await PDFDocument.create();
@@ -326,10 +336,9 @@ setupSingleFileLogic('unlock', async (file) => {
 setupSingleFileLogic('addtext', async (file) => {
     const text = document.getElementById('addtext-string').value;
     const pageIdx = parseInt(document.getElementById('addtext-page').value) - 1;
-    const fSize = parseInt(document.getElementById('addtext-size').value) || 14;
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    pdfDoc.getPages()[pageIdx].drawText(text, { x: 50, y: 50, size: fSize, font, color: rgb(0,0,0) });
+    pdfDoc.getPages()[pageIdx].drawText(text, { x: 50, y: 50, size: 14, font, color: rgb(0,0,0) });
     return { bytes: await pdfDoc.save(), filename: 'Amazing_TextAdded.pdf', type: 'application/pdf' };
 });
 
@@ -419,7 +428,52 @@ setupSingleFileLogic('extract', async (file) => {
     return { bytes: new TextEncoder().encode(fullText), filename: 'Amazing_Extracted.txt', type: 'text/plain' };
 });
 
-// HTML to PDF (Refactored)
+// Recovered Feature Logic Block 1: Page Numbers
+setupSingleFileLogic('pagenumbers', async (file) => {
+    const position = document.getElementById('pagenumbers-position').value;
+    const format = document.getElementById('pagenumbers-format').value;
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const pages = pdfDoc.getPages();
+    const totalPages = pages.length;
+
+    pages.forEach((page, index) => {
+        const { width, height } = page.getSize();
+        const pageNum = index + 1;
+        let text = `${pageNum}`;
+        if (format === 'Page 1') text = `Page ${pageNum}`;
+        if (format === 'Page 1 of 10') text = `Page ${pageNum} of ${totalPages}`;
+
+        const textWidth = helveticaFont.widthOfTextAtSize(text, 12);
+        let x = width / 2 - textWidth / 2;
+        let y = 30;
+
+        if (position === 'bottom-right') x = width - textWidth - 30;
+        if (position === 'top-center') y = height - 30;
+        if (position === 'top-right') { x = width - textWidth - 30; y = height - 30; }
+
+        page.drawText(text, { x, y, size: 12, font: helveticaFont, color: rgb(0,0,0) });
+    });
+    return { bytes: await pdfDoc.save(), filename: 'Amazing_Numbered.pdf', type: 'application/pdf' };
+});
+
+// Recovered Feature Logic Block 2: Image Watermark
+setupSingleFileLogic('imagewatermark', async (file) => {
+    const imgInput = document.getElementById('imagewatermark-overlay-input');
+    if (!imgInput.files.length) throw new Error("Please select an image file first.");
+    const imgFile = imgInput.files[0];
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    let pdfImg = imgFile.type === 'image/png' ? await pdfDoc.embedPng(await imgFile.arrayBuffer()) : await pdfDoc.embedJpg(await imgFile.arrayBuffer());
+    const dims = pdfImg.scale(0.5);
+
+    pdfDoc.getPages().forEach(page => {
+        const { width, height } = page.getSize();
+        page.drawImage(pdfImg, { x: width / 2 - dims.width / 2, y: height / 2 - dims.height / 2, width: dims.width, height: dims.height, opacity: 0.4 });
+    });
+    return { bytes: await pdfDoc.save(), filename: 'Amazing_ImageWatermark.pdf', type: 'application/pdf' };
+});
+
+// --- MANUAL HANDLERS FOR CUSTOM ENGINE TOOLS ---
 if (ui.htmltopdf) {
     document.getElementById('btn-htmltopdf-action').addEventListener('click', async () => {
         const htmlContent = document.getElementById('html-input').value;
@@ -437,7 +491,6 @@ if (ui.htmltopdf) {
     });
 }
 
-// Multi-file Logic Refactored
 let mergeFiles = [];
 if (ui.merge) {
     const mergeInput = document.getElementById('merge-file-input');
@@ -460,7 +513,7 @@ if (ui.merge) {
                 copiedPages.forEach(p => mergedPdf.addPage(p));
             }
             const bytes = await mergedPdf.save();
-            mergeFiles = []; renderMergeList(); // UI Reset
+            mergeFiles = []; renderMergeList();
             await processAndDownload(bytes, 'Amazing_Merged.pdf', 'application/pdf');
             await AdManager.showInterstitial();
         } catch (e) { alert("Error merging"); }
@@ -491,7 +544,7 @@ if (ui.jpgtopdf) {
                 page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
             }
             const bytes = await pdfDoc.save();
-            imageFiles = []; renderImgList(); // UI Reset
+            imageFiles = []; renderImgList();
             await processAndDownload(bytes, 'Amazing_Images.pdf', 'application/pdf');
             await AdManager.showInterstitial();
         } catch (e) { alert("Error converting"); }
