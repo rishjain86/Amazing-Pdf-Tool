@@ -31,6 +31,9 @@
                 <button class="nav-btn" onclick="switchView('compress')">
                     <i class="fas fa-compress-arrows-alt"></i> Compress PDF
                 </button>
+                <button class="nav-btn" onclick="switchView('jpgtopdf')">
+                    <i class="fas fa-file-image"></i> JPG to PDF
+                </button>
             </nav>
         </aside>
 
@@ -72,6 +75,14 @@
                         <h3>Compress PDF</h3>
                         <p>Reduce file size while optimizing for maximal PDF quality.</p>
                     </div>
+
+                    <div class="tool-card glass" onclick="switchView('jpgtopdf')">
+                        <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);">
+                            <i class="fas fa-file-image"></i>
+                        </div>
+                        <h3>JPG to PDF</h3>
+                        <p>Convert JPG images to PDF in seconds. Easily adjust orientation and margins.</p>
+                    </div>
                 </div>
             </section>
 
@@ -97,6 +108,14 @@
                     <p>Reduce file size while keeping the best quality possible.</p>
                 </div>
                 <div id="compress-ui-container"></div>
+            </section>
+
+            <section id="view-jpgtopdf" class="view-section">
+                <div class="hero-header glass">
+                    <h1>JPG to PDF</h1>
+                    <p>Convert your images to a single PDF document offline.</p>
+                </div>
+                <div id="jpgtopdf-ui-container"></div>
             </section>
 
         </main>
