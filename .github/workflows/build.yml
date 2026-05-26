@@ -28,14 +28,9 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install
 
-      - name: Create Web Directory (Failsafe)
+      - name: Add & Sync Capacitor Android
         run: |
-          mkdir -p public
-          echo "<html><head><title>Amazing PDF TOOL</title></head><body style='background: black; color: #00ff00;'>App Initializing...</body></html>" > public/index.html
-
-      - name: Add Capacitor Android Platform
-        run: |
-          npx cap add android
+          npx cap add android || true
           npx cap sync android
 
       - name: Build APK (Debug)
