@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Amazing PDF TOOL</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar glass" id="sidebar">
+            <div class="brand">
+                <i class="fas fa-file-pdf brand-icon"></i>
+                <h2>Amazing PDF</h2>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-btn active" onclick="switchView('dashboard')">
+                    <i class="fas fa-home"></i> Dashboard
+                </button>
+                
+                <div class="nav-section-title">Core Tools</div>
+                <button class="nav-btn" onclick="switchView('merge')">
+                    <i class="fas fa-object-group"></i> Merge PDF
+                </button>
+                <button class="nav-btn" onclick="switchView('split')">
+                    <i class="fas fa-cut"></i> Split PDF
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <!-- Mobile Header -->
+            <div class="mobile-header glass hidden-desktop">
+                <div class="brand">
+                    <i class="fas fa-file-pdf brand-icon"></i>
+                    <h2>Amazing PDF</h2>
+                </div>
+            </div>
+
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view-section active">
+                <div class="hero-header glass">
+                    <h1>Every tool you need to work with PDFs in one place</h1>
+                    <p>All are 100% FREE, offline, and secure. Your files never leave your device.</p>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="tool-card glass" onclick="switchView('merge')">
+                        <div class="tool-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);">
+                            <i class="fas fa-object-group"></i>
+                        </div>
+                        <h3>Merge PDF</h3>
+                        <p>Combine PDFs in the order you want with the easiest PDF merger available.</p>
+                    </div>
+
+                    <div class="tool-card glass" onclick="switchView('split')">
+                        <div class="tool-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);">
+                            <i class="fas fa-cut"></i>
+                        </div>
+                        <h3>Split PDF</h3>
+                        <p>Separate one page or a whole set for easy conversion into independent PDF files.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Merge PDF View (UI Setup) -->
+            <section id="view-merge" class="view-section">
+                <div class="hero-header glass">
+                    <h1>Merge PDF</h1>
+                    <p>Combine multiple PDFs into one document directly on your device.</p>
+                </div>
+                <!-- Logic UI will be injected here via JS in next steps -->
+                <div id="merge-ui-container"></div>
+            </section>
+
+            <!-- Split PDF View (UI Setup) -->
+            <section id="view-split" class="view-section">
+                <div class="hero-header glass">
+                    <h1>Split PDF</h1>
+                    <p>Extract specific pages or split your PDF into multiple files.</p>
+                </div>
+                <!-- Logic UI will be injected here via JS in next steps -->
+                <div id="split-ui-container"></div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Core App Logic (Next step will build this) -->
+    <script src="js/app.js" type="module"></script>
+</body>
+</html>
