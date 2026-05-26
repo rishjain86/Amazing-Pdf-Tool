@@ -1,5 +1,5 @@
 // Import PDF-lib from CDN for client-side processing
-import { PDFDocument } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import { PDFDocument, degrees } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
 import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
@@ -18,6 +18,7 @@ window.switchView = (viewId) => {
 const mergeContainer = document.getElementById('merge-ui-container');
 const splitContainer = document.getElementById('split-ui-container');
 const compressContainer = document.getElementById('compress-ui-container');
+const rotateContainer = document.getElementById('rotate-ui-container');
 const jpgtopdfContainer = document.getElementById('jpgtopdf-ui-container');
 const protectContainer = document.getElementById('protect-ui-container');
 const unlockContainer = document.getElementById('unlock-ui-container');
@@ -73,6 +74,26 @@ if (compressContainer) {
                 <option value="extreme">Extreme Compression (Less Quality, Smallest Size)</option>
             </select>
             <button id="btn-compress-action" style="${btnStyle.replace('var(--accent)', '#10b981')}"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
+        </div>
+    `;
+}
+
+if (rotateContainer) {
+    rotateContainer.innerHTML = `
+        <div id="rotate-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#3b82f6')}">
+            <i class="fas fa-sync-alt" style="font-size: 3rem; color: #3b82f6; margin-bottom: 15px;"></i>
+            <h3>Select PDF to Rotate</h3>
+            <input type="file" id="rotate-file-input" accept="application/pdf" style="display: none;">
+        </div>
+        <div id="rotate-file-info" style="${fileListStyle}"></div>
+        <div id="rotate-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Select Rotation Angle:</label>
+            <select id="rotate-angle" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
+                <option value="90">Right 90°</option>
+                <option value="180">Upside Down 180°</option>
+                <option value="-90">Left -90°</option>
+            </select>
+            <button id="btn-rotate-action" style="${btnStyle.replace('var(--accent)', '#3b82f6')}"><i class="fas fa-sync-alt"></i> Rotate & Download</button>
         </div>
     `;
 }
@@ -326,6 +347,71 @@ if (compressDropZone) {
     });
 }
 
+// --- ROTATE PDF LOGIC ---
+let rotateFile = null;
+const rotateDropZone = document.getElementById('rotate-drop-zone');
+const rotateInput = document.getElementById('rotate-file-input');
+const rotateInfo = document.getElementById('rotate-file-info');
+const rotateControls = document.getElementById('rotate-controls');
+const btnRotateAction = document.getElementById('btn-rotate-action');
+
+if (rotateDropZone) {
+    rotateDropZone.addEventListener('click', () => rotateInput.click());
+    rotateInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            rotateFile = file;
+            rotateDropZone.style.display = 'none';
+            rotateInfo.innerHTML = `
+                <div style="${fileItemStyle}">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
+                        <div style="font-weight: 600;">${file.name}</div>
+                    </div>
+                    <button onclick="resetRotate()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+            rotateControls.style.display = 'block';
+        }
+    });
+
+    window.resetRotate = () => {
+        rotateFile = null;
+        rotateInput.value = '';
+        rotateDropZone.style.display = 'block';
+        rotateInfo.innerHTML = '';
+        rotateControls.style.display = 'none';
+    };
+
+    btnRotateAction.addEventListener('click', async () => {
+        if (!rotateFile) return;
+        const angleStr = document.getElementById('rotate-angle').value;
+        const rotationAngle = parseInt(angleStr);
+        
+        btnRotateAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rotating...';
+        try {
+            const arrayBuffer = await rotateFile.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            
+            const pages = pdfDoc.getPages();
+            pages.forEach((page) => {
+                const currentRotation = page.getRotation().angle;
+                page.setRotation(degrees(currentRotation + rotationAngle));
+            });
+            
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(pdfBytes, 'Amazing_Rotated.pdf', 'application/pdf');
+            await AdManager.showInterstitial();
+            resetRotate();
+        } catch (error) {
+            alert("Error rotating PDF. The file might be protected.");
+            console.error(error);
+        } finally {
+            btnRotateAction.innerHTML = '<i class="fas fa-sync-alt"></i> Rotate & Download';
+        }
+    });
+}
+
 // --- JPG TO PDF LOGIC ---
 let imageFiles = [];
 const imgDropZone = document.getElementById('jpgtopdf-drop-zone');
@@ -506,10 +592,8 @@ if (unlockDropZone) {
         btnUnlockAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unlocking...';
         try {
             const arrayBuffer = await unlockFile.arrayBuffer();
-            // Load the PDF using the provided password
             const pdfDoc = await PDFDocument.load(arrayBuffer, { password: password });
             
-            // Saving it without encryption options permanently unlocks it
             const pdfBytes = await pdfDoc.save();
             downloadBlob(pdfBytes, 'Amazing_Unlocked.pdf', 'application/pdf');
             
