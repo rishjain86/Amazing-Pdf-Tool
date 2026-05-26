@@ -6,6 +6,7 @@
     <title>Amazing PDF TOOL</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -23,6 +24,7 @@
                 <button class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</button>
                 <button class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</button>
                 <button class="nav-btn" onclick="switchView('delete')"><i class="fas fa-trash-alt"></i> Delete Pages</button>
+                <button class="nav-btn" onclick="switchView('reorder')"><i class="fas fa-sort-amount-up"></i> Reorder Pages</button>
                 <button class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
                 <button class="nav-btn" onclick="switchView('rotate')"><i class="fas fa-sync-alt"></i> Rotate PDF</button>
                 <button class="nav-btn" onclick="switchView('repair')"><i class="fas fa-tools"></i> Repair PDF</button>
@@ -30,11 +32,13 @@
                 <div class="nav-section-title">Convert & Extract</div>
                 <button class="nav-btn" onclick="switchView('jpgtopdf')"><i class="fas fa-file-image"></i> JPG to PDF</button>
                 <button class="nav-btn" onclick="switchView('pdftojpg')"><i class="fas fa-file-archive"></i> PDF to JPG</button>
+                <button class="nav-btn" onclick="switchView('htmltopdf')"><i class="fas fa-code"></i> HTML to PDF</button>
                 <button class="nav-btn" onclick="switchView('extract')"><i class="fas fa-file-alt"></i> Extract Text</button>
                 
                 <div class="nav-section-title">Edit & Security</div>
                 <button class="nav-btn" onclick="switchView('pagenumbers')"><i class="fas fa-sort-numeric-down"></i> Page Numbers</button>
-                <button class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Watermark</button>
+                <button class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Text Watermark</button>
+                <button class="nav-btn" onclick="switchView('imagewatermark')"><i class="fas fa-images"></i> Image Watermark</button>
                 <button class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</button>
                 <button class="nav-btn" onclick="switchView('crop')"><i class="fas fa-crop"></i> Crop PDF</button>
                 <button class="nav-btn" onclick="switchView('metadata')"><i class="fas fa-info-circle"></i> Edit Metadata</button>
@@ -67,6 +71,10 @@
                         <div class="tool-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"><i class="fas fa-cut"></i></div>
                         <h3>Split PDF</h3><p>Extract specific pages into independent files.</p>
                     </div>
+                    <div class="tool-card glass" onclick="switchView('reorder')">
+                        <div class="tool-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);"><i class="fas fa-sort-amount-up"></i></div>
+                        <h3>Reorder Pages</h3><p>Change the sequence of pages in your PDF.</p>
+                    </div>
                     <div class="tool-card glass" onclick="switchView('delete')">
                         <div class="tool-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fas fa-trash-alt"></i></div>
                         <h3>Delete Pages</h3><p>Remove unwanted pages from your PDF file.</p>
@@ -74,6 +82,10 @@
                     <div class="tool-card glass" onclick="switchView('compress')">
                         <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-compress-arrows-alt"></i></div>
                         <h3>Compress PDF</h3><p>Reduce file size while optimizing quality.</p>
+                    </div>
+                    <div class="tool-card glass" onclick="switchView('htmltopdf')">
+                        <div class="tool-icon" style="color: #f97316; background: rgba(249, 115, 22, 0.1);"><i class="fas fa-code"></i></div>
+                        <h3>HTML to PDF</h3><p>Convert raw HTML code into a PDF document.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('jpgtopdf')">
                         <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-file-image"></i></div>
@@ -83,17 +95,13 @@
                         <div class="tool-icon" style="color: #14b8a6; background: rgba(20, 184, 166, 0.1);"><i class="fas fa-file-alt"></i></div>
                         <h3>Extract Text</h3><p>Extract all readable text instantly.</p>
                     </div>
+                    <div class="tool-card glass" onclick="switchView('imagewatermark')">
+                        <div class="tool-icon" style="color: #ec4899; background: rgba(236, 72, 153, 0.1);"><i class="fas fa-images"></i></div>
+                        <h3>Image Watermark</h3><p>Overlay a PNG or JPG logo onto your PDF.</p>
+                    </div>
                     <div class="tool-card glass" onclick="switchView('crop')">
                         <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-crop"></i></div>
                         <h3>Crop PDF</h3><p>Trim the margins of your PDF pages.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('repair')">
-                        <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-tools"></i></div>
-                        <h3>Repair PDF</h3><p>Fix corrupted or broken PDF files easily.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('metadata')">
-                        <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-info-circle"></i></div>
-                        <h3>Edit Metadata</h3><p>Change the author and title data of your file.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('protect')">
                         <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-lock"></i></div>
@@ -105,13 +113,16 @@
             <section id="view-merge" class="view-section"><div class="hero-header glass"><h1>Merge PDF</h1></div><div id="merge-ui-container"></div></section>
             <section id="view-split" class="view-section"><div class="hero-header glass"><h1>Split PDF</h1></div><div id="split-ui-container"></div></section>
             <section id="view-delete" class="view-section"><div class="hero-header glass"><h1>Delete Pages</h1></div><div id="delete-ui-container"></div></section>
+            <section id="view-reorder" class="view-section"><div class="hero-header glass"><h1>Reorder Pages</h1></div><div id="reorder-ui-container"></div></section>
             <section id="view-compress" class="view-section"><div class="hero-header glass"><h1>Compress PDF</h1></div><div id="compress-ui-container"></div></section>
             <section id="view-rotate" class="view-section"><div class="hero-header glass"><h1>Rotate PDF</h1></div><div id="rotate-ui-container"></div></section>
             <section id="view-pdftojpg" class="view-section"><div class="hero-header glass"><h1>PDF to JPG</h1></div><div id="pdftojpg-ui-container"></div></section>
+            <section id="view-htmltopdf" class="view-section"><div class="hero-header glass"><h1>HTML to PDF</h1></div><div id="htmltopdf-ui-container"></div></section>
             <section id="view-pagenumbers" class="view-section"><div class="hero-header glass"><h1>Page Numbers</h1></div><div id="pagenumbers-ui-container"></div></section>
             <section id="view-jpgtopdf" class="view-section"><div class="hero-header glass"><h1>JPG to PDF</h1></div><div id="jpgtopdf-ui-container"></div></section>
             <section id="view-extract" class="view-section"><div class="hero-header glass"><h1>Extract Text</h1></div><div id="extract-ui-container"></div></section>
-            <section id="view-watermark" class="view-section"><div class="hero-header glass"><h1>Watermark PDF</h1></div><div id="watermark-ui-container"></div></section>
+            <section id="view-watermark" class="view-section"><div class="hero-header glass"><h1>Text Watermark</h1></div><div id="watermark-ui-container"></div></section>
+            <section id="view-imagewatermark" class="view-section"><div class="hero-header glass"><h1>Image Watermark</h1></div><div id="imagewatermark-ui-container"></div></section>
             <section id="view-sign" class="view-section"><div class="hero-header glass"><h1>Sign PDF</h1></div><div id="sign-ui-container"></div></section>
             <section id="view-crop" class="view-section"><div class="hero-header glass"><h1>Crop PDF</h1></div><div id="crop-ui-container"></div></section>
             <section id="view-repair" class="view-section"><div class="hero-header glass"><h1>Repair PDF</h1></div><div id="repair-ui-container"></div></section>
