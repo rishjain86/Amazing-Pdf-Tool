@@ -1,12 +1,13 @@
 // Import PDF-lib from CDN for client-side processing
 import { PDFDocument } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
 window.switchView = (viewId) => {
     // Update active nav buttons
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
     
-    // Find the button that triggered this (if any) and make it active
+    // Find the button that triggered this and make it active
     const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
     if(activeBtn) activeBtn.classList.add('active');
 
@@ -113,10 +114,14 @@ btnMergeAction.addEventListener('click', async () => {
         const pdfBytes = await mergedPdf.save();
         downloadBlob(pdfBytes, 'Amazing_Merged.pdf', 'application/pdf');
         
+        // Trigger Interstitial Ad with fallbacks right after download trigger
+        await AdManager.showInterstitial();
+        
         mergeFiles = [];
         renderMergeList();
     } catch (error) {
         alert("Error during merge. File might be encrypted.");
+        console.error(error);
     } finally {
         btnMergeAction.innerHTML = '<i class="fas fa-object-group"></i> Merge Files Now';
     }
@@ -185,10 +190,14 @@ btnSplitAction.addEventListener('click', async () => {
         const pdfBytes = await newPdf.save();
         downloadBlob(pdfBytes, 'Amazing_Split.pdf', 'application/pdf');
         
+        // Trigger Interstitial Ad with fallbacks right after download trigger
+        await AdManager.showInterstitial();
+        
         resetSplit();
         document.getElementById('split-ranges').value = '';
     } catch (error) {
         alert("Error extracting pages. Ensure page numbers are correct.");
+        console.error(error);
     } finally {
         btnSplitAction.innerHTML = '<i class="fas fa-cut"></i> Split & Download';
     }
