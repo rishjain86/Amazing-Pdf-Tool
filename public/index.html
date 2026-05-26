@@ -34,6 +34,11 @@
                 <button class="nav-btn" onclick="switchView('jpgtopdf')">
                     <i class="fas fa-file-image"></i> JPG to PDF
                 </button>
+                
+                <div class="nav-section-title">Security</div>
+                <button class="nav-btn" onclick="switchView('protect')">
+                    <i class="fas fa-lock"></i> Protect PDF
+                </button>
             </nav>
         </aside>
 
@@ -83,6 +88,14 @@
                         <h3>JPG to PDF</h3>
                         <p>Convert JPG images to PDF in seconds. Easily adjust orientation and margins.</p>
                     </div>
+
+                    <div class="tool-card glass" onclick="switchView('protect')">
+                        <div class="tool-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <h3>Protect PDF</h3>
+                        <p>Encrypt your PDF with a password to prevent unauthorized access.</p>
+                    </div>
                 </div>
             </section>
 
@@ -118,9 +131,18 @@
                 <div id="jpgtopdf-ui-container"></div>
             </section>
 
+            <section id="view-protect" class="view-section">
+                <div class="hero-header glass">
+                    <h1>Protect PDF</h1>
+                    <p>Add a password to your PDF file to keep it completely secure.</p>
+                </div>
+                <div id="protect-ui-container"></div>
+            </section>
+
         </main>
     </div>
 
     <script src="js/app.js" type="module"></script>
 </body>
 </html>
+ 
