@@ -1,5 +1,5 @@
 // Import PDF-lib from CDN for client-side processing
-import { PDFDocument, degrees } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import { PDFDocument, degrees, StandardFonts, rgb } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
 import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
@@ -19,6 +19,7 @@ const mergeContainer = document.getElementById('merge-ui-container');
 const splitContainer = document.getElementById('split-ui-container');
 const compressContainer = document.getElementById('compress-ui-container');
 const rotateContainer = document.getElementById('rotate-ui-container');
+const pagenumbersContainer = document.getElementById('pagenumbers-ui-container');
 const jpgtopdfContainer = document.getElementById('jpgtopdf-ui-container');
 const protectContainer = document.getElementById('protect-ui-container');
 const unlockContainer = document.getElementById('unlock-ui-container');
@@ -94,6 +95,35 @@ if (rotateContainer) {
                 <option value="-90">Left -90°</option>
             </select>
             <button id="btn-rotate-action" style="${btnStyle.replace('var(--accent)', '#3b82f6')}"><i class="fas fa-sync-alt"></i> Rotate & Download</button>
+        </div>
+    `;
+}
+
+if (pagenumbersContainer) {
+    pagenumbersContainer.innerHTML = `
+        <div id="pagenumbers-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#6366f1')}">
+            <i class="fas fa-sort-numeric-down" style="font-size: 3rem; color: #6366f1; margin-bottom: 15px;"></i>
+            <h3>Select PDF for Page Numbers</h3>
+            <input type="file" id="pagenumbers-file-input" accept="application/pdf" style="display: none;">
+        </div>
+        <div id="pagenumbers-file-info" style="${fileListStyle}"></div>
+        <div id="pagenumbers-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Select Position:</label>
+            <select id="pagenumbers-position" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
+                <option value="bottom-center">Bottom Center</option>
+                <option value="bottom-right">Bottom Right</option>
+                <option value="top-center">Top Center</option>
+                <option value="top-right">Top Right</option>
+            </select>
+            
+            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Format:</label>
+            <select id="pagenumbers-format" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--bg-main); color: white; margin-bottom: 15px;">
+                <option value="1">1, 2, 3...</option>
+                <option value="Page 1">Page 1, Page 2...</option>
+                <option value="Page 1 of 10">Page 1 of 10, Page 2 of 10...</option>
+            </select>
+
+            <button id="btn-pagenumbers-action" style="${btnStyle.replace('var(--accent)', '#6366f1')}"><i class="fas fa-sort-numeric-down"></i> Add Page Numbers</button>
         </div>
     `;
 }
@@ -405,9 +435,96 @@ if (rotateDropZone) {
             resetRotate();
         } catch (error) {
             alert("Error rotating PDF. The file might be protected.");
-            console.error(error);
         } finally {
             btnRotateAction.innerHTML = '<i class="fas fa-sync-alt"></i> Rotate & Download';
+        }
+    });
+}
+
+// --- PAGE NUMBERS LOGIC ---
+let pagenumbersFile = null;
+const pagenumbersDropZone = document.getElementById('pagenumbers-drop-zone');
+const pagenumbersInput = document.getElementById('pagenumbers-file-input');
+const pagenumbersInfo = document.getElementById('pagenumbers-file-info');
+const pagenumbersControls = document.getElementById('pagenumbers-controls');
+const btnPagenumbersAction = document.getElementById('btn-pagenumbers-action');
+
+if (pagenumbersDropZone) {
+    pagenumbersDropZone.addEventListener('click', () => pagenumbersInput.click());
+    pagenumbersInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            pagenumbersFile = file;
+            pagenumbersDropZone.style.display = 'none';
+            pagenumbersInfo.innerHTML = `
+                <div style="${fileItemStyle}">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
+                        <div style="font-weight: 600;">${file.name}</div>
+                    </div>
+                    <button onclick="resetPagenumbers()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+            pagenumbersControls.style.display = 'block';
+        }
+    });
+
+    window.resetPagenumbers = () => {
+        pagenumbersFile = null;
+        pagenumbersInput.value = '';
+        pagenumbersDropZone.style.display = 'block';
+        pagenumbersInfo.innerHTML = '';
+        pagenumbersControls.style.display = 'none';
+    };
+
+    btnPagenumbersAction.addEventListener('click', async () => {
+        if (!pagenumbersFile) return;
+        const position = document.getElementById('pagenumbers-position').value;
+        const format = document.getElementById('pagenumbers-format').value;
+        
+        btnPagenumbersAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        try {
+            const arrayBuffer = await pagenumbersFile.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            
+            const pages = pdfDoc.getPages();
+            const totalPages = pages.length;
+            
+            pages.forEach((page, index) => {
+                const { width, height } = page.getSize();
+                const pageNum = index + 1;
+                
+                let text = `${pageNum}`;
+                if (format === 'Page 1') text = `Page ${pageNum}`;
+                if (format === 'Page 1 of 10') text = `Page ${pageNum} of ${totalPages}`;
+                
+                const textWidth = helveticaFont.widthOfTextAtSize(text, 12);
+                let x = width / 2 - textWidth / 2; // Center default
+                let y = 30; // Bottom default
+                
+                if (position === 'bottom-right') x = width - textWidth - 30;
+                if (position === 'top-center') y = height - 30;
+                if (position === 'top-right') { x = width - textWidth - 30; y = height - 30; }
+                
+                page.drawText(text, {
+                    x: x,
+                    y: y,
+                    size: 12,
+                    font: helveticaFont,
+                    color: rgb(0, 0, 0),
+                });
+            });
+            
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(pdfBytes, 'Amazing_Numbered.pdf', 'application/pdf');
+            await AdManager.showInterstitial();
+            resetPagenumbers();
+        } catch (error) {
+            alert("Error adding page numbers. The file might be protected.");
+            console.error(error);
+        } finally {
+            btnPagenumbersAction.innerHTML = '<i class="fas fa-sort-numeric-down"></i> Add Page Numbers';
         }
     });
 }
@@ -593,10 +710,8 @@ if (unlockDropZone) {
         try {
             const arrayBuffer = await unlockFile.arrayBuffer();
             const pdfDoc = await PDFDocument.load(arrayBuffer, { password: password });
-            
             const pdfBytes = await pdfDoc.save();
             downloadBlob(pdfBytes, 'Amazing_Unlocked.pdf', 'application/pdf');
-            
             await AdManager.showInterstitial();
             resetUnlock();
         } catch (error) {
