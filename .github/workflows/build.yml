@@ -33,9 +33,9 @@ jobs:
           npx cap add android || true
           npx cap sync android
 
-      - name: Inject AdMob App ID
+      - name: Inject AdMob App ID (Fail-safe Method)
         run: |
-          sed -i '/<application/a \        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>' android/app/src/main/AndroidManifest.xml
+          node -e "const fs = require('fs'); const path = 'android/app/src/main/AndroidManifest.xml'; let content = fs.readFileSync(path, 'utf8'); content = content.replace('</application>', '    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"ca-app-pub-3940256099942544~3347511713\"/>\n    </application>'); fs.writeFileSync(path, content);"
 
       - name: Build Android APK
         working-directory: ./android
