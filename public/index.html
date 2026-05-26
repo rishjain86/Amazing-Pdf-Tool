@@ -4,13 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Amazing PDF TOOL</title>
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- html2pdf Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-layout">
+        <!-- Sidebar Navigation -->
         <aside class="sidebar glass" id="sidebar">
             <div class="brand">
                 <i class="fas fa-file-pdf brand-icon"></i>
@@ -19,6 +24,7 @@
             
             <nav class="nav-menu">
                 <button class="nav-btn active" onclick="switchView('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+                <button class="nav-btn" onclick="switchView('history')"><i class="fas fa-history"></i> History</button>
                 
                 <div class="nav-section-title">Core Tools</div>
                 <button class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</button>
@@ -54,6 +60,7 @@
             </nav>
         </aside>
 
+        <!-- Main Workspace -->
         <main class="workspace">
             <div class="mobile-header glass hidden-desktop">
                 <div class="brand">
@@ -62,56 +69,32 @@
                 </div>
             </div>
 
+            <!-- Dashboard View -->
             <section id="view-dashboard" class="view-section active">
                 <div class="hero-header glass">
                     <h1>Every tool you need to work with PDFs in one place</h1>
                     <p>100% FREE, offline, and secure. Your files never leave your device.</p>
                 </div>
-
                 <div class="dashboard-grid">
-                    <div class="tool-card glass" onclick="switchView('merge')">
-                        <div class="tool-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fas fa-object-group"></i></div>
-                        <h3>Merge PDF</h3><p>Combine PDFs in the order you want.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('split')">
-                        <div class="tool-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"><i class="fas fa-cut"></i></div>
-                        <h3>Split PDF</h3><p>Extract specific pages into independent files.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('splitevenodd')">
-                        <div class="tool-icon" style="color: #6366f1; background: rgba(99, 102, 241, 0.1);"><i class="fas fa-columns"></i></div>
-                        <h3>Split Even/Odd</h3><p>Separate your PDF into Even and Odd pages.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('compress')">
-                        <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-compress-arrows-alt"></i></div>
-                        <h3>Compress PDF</h3><p>Reduce file size while optimizing quality.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('htmltopdf')">
-                        <div class="tool-icon" style="color: #f97316; background: rgba(249, 115, 22, 0.1);"><i class="fas fa-code"></i></div>
-                        <h3>HTML to PDF</h3><p>Convert raw HTML code into a PDF document.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('jpgtopdf')">
-                        <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-file-image"></i></div>
-                        <h3>JPG to PDF</h3><p>Convert JPG images to PDF in seconds.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('addmargins')">
-                        <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-border-all"></i></div>
-                        <h3>Add Margins</h3><p>Add white borders around your pages for binding.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('imagewatermark')">
-                        <div class="tool-icon" style="color: #ec4899; background: rgba(236, 72, 153, 0.1);"><i class="fas fa-images"></i></div>
-                        <h3>Image Watermark</h3><p>Overlay a PNG or JPG logo onto your PDF.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('removeannots')">
-                        <div class="tool-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);"><i class="fas fa-eraser"></i></div>
-                        <h3>Clean Annotations</h3><p>Strip all comments and highlights from your PDF.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('protect')">
-                        <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-lock"></i></div>
-                        <h3>Protect PDF</h3><p>Encrypt your PDF with a password.</p>
-                    </div>
+                    <div class="tool-card glass" onclick="switchView('merge')"><div class="tool-icon" style="color:#ef4444; background:rgba(239,68,68,0.1);"><i class="fas fa-object-group"></i></div><h3>Merge PDF</h3><p>Combine PDFs in the order you want.</p></div>
+                    <div class="tool-card glass" onclick="switchView('split')"><div class="tool-icon" style="color:#f59e0b; background:rgba(245,158,11,0.1);"><i class="fas fa-cut"></i></div><h3>Split PDF</h3><p>Extract specific pages into independent files.</p></div>
+                    <div class="tool-card glass" onclick="switchView('splitevenodd')"><div class="tool-icon" style="color:#6366f1; background:rgba(99,102,241,0.1);"><i class="fas fa-columns"></i></div><h3>Split Even/Odd</h3><p>Separate your PDF into Even and Odd pages.</p></div>
+                    <div class="tool-card glass" onclick="switchView('compress')"><div class="tool-icon" style="color:#10b981; background:rgba(16,185,129,0.1);"><i class="fas fa-compress-arrows-alt"></i></div><h3>Compress PDF</h3><p>Reduce file size while optimizing quality.</p></div>
+                    <div class="tool-card glass" onclick="switchView('htmltopdf')"><div class="tool-icon" style="color:#f97316; background:rgba(249,115,22,0.1);"><i class="fas fa-code"></i></div><h3>HTML to PDF</h3><p>Convert raw HTML code into a PDF document.</p></div>
+                    <div class="tool-card glass" onclick="switchView('jpgtopdf')"><div class="tool-icon" style="color:#eab308; background:rgba(234,179,8,0.1);"><i class="fas fa-file-image"></i></div><h3>JPG to PDF</h3><p>Convert JPG images to PDF in seconds.</p></div>
                 </div>
             </section>
 
+            <!-- History View -->
+            <section id="view-history" class="view-section">
+                <div class="hero-header glass">
+                    <h1>My Downloads History</h1>
+                    <p>Access your recently generated files offline.</p>
+                </div>
+                <div id="history-list" style="margin-top: 20px;"></div>
+            </section>
+
+            <!-- Dynamic Tool Views Containers -->
             <section id="view-merge" class="view-section"><div class="hero-header glass"><h1>Merge PDF</h1></div><div id="merge-ui-container"></div></section>
             <section id="view-split" class="view-section"><div class="hero-header glass"><h1>Split PDF</h1></div><div id="split-ui-container"></div></section>
             <section id="view-splitevenodd" class="view-section"><div class="hero-header glass"><h1>Split Even/Odd</h1></div><div id="splitevenodd-ui-container"></div></section>
