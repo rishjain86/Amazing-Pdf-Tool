@@ -1,60 +1,38 @@
-// Ad Manager with Smart Fallback Logic (AdMob -> AppLovin -> Unity)
+export const AdManager = {
+    isInitialized: false,
 
-class MonetizationManager {
-    constructor() {
-        this.networks = ['AdMob', 'AppLovin', 'Unity'];
-        this.currentNetworkIndex = 0;
-        this.isInitialized = false;
-    }
-
-    async init() {
-        console.log("Initializing Monetization SDKs...");
-        // Future Step: Here we will initialize actual Capacitor Ad Plugins
-        this.isInitialized = true;
-    }
+    async initialize() {
+        // Check if app is running natively on Android via Capacitor
+        if (window.Capacitor && window.Capacitor.Plugins.AdMob) {
+            try {
+                await window.Capacitor.Plugins.AdMob.initialize();
+                this.isInitialized = true;
+                console.log('AdMob successfully initialized');
+            } catch (e) {
+                console.error('AdMob init error', e);
+            }
+        }
+    },
 
     async showInterstitial() {
-        if (!this.isInitialized) await this.init();
-        
-        let network = this.networks[this.currentNetworkIndex];
-        console.log(`[Ad Manager] Attempting to show Interstitial via ${network}`);
-        
-        try {
-            await this.callAdNetwork(network);
-            console.log(`[Ad Manager] Ad displayed successfully via ${network}`);
-            // Reset to primary network after successful show
-            this.currentNetworkIndex = 0; 
-        } catch (error) {
-            console.warn(`[Ad Manager] ${network} failed. Triggering Fallback...`);
-            this.triggerFallback();
-        }
-    }
-
-    async callAdNetwork(network) {
-        return new Promise((resolve, reject) => {
-            // Placeholder: This is where we will map the real SDK calls.
-            // For now, simulating a successful ad load to keep the app flow working.
-            console.log(`[Ad Manager] Ping sent to ${network} SDK...`);
-            setTimeout(() => {
-                // Change true to false to test the fallback logic working
-                const adSuccess = true; 
-                if(adSuccess) resolve(true);
-                else reject(new Error("No Fill"));
-            }, 800); 
-        });
-    }
-
-    async triggerFallback() {
-        if (this.currentNetworkIndex < this.networks.length - 1) {
-            this.currentNetworkIndex++;
-            let nextNetwork = this.networks[this.currentNetworkIndex];
-            console.log(`[Ad Manager] Switched to Fallback Network: ${nextNetwork}`);
-            await this.showInterstitial(); // Retry with the next network
+        if (window.Capacitor && window.Capacitor.Plugins.AdMob && this.isInitialized) {
+            try {
+                // Google AdMob Test Interstitial ID for Android
+                const options = {
+                    adId: 'ca-app-pub-3940256099942544/1033173712',
+                    isTesting: true
+                };
+                await window.Capacitor.Plugins.AdMob.prepareInterstitial(options);
+                await window.Capacitor.Plugins.AdMob.showInterstitial();
+            } catch (e) {
+                console.log("AdMob interstitial failed", e);
+            }
         } else {
-            console.log("[Ad Manager] All Ad Networks exhausted. Proceeding without ads.");
-            this.currentNetworkIndex = 0; // Reset for the next time user clicks
+            // Fallback: Agar aap app ko web browser mein test kar rahe hain
+            console.log("Web Browser: Action completed, Ad would show here on mobile.");
         }
     }
-}
+};
 
-export const AdManager = new MonetizationManager();
+// Start AdMob engine as soon as the app opens
+AdManager.initialize();
