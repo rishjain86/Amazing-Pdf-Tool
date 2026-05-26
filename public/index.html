@@ -34,6 +34,9 @@
                 <button class="nav-btn" onclick="switchView('rotate')">
                     <i class="fas fa-sync-alt"></i> Rotate PDF
                 </button>
+                <button class="nav-btn" onclick="switchView('pagenumbers')">
+                    <i class="fas fa-sort-numeric-down"></i> Page Numbers
+                </button>
                 <button class="nav-btn" onclick="switchView('jpgtopdf')">
                     <i class="fas fa-file-image"></i> JPG to PDF
                 </button>
@@ -95,6 +98,14 @@
                         <p>Rotate your PDFs the way you need them. You can even rotate multiple PDFs at once.</p>
                     </div>
 
+                    <div class="tool-card glass" onclick="switchView('pagenumbers')">
+                        <div class="tool-icon" style="color: #6366f1; background: rgba(99, 102, 241, 0.1);">
+                            <i class="fas fa-sort-numeric-down"></i>
+                        </div>
+                        <h3>Add Page Numbers</h3>
+                        <p>Add page numbers into PDFs with ease. Choose your typography, and placement.</p>
+                    </div>
+
                     <div class="tool-card glass" onclick="switchView('jpgtopdf')">
                         <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);">
                             <i class="fas fa-file-image"></i>
@@ -151,6 +162,14 @@
                     <p>Rotate your PDF pages to the correct orientation effortlessly.</p>
                 </div>
                 <div id="rotate-ui-container"></div>
+            </section>
+
+            <section id="view-pagenumbers" class="view-section">
+                <div class="hero-header glass">
+                    <h1>Add Page Numbers</h1>
+                    <p>Insert page numbers into your PDF document easily.</p>
+                </div>
+                <div id="pagenumbers-ui-container"></div>
             </section>
 
             <section id="view-jpgtopdf" class="view-section">
