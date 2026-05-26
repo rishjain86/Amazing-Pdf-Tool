@@ -19,29 +19,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Setup Java JDK
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Install NPM Dependencies
+      - name: Install Dependencies
         run: npm install
 
-      - name: Add & Sync Capacitor Android
+      - name: Setup Capacitor Android
         run: |
           npx cap add android || true
           npx cap sync android
 
-      - name: Build APK (Debug)
+      - name: Build Android APK
         working-directory: ./android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
+      - name: Upload APK File
         uses: actions/upload-artifact@v4
         with:
-          name: Amazing-PDF-TOOL-APK
+          name: Amazing-PDF-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          
