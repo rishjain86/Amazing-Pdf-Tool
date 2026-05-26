@@ -4,7 +4,8 @@
   "description": "Offline PDF Tools Platform",
   "main": "index.js",
   "scripts": {
-    "build": "echo \"Building web assets...\""
+    "build": "echo \"Ready for Android Build\"",
+    "sync": "npx cap copy android"
   },
   "dependencies": {
     "@capacitor/android": "^5.0.0",
