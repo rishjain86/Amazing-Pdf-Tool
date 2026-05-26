@@ -25,6 +25,7 @@
                 <button class="nav-btn" onclick="switchView('delete')"><i class="fas fa-trash-alt"></i> Delete Pages</button>
                 <button class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
                 <button class="nav-btn" onclick="switchView('rotate')"><i class="fas fa-sync-alt"></i> Rotate PDF</button>
+                <button class="nav-btn" onclick="switchView('repair')"><i class="fas fa-tools"></i> Repair PDF</button>
                 
                 <div class="nav-section-title">Convert & Extract</div>
                 <button class="nav-btn" onclick="switchView('jpgtopdf')"><i class="fas fa-file-image"></i> JPG to PDF</button>
@@ -35,6 +36,8 @@
                 <button class="nav-btn" onclick="switchView('pagenumbers')"><i class="fas fa-sort-numeric-down"></i> Page Numbers</button>
                 <button class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Watermark</button>
                 <button class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</button>
+                <button class="nav-btn" onclick="switchView('crop')"><i class="fas fa-crop"></i> Crop PDF</button>
+                <button class="nav-btn" onclick="switchView('metadata')"><i class="fas fa-info-circle"></i> Edit Metadata</button>
                 <button class="nav-btn" onclick="switchView('protect')"><i class="fas fa-lock"></i> Protect PDF</button>
                 <button class="nav-btn" onclick="switchView('unlock')"><i class="fas fa-unlock"></i> Unlock PDF</button>
                 <button class="nav-btn" onclick="switchView('flatten')"><i class="fas fa-layer-group"></i> Flatten PDF</button>
@@ -58,11 +61,11 @@
                 <div class="dashboard-grid">
                     <div class="tool-card glass" onclick="switchView('merge')">
                         <div class="tool-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fas fa-object-group"></i></div>
-                        <h3>Merge PDF</h3><p>Combine PDFs in the order you want with the easiest PDF merger.</p>
+                        <h3>Merge PDF</h3><p>Combine PDFs in the order you want.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('split')">
                         <div class="tool-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"><i class="fas fa-cut"></i></div>
-                        <h3>Split PDF</h3><p>Extract specific pages into independent PDF files.</p>
+                        <h3>Split PDF</h3><p>Extract specific pages into independent files.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('delete')">
                         <div class="tool-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fas fa-trash-alt"></i></div>
@@ -70,11 +73,7 @@
                     </div>
                     <div class="tool-card glass" onclick="switchView('compress')">
                         <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-compress-arrows-alt"></i></div>
-                        <h3>Compress PDF</h3><p>Reduce file size while optimizing for maximal quality.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('pdftojpg')">
-                        <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-file-archive"></i></div>
-                        <h3>PDF to JPG</h3><p>Convert each PDF page into a JPG image (Downloads as ZIP).</p>
+                        <h3>Compress PDF</h3><p>Reduce file size while optimizing quality.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('jpgtopdf')">
                         <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-file-image"></i></div>
@@ -82,38 +81,44 @@
                     </div>
                     <div class="tool-card glass" onclick="switchView('extract')">
                         <div class="tool-icon" style="color: #14b8a6; background: rgba(20, 184, 166, 0.1);"><i class="fas fa-file-alt"></i></div>
-                        <h3>Extract Text</h3><p>Extract all text from your PDF into a simple text file instantly.</p>
+                        <h3>Extract Text</h3><p>Extract all readable text instantly.</p>
                     </div>
-                    <div class="tool-card glass" onclick="switchView('sign')">
-                        <div class="tool-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);"><i class="fas fa-signature"></i></div>
-                        <h3>Sign PDF</h3><p>Add a quick text signature to your PDF documents.</p>
+                    <div class="tool-card glass" onclick="switchView('crop')">
+                        <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-crop"></i></div>
+                        <h3>Crop PDF</h3><p>Trim the margins of your PDF pages.</p>
+                    </div>
+                    <div class="tool-card glass" onclick="switchView('repair')">
+                        <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-tools"></i></div>
+                        <h3>Repair PDF</h3><p>Fix corrupted or broken PDF files easily.</p>
+                    </div>
+                    <div class="tool-card glass" onclick="switchView('metadata')">
+                        <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-info-circle"></i></div>
+                        <h3>Edit Metadata</h3><p>Change the author and title data of your file.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('protect')">
                         <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-lock"></i></div>
                         <h3>Protect PDF</h3><p>Encrypt your PDF with a password.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('flatten')">
-                        <div class="tool-icon" style="color: #64748b; background: rgba(100, 116, 139, 0.1);"><i class="fas fa-layer-group"></i></div>
-                        <h3>Flatten PDF</h3><p>Make form fields and annotations uneditable.</p>
                     </div>
                 </div>
             </section>
 
             <section id="view-merge" class="view-section"><div class="hero-header glass"><h1>Merge PDF</h1></div><div id="merge-ui-container"></div></section>
             <section id="view-split" class="view-section"><div class="hero-header glass"><h1>Split PDF</h1></div><div id="split-ui-container"></div></section>
-            <section id="view-delete" class="view-section"><div class="hero-header glass"><h1>Delete Pages</h1><p>Remove pages you don't need.</p></div><div id="delete-ui-container"></div></section>
+            <section id="view-delete" class="view-section"><div class="hero-header glass"><h1>Delete Pages</h1></div><div id="delete-ui-container"></div></section>
             <section id="view-compress" class="view-section"><div class="hero-header glass"><h1>Compress PDF</h1></div><div id="compress-ui-container"></div></section>
             <section id="view-rotate" class="view-section"><div class="hero-header glass"><h1>Rotate PDF</h1></div><div id="rotate-ui-container"></div></section>
-            <section id="view-pdftojpg" class="view-section"><div class="hero-header glass"><h1>PDF to JPG</h1><p>Extract all pages as high-quality images.</p></div><div id="pdftojpg-ui-container"></div></section>
+            <section id="view-pdftojpg" class="view-section"><div class="hero-header glass"><h1>PDF to JPG</h1></div><div id="pdftojpg-ui-container"></div></section>
             <section id="view-pagenumbers" class="view-section"><div class="hero-header glass"><h1>Page Numbers</h1></div><div id="pagenumbers-ui-container"></div></section>
             <section id="view-jpgtopdf" class="view-section"><div class="hero-header glass"><h1>JPG to PDF</h1></div><div id="jpgtopdf-ui-container"></div></section>
             <section id="view-extract" class="view-section"><div class="hero-header glass"><h1>Extract Text</h1></div><div id="extract-ui-container"></div></section>
             <section id="view-watermark" class="view-section"><div class="hero-header glass"><h1>Watermark PDF</h1></div><div id="watermark-ui-container"></div></section>
             <section id="view-sign" class="view-section"><div class="hero-header glass"><h1>Sign PDF</h1></div><div id="sign-ui-container"></div></section>
+            <section id="view-crop" class="view-section"><div class="hero-header glass"><h1>Crop PDF</h1></div><div id="crop-ui-container"></div></section>
+            <section id="view-repair" class="view-section"><div class="hero-header glass"><h1>Repair PDF</h1></div><div id="repair-ui-container"></div></section>
+            <section id="view-metadata" class="view-section"><div class="hero-header glass"><h1>Edit Metadata</h1></div><div id="metadata-ui-container"></div></section>
             <section id="view-protect" class="view-section"><div class="hero-header glass"><h1>Protect PDF</h1></div><div id="protect-ui-container"></div></section>
             <section id="view-unlock" class="view-section"><div class="hero-header glass"><h1>Unlock PDF</h1></div><div id="unlock-ui-container"></div></section>
-            <section id="view-flatten" class="view-section"><div class="hero-header glass"><h1>Flatten PDF</h1><p>Lock all editable elements.</p></div><div id="flatten-ui-container"></div></section>
-
+            <section id="view-flatten" class="view-section"><div class="hero-header glass"><h1>Flatten PDF</h1></div><div id="flatten-ui-container"></div></section>
         </main>
     </div>
     <script src="js/app.js" type="module"></script>
