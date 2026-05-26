@@ -1,4 +1,4 @@
-import { PDFDocument, degrees, StandardFonts, rgb } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import { PDFDocument, degrees, StandardFonts, rgb, PDFName } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
@@ -21,7 +21,7 @@ const views = [
     'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
     'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
     'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf',
-    'addtext', 'addblank', 'resizepdf'
+    'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots'
 ];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
@@ -46,10 +46,9 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
     </div>
 `;
 
-// Inject Multi-file/Custom UIs
+// Multi-file & Custom UIs
 if (ui.merge) ui.merge.innerHTML = `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
 if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
-
 if (ui.htmltopdf) {
     ui.htmltopdf.innerHTML = `
         <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
@@ -60,7 +59,7 @@ if (ui.htmltopdf) {
     `;
 }
 
-// Inject Single-file UIs
+// Single-file UIs
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<label style="color: var(--text-secondary);">Pages to Extract (e.g., 1-3):</label><input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
 if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<label style="color: var(--text-secondary);">Pages to Delete (e.g., 2, 4-6):</label><input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
 if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-amount-up', '#8b5cf6', 'Reorder Pages', 'Apply New Order', `<label style="color: var(--text-secondary);">New Page Sequence (e.g., 3, 1, 2):</label><input type="text" id="reorder-input" placeholder="e.g. 3, 1, 2" style="${inputStyle}">`);
@@ -79,36 +78,29 @@ if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f
 if (ui.metadata) ui.metadata.innerHTML = generateSingleFileUI('metadata', 'fa-info-circle', '#eab308', 'Edit Metadata', 'Update Metadata', `<input type="text" id="meta-title" placeholder="New Document Title" style="${inputStyle}"><input type="text" id="meta-author" placeholder="New Author Name" style="${inputStyle}">`);
 if (ui.repair) ui.repair.innerHTML = generateSingleFileUI('repair', 'fa-tools', '#10b981', 'Repair PDF', 'Attempt Repair');
 
-// New Custom Single File Additions (Bundle 5)
+// New Custom Single File Additions (Bundle 6)
 if (ui.addtext) ui.addtext.innerHTML = generateSingleFileUI('addtext', 'fa-font', '#6366f1', 'Add Text', 'Embed Text', `
     <input type="text" id="addtext-string" placeholder="Enter Text to add" style="${inputStyle}">
     <div style="display:flex; gap:10px;">
-        <input type="number" id="addtext-page" placeholder="Page Number" value="1" style="${inputStyle}">
+        <input type="number" id="addtext-page" placeholder="Page Number (e.g. 1)" value="1" style="${inputStyle}">
         <input type="number" id="addtext-size" placeholder="Font Size" value="14" style="${inputStyle}">
     </div>
     <div style="display:flex; gap:10px;">
-        <input type="number" id="addtext-x" placeholder="X Coordinate" value="50" style="${inputStyle}">
-        <input type="number" id="addtext-y" placeholder="Y Coordinate" value="50" style="${inputStyle}">
+        <input type="number" id="addtext-x" placeholder="X Coord" value="50" style="${inputStyle}">
+        <input type="number" id="addtext-y" placeholder="Y Coord" value="50" style="${inputStyle}">
     </div>
 `);
-
 if (ui.addblank) ui.addblank.innerHTML = generateSingleFileUI('addblank', 'fa-file-medical', '#10b981', 'Insert Blank Page', 'Insert & Download', `
-    <label style="color: var(--text-secondary);">Insertion Placement:</label>
-    <select id="addblank-position" style="${inputStyle}">
-        <option value="start">At the very beginning</option>
-        <option value="end">At the very end</option>
-    </select>
+    <select id="addblank-position" style="${inputStyle}"><option value="start">At the very beginning</option><option value="end">At the very end</option></select>
 `);
-
 if (ui.resizepdf) ui.resizepdf.innerHTML = generateSingleFileUI('resizepdf', 'fa-expand-arrows-alt', '#14b8a6', 'Resize Pages', 'Scale Document', `
-    <label style="color: var(--text-secondary);">Target Dimensions Profile:</label>
-    <select id="resize-profile" style="${inputStyle}">
-        <option value="A4">A4 Profile (595 x 842 pts)</option>
-        <option value="Letter">Letter Profile (612 x 792 pts)</option>
-        <option value="Legal">Legal Profile (612 x 1008 pts)</option>
-    </select>
+    <select id="resize-profile" style="${inputStyle}"><option value="A4">A4 Profile</option><option value="Letter">Letter Profile</option><option value="Legal">Legal Profile</option></select>
 `);
-
+if (ui.splitevenodd) ui.splitevenodd.innerHTML = generateSingleFileUI('splitevenodd', 'fa-columns', '#6366f1', 'Split Even/Odd', 'Split & Download ZIP');
+if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', 'Add Margins', `
+    <input type="number" id="margin-size" placeholder="Margin size (points) e.g. 30" value="30" style="${inputStyle}">
+`);
+if (ui.removeannots) ui.removeannots.innerHTML = generateSingleFileUI('removeannots', 'fa-eraser', '#8b5cf6', 'Clean Annotations', 'Remove All');
 
 // --- UTILITIES & COMMON SINGLE FILE HANDLER ---
 function downloadBlob(bytes, filename, type) {
@@ -179,6 +171,64 @@ function setupSingleFileLogic(id, actionCallback) {
 
 // --- LOGIC IMPLEMENTATIONS ---
 
+// Split Even/Odd
+setupSingleFileLogic('splitevenodd', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const srcDoc = await PDFDocument.load(arrayBuffer);
+    const oddDoc = await PDFDocument.create();
+    const evenDoc = await PDFDocument.create();
+    
+    let oddIndices = [], evenIndices = [];
+    for(let i=0; i<srcDoc.getPageCount(); i++) {
+        if(i % 2 === 0) oddIndices.push(i); // i=0 is page 1 (odd)
+        else evenIndices.push(i);
+    }
+    
+    const zip = new JSZip();
+    
+    if(oddIndices.length) {
+        const oddPages = await oddDoc.copyPages(srcDoc, oddIndices);
+        oddPages.forEach(p => oddDoc.addPage(p));
+        zip.file("Odd_Pages.pdf", await oddDoc.save());
+    }
+    if(evenIndices.length) {
+        const evenPages = await evenDoc.copyPages(srcDoc, evenIndices);
+        evenPages.forEach(p => evenDoc.addPage(p));
+        zip.file("Even_Pages.pdf", await evenDoc.save());
+    }
+    
+    downloadBlob(await zip.generateAsync({ type: 'blob' }), 'Amazing_EvenOdd.zip', 'application/zip');
+});
+
+// Add Margins
+setupSingleFileLogic('addmargins', async (file) => {
+    const margin = parseInt(document.getElementById('margin-size').value) || 30;
+    const arrayBuffer = await file.arrayBuffer();
+    const doc = await PDFDocument.load(arrayBuffer);
+    
+    doc.getPages().forEach(page => {
+        const { width, height } = page.getSize();
+        page.setSize(width + (margin * 2), height + (margin * 2));
+        page.translateContent(margin, margin);
+    });
+    
+    downloadBlob(await doc.save(), 'Amazing_Margined.pdf', 'application/pdf');
+});
+
+// Remove Annotations
+setupSingleFileLogic('removeannots', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const doc = await PDFDocument.load(arrayBuffer);
+    
+    doc.getPages().forEach(page => {
+        if(page.node.Annots) {
+            page.node.delete(PDFName.of('Annots'));
+        }
+    });
+    
+    downloadBlob(await doc.save(), 'Amazing_Cleaned.pdf', 'application/pdf');
+});
+
 // Add Text
 setupSingleFileLogic('addtext', async (file) => {
     const text = document.getElementById('addtext-string').value;
@@ -186,18 +236,12 @@ setupSingleFileLogic('addtext', async (file) => {
     const fSize = parseInt(document.getElementById('addtext-size').value) || 14;
     const xCoord = parseInt(document.getElementById('addtext-x').value) || 50;
     const yCoord = parseInt(document.getElementById('addtext-y').value) || 50;
-
     if(!text) throw new Error("Text content string is required");
-
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-    if(targetPage < 0 || targetPage >= pdfDoc.getPageCount()) throw new Error("Invalid target page index alignment.");
-
-    const page = pdfDoc.getPages()[targetPage];
-    page.drawText(text, { x: xCoord, y: yCoord, size: fSize, font: font, color: rgb(0,0,0) });
-
+    if(targetPage < 0 || targetPage >= pdfDoc.getPageCount()) throw new Error("Invalid target page.");
+    pdfDoc.getPages()[targetPage].drawText(text, { x: xCoord, y: yCoord, size: fSize, font: font, color: rgb(0,0,0) });
     downloadBlob(await pdfDoc.save(), 'Amazing_Text_Added.pdf', 'application/pdf');
 });
 
@@ -206,14 +250,8 @@ setupSingleFileLogic('addblank', async (file) => {
     const position = document.getElementById('addblank-position').value;
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
-
-    if (position === 'start') {
-        pdfDoc.insertPage(0);
-    } else {
-        pdfDoc.addPage();
-    }
-
-    downloadBlob(await pdfDoc.save(), 'Amazing_BlankPage_Added.pdf', 'application/pdf');
+    if (position === 'start') pdfDoc.insertPage(0); else pdfDoc.addPage();
+    downloadBlob(await pdfDoc.save(), 'Amazing_BlankPage.pdf', 'application/pdf');
 });
 
 // Resize PDF Pages
@@ -221,15 +259,10 @@ setupSingleFileLogic('resizepdf', async (file) => {
     const profile = document.getElementById('resize-profile').value;
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
-
-    let targetWidth = 595.28, targetHeight = 841.89; // Default A4
-    if (profile === 'Letter') { targetWidth = 612; targetHeight = 792; }
-    if (profile === 'Legal') { targetWidth = 612; targetHeight = 1008; }
-
-    pdfDoc.getPages().forEach(page => {
-        page.setSize(targetWidth, targetHeight);
-    });
-
+    let tw = 595.28, th = 841.89;
+    if (profile === 'Letter') { tw = 612; th = 792; }
+    if (profile === 'Legal') { tw = 612; th = 1008; }
+    pdfDoc.getPages().forEach(page => page.setSize(tw, th));
     downloadBlob(await pdfDoc.save(), 'Amazing_Resized.pdf', 'application/pdf');
 });
 
