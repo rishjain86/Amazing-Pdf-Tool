@@ -320,12 +320,34 @@ setupSingleFileLogic('sign', async (file) => {
     return { bytes: await pdfDoc.save(), filename: 'Amazing_Signed.pdf', type: 'application/pdf' };
 });
 
+// Protect PDF LOGIC (Stable Method)
 setupSingleFileLogic('protect', async (file) => {
     const password = document.getElementById('protect-password').value;
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
-    await pdfDoc.encrypt({ userPassword: password, ownerPassword: password });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
+    if (!password) throw new Error("Password required");
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    
+    // Stable method: save() ke options mein encryption pass karein
+    const pdfBytes = await pdfDoc.save({
+        userPassword: password,
+        ownerPassword: password,
+        encrypt: {
+            userPassword: password,
+            ownerPassword: password,
+            permissions: {
+                printing: 'highResolution',
+                modifying: false,
+                copying: false,
+                annotating: false,
+                fillingForms: false,
+                documentAssembly: false,
+            }
+        }
+    });
+    
+    return { bytes: pdfBytes, filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
 });
+
 
 setupSingleFileLogic('unlock', async (file) => {
     const password = document.getElementById('unlock-password').value;
