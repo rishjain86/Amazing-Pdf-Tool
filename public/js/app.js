@@ -20,7 +20,8 @@ window.switchView = (viewId) => {
 const views = [
     'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
     'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
-    'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf'
+    'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf',
+    'addtext', 'addblank', 'resizepdf'
 ];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
@@ -45,11 +46,10 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
     </div>
 `;
 
-// Inject Multi-file UIs
+// Inject Multi-file/Custom UIs
 if (ui.merge) ui.merge.innerHTML = `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
 if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
 
-// HTML to PDF uses a completely different UI (Text Area instead of file dropzone)
 if (ui.htmltopdf) {
     ui.htmltopdf.innerHTML = `
         <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
@@ -78,6 +78,37 @@ if (ui.flatten) ui.flatten.innerHTML = generateSingleFileUI('flatten', 'fa-layer
 if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f6', 'Crop PDF', 'Crop Pages', `<label style="color: var(--text-secondary);">Margin trim (in points):</label><input type="number" id="crop-margin" placeholder="e.g. 20" style="${inputStyle}">`);
 if (ui.metadata) ui.metadata.innerHTML = generateSingleFileUI('metadata', 'fa-info-circle', '#eab308', 'Edit Metadata', 'Update Metadata', `<input type="text" id="meta-title" placeholder="New Document Title" style="${inputStyle}"><input type="text" id="meta-author" placeholder="New Author Name" style="${inputStyle}">`);
 if (ui.repair) ui.repair.innerHTML = generateSingleFileUI('repair', 'fa-tools', '#10b981', 'Repair PDF', 'Attempt Repair');
+
+// New Custom Single File Additions (Bundle 5)
+if (ui.addtext) ui.addtext.innerHTML = generateSingleFileUI('addtext', 'fa-font', '#6366f1', 'Add Text', 'Embed Text', `
+    <input type="text" id="addtext-string" placeholder="Enter Text to add" style="${inputStyle}">
+    <div style="display:flex; gap:10px;">
+        <input type="number" id="addtext-page" placeholder="Page Number" value="1" style="${inputStyle}">
+        <input type="number" id="addtext-size" placeholder="Font Size" value="14" style="${inputStyle}">
+    </div>
+    <div style="display:flex; gap:10px;">
+        <input type="number" id="addtext-x" placeholder="X Coordinate" value="50" style="${inputStyle}">
+        <input type="number" id="addtext-y" placeholder="Y Coordinate" value="50" style="${inputStyle}">
+    </div>
+`);
+
+if (ui.addblank) ui.addblank.innerHTML = generateSingleFileUI('addblank', 'fa-file-medical', '#10b981', 'Insert Blank Page', 'Insert & Download', `
+    <label style="color: var(--text-secondary);">Insertion Placement:</label>
+    <select id="addblank-position" style="${inputStyle}">
+        <option value="start">At the very beginning</option>
+        <option value="end">At the very end</option>
+    </select>
+`);
+
+if (ui.resizepdf) ui.resizepdf.innerHTML = generateSingleFileUI('resizepdf', 'fa-expand-arrows-alt', '#14b8a6', 'Resize Pages', 'Scale Document', `
+    <label style="color: var(--text-secondary);">Target Dimensions Profile:</label>
+    <select id="resize-profile" style="${inputStyle}">
+        <option value="A4">A4 Profile (595 x 842 pts)</option>
+        <option value="Letter">Letter Profile (612 x 792 pts)</option>
+        <option value="Legal">Legal Profile (612 x 1008 pts)</option>
+    </select>
+`);
+
 
 // --- UTILITIES & COMMON SINGLE FILE HANDLER ---
 function downloadBlob(bytes, filename, type) {
@@ -148,19 +179,70 @@ function setupSingleFileLogic(id, actionCallback) {
 
 // --- LOGIC IMPLEMENTATIONS ---
 
+// Add Text
+setupSingleFileLogic('addtext', async (file) => {
+    const text = document.getElementById('addtext-string').value;
+    const targetPage = parseInt(document.getElementById('addtext-page').value) - 1;
+    const fSize = parseInt(document.getElementById('addtext-size').value) || 14;
+    const xCoord = parseInt(document.getElementById('addtext-x').value) || 50;
+    const yCoord = parseInt(document.getElementById('addtext-y').value) || 50;
+
+    if(!text) throw new Error("Text content string is required");
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    if(targetPage < 0 || targetPage >= pdfDoc.getPageCount()) throw new Error("Invalid target page index alignment.");
+
+    const page = pdfDoc.getPages()[targetPage];
+    page.drawText(text, { x: xCoord, y: yCoord, size: fSize, font: font, color: rgb(0,0,0) });
+
+    downloadBlob(await pdfDoc.save(), 'Amazing_Text_Added.pdf', 'application/pdf');
+});
+
+// Add Blank Page
+setupSingleFileLogic('addblank', async (file) => {
+    const position = document.getElementById('addblank-position').value;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+    if (position === 'start') {
+        pdfDoc.insertPage(0);
+    } else {
+        pdfDoc.addPage();
+    }
+
+    downloadBlob(await pdfDoc.save(), 'Amazing_BlankPage_Added.pdf', 'application/pdf');
+});
+
+// Resize PDF Pages
+setupSingleFileLogic('resizepdf', async (file) => {
+    const profile = document.getElementById('resize-profile').value;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+    let targetWidth = 595.28, targetHeight = 841.89; // Default A4
+    if (profile === 'Letter') { targetWidth = 612; targetHeight = 792; }
+    if (profile === 'Legal') { targetWidth = 612; targetHeight = 1008; }
+
+    pdfDoc.getPages().forEach(page => {
+        page.setSize(targetWidth, targetHeight);
+    });
+
+    downloadBlob(await pdfDoc.save(), 'Amazing_Resized.pdf', 'application/pdf');
+});
+
 // Reorder Pages
 setupSingleFileLogic('reorder', async (file) => {
     const orderStr = document.getElementById('reorder-input').value;
     if (!orderStr) throw new Error("Order sequence is required");
     const indices = orderStr.split(',').map(n => parseInt(n.trim()) - 1);
-    
     const arrayBuffer = await file.arrayBuffer();
     const sourcePdf = await PDFDocument.load(arrayBuffer);
     const newPdf = await PDFDocument.create();
-    
     const copiedPages = await newPdf.copyPages(sourcePdf, indices);
     copiedPages.forEach(p => newPdf.addPage(p));
-    
     downloadBlob(await newPdf.save(), 'Amazing_Reordered.pdf', 'application/pdf');
 });
 
@@ -170,54 +252,29 @@ setupSingleFileLogic('imagewatermark', async (file) => {
     if (!imgInput.files.length) throw new Error("Please select an image to overlay.");
     const imgFile = imgInput.files[0];
     const imgBuffer = await imgFile.arrayBuffer();
-
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
-
-    let pdfImg;
-    if (imgFile.type === 'image/png') pdfImg = await pdfDoc.embedPng(imgBuffer);
-    else if (imgFile.type === 'image/jpeg' || imgFile.type === 'image/jpg') pdfImg = await pdfDoc.embedJpg(imgBuffer);
-    else throw new Error("Unsupported image format.");
-
-    const dims = pdfImg.scale(0.5); // Scale image down
-
+    let pdfImg = imgFile.type === 'image/png' ? await pdfDoc.embedPng(imgBuffer) : await pdfDoc.embedJpg(imgBuffer);
+    const dims = pdfImg.scale(0.5);
     pdfDoc.getPages().forEach(page => {
         const { width, height } = page.getSize();
-        page.drawImage(pdfImg, {
-            x: width / 2 - dims.width / 2,
-            y: height / 2 - dims.height / 2,
-            width: dims.width,
-            height: dims.height,
-            opacity: 0.5
-        });
+        page.drawImage(pdfImg, { x: width / 2 - dims.width / 2, y: height / 2 - dims.height / 2, width: dims.width, height: dims.height, opacity: 0.5 });
     });
-    
     downloadBlob(await pdfDoc.save(), 'Amazing_ImgWatermark.pdf', 'application/pdf');
 });
 
-// HTML to PDF (No PDF input required)
+// HTML to PDF Code Trigger Logic
 if (ui.htmltopdf) {
     document.getElementById('btn-htmltopdf-action').addEventListener('click', async () => {
         const htmlContent = document.getElementById('html-input').value;
         if (!htmlContent) return alert("Please enter HTML code.");
-        
         const btn = document.getElementById('btn-htmltopdf-action');
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
-        
         try {
-            const opt = { 
-                margin: 1, 
-                filename: 'Amazing_Converted.pdf', 
-                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
-            };
-            await html2pdf().set(opt).from(htmlContent).save();
+            await html2pdf().set({ margin: 1, filename: 'Amazing_Converted.pdf', jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } }).from(htmlContent).save();
             await AdManager.showInterstitial();
-        } catch(e) {
-            alert("Error converting HTML to PDF.");
-        } finally {
-            btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF';
-            document.getElementById('html-input').value = '';
-        }
+        } catch(e) { alert("Error converting HTML."); }
+        finally { btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; document.getElementById('html-input').value = ''; }
     });
 }
 
