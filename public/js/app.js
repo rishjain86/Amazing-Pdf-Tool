@@ -4,14 +4,10 @@ import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
 window.switchView = (viewId) => {
-    // Update active nav buttons
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    
-    // Find the button that triggered this and make it active
     const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
     if(activeBtn) activeBtn.classList.add('active');
 
-    // Switch section visibility
     document.querySelectorAll('.view-section').forEach(view => {
         view.classList.remove('active');
     });
@@ -24,14 +20,15 @@ const splitContainer = document.getElementById('split-ui-container');
 const compressContainer = document.getElementById('compress-ui-container');
 const jpgtopdfContainer = document.getElementById('jpgtopdf-ui-container');
 const protectContainer = document.getElementById('protect-ui-container');
+const unlockContainer = document.getElementById('unlock-ui-container');
 
-// Common CSS for injected elements (Using inline styles to ensure it works immediately)
+// Common CSS for injected elements
 const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; background: rgba(59, 130, 246, 0.05); transition: 0.3s; margin-bottom: 20px;";
 const btnStyle = "background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 15px;";
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
 
-// Inject Merge UI
+// Inject UI Elements
 if (mergeContainer) {
     mergeContainer.innerHTML = `
         <div id="merge-drop-zone" style="${dropZoneStyle}">
@@ -45,7 +42,6 @@ if (mergeContainer) {
     `;
 }
 
-// Inject Split UI
 if (splitContainer) {
     splitContainer.innerHTML = `
         <div id="split-drop-zone" style="${dropZoneStyle}">
@@ -62,7 +58,6 @@ if (splitContainer) {
     `;
 }
 
-// Inject Compress UI
 if (compressContainer) {
     compressContainer.innerHTML = `
         <div id="compress-drop-zone" style="${dropZoneStyle}">
@@ -82,7 +77,6 @@ if (compressContainer) {
     `;
 }
 
-// Inject JPG to PDF UI
 if (jpgtopdfContainer) {
     jpgtopdfContainer.innerHTML = `
         <div id="jpgtopdf-drop-zone" style="${dropZoneStyle}">
@@ -96,7 +90,6 @@ if (jpgtopdfContainer) {
     `;
 }
 
-// Inject Protect PDF UI
 if (protectContainer) {
     protectContainer.innerHTML = `
         <div id="protect-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#8b5cf6')}">
@@ -113,6 +106,22 @@ if (protectContainer) {
     `;
 }
 
+if (unlockContainer) {
+    unlockContainer.innerHTML = `
+        <div id="unlock-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#06b6d4')}">
+            <i class="fas fa-unlock" style="font-size: 3rem; color: #06b6d4; margin-bottom: 15px;"></i>
+            <h3>Select PDF to Unlock</h3>
+            <input type="file" id="unlock-file-input" accept="application/pdf" style="display: none;">
+        </div>
+        <div id="unlock-file-info" style="${fileListStyle}"></div>
+        <div id="unlock-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Enter current password to remove it:</label>
+            <input type="password" id="unlock-password" placeholder="Enter current PDF password" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: transparent; color: white; margin-bottom: 15px;">
+            <button id="btn-unlock-action" style="${btnStyle.replace('var(--accent)', '#06b6d4')}"><i class="fas fa-unlock"></i> Unlock & Download</button>
+        </div>
+    `;
+}
+
 // --- MERGE LOGIC ---
 let mergeFiles = [];
 const mergeDropZone = document.getElementById('merge-drop-zone');
@@ -122,13 +131,11 @@ const btnMergeAction = document.getElementById('btn-merge-action');
 
 if (mergeDropZone) {
     mergeDropZone.addEventListener('click', () => mergeInput.click());
-    mergeInput.addEventListener('change', (e) => handleMergeFiles(e.target.files));
-
-    function handleMergeFiles(files) {
-        const pdfs = Array.from(files).filter(f => f.type === 'application/pdf');
+    mergeInput.addEventListener('change', (e) => {
+        const pdfs = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
         mergeFiles = [...mergeFiles, ...pdfs];
         renderMergeList();
-    }
+    });
 
     function renderMergeList() {
         mergeList.innerHTML = '';
@@ -172,14 +179,11 @@ if (mergeDropZone) {
             
             const pdfBytes = await mergedPdf.save();
             downloadBlob(pdfBytes, 'Amazing_Merged.pdf', 'application/pdf');
-            
             await AdManager.showInterstitial();
-            
             mergeFiles = [];
             renderMergeList();
         } catch (error) {
             alert("Error during merge. File might be encrypted.");
-            console.error(error);
         } finally {
             btnMergeAction.innerHTML = '<i class="fas fa-object-group"></i> Merge Files Now';
         }
@@ -201,7 +205,6 @@ if (splitDropZone) {
         if (file && file.type === 'application/pdf') {
             splitFile = file;
             splitDropZone.style.display = 'none';
-            
             splitInfo.innerHTML = `
                 <div style="${fileItemStyle}">
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -249,14 +252,11 @@ if (splitDropZone) {
             
             const pdfBytes = await newPdf.save();
             downloadBlob(pdfBytes, 'Amazing_Split.pdf', 'application/pdf');
-            
             await AdManager.showInterstitial();
-            
             resetSplit();
             document.getElementById('split-ranges').value = '';
         } catch (error) {
             alert("Error extracting pages. Ensure page numbers are correct.");
-            console.error(error);
         } finally {
             btnSplitAction.innerHTML = '<i class="fas fa-cut"></i> Split & Download';
         }
@@ -315,15 +315,11 @@ if (compressDropZone) {
             copiedPages.forEach((page) => newPdf.addPage(page));
             
             const pdfBytes = await newPdf.save({ useObjectStreams: true });
-            
             downloadBlob(pdfBytes, 'Amazing_Compressed.pdf', 'application/pdf');
-            
             await AdManager.showInterstitial();
-            
             resetCompress();
         } catch (error) {
-            alert("Error compressing PDF. File might be encrypted.");
-            console.error(error);
+            alert("Error compressing PDF.");
         } finally {
             btnCompressAction.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Compress PDF';
         }
@@ -339,13 +335,11 @@ const btnImgAction = document.getElementById('btn-jpgtopdf-action');
 
 if (imgDropZone) {
     imgDropZone.addEventListener('click', () => imgInput.click());
-    imgInput.addEventListener('change', (e) => handleImageFiles(e.target.files));
-
-    function handleImageFiles(files) {
-        const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
+    imgInput.addEventListener('change', (e) => {
+        const imgs = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
         imageFiles = [...imageFiles, ...imgs];
         renderImageList();
-    }
+    });
 
     function renderImageList() {
         imgList.innerHTML = '';
@@ -380,39 +374,26 @@ if (imgDropZone) {
         
         try {
             const pdfDoc = await PDFDocument.create();
-            
             for (const file of imageFiles) {
                 const arrayBuffer = await file.arrayBuffer();
                 let pdfImage;
-                
                 if (file.type === 'image/png') {
                     pdfImage = await pdfDoc.embedPng(arrayBuffer);
                 } else if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
                     pdfImage = await pdfDoc.embedJpg(arrayBuffer);
-                } else {
-                    continue; // Skip unsupported
-                }
+                } else continue;
 
                 const imgDims = pdfImage.scale(1);
                 const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
-                page.drawImage(pdfImage, {
-                    x: 0,
-                    y: 0,
-                    width: imgDims.width,
-                    height: imgDims.height,
-                });
+                page.drawImage(pdfImage, { x: 0, y: 0, width: imgDims.width, height: imgDims.height });
             }
-            
             const pdfBytes = await pdfDoc.save();
             downloadBlob(pdfBytes, 'Amazing_Images.pdf', 'application/pdf');
-            
             await AdManager.showInterstitial();
-            
             imageFiles = [];
             renderImageList();
         } catch (error) {
             alert("Error converting images to PDF.");
-            console.error(error);
         } finally {
             btnImgAction.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
         }
@@ -434,7 +415,6 @@ if (protectDropZone) {
         if (file && file.type === 'application/pdf') {
             protectFile = file;
             protectDropZone.style.display = 'none';
-            
             protectInfo.innerHTML = `
                 <div style="${fileItemStyle}">
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -459,38 +439,87 @@ if (protectDropZone) {
 
     btnProtectAction.addEventListener('click', async () => {
         const password = document.getElementById('protect-password').value;
-        if (!protectFile || !password) return alert("Please enter a valid password.");
+        if (!protectFile || !password) return alert("Please enter a password.");
         
         btnProtectAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Encrypting...';
         try {
             const arrayBuffer = await protectFile.arrayBuffer();
             const pdfDoc = await PDFDocument.load(arrayBuffer);
-            
-            // Encrypting the document with AES encryption via pdf-lib
             await pdfDoc.encrypt({
                 userPassword: password,
                 ownerPassword: password,
-                permissions: {
-                    printing: 'highResolution',
-                    modifying: false,
-                    copying: false,
-                    annotating: false,
-                    fillingForms: false,
-                    documentAssembly: false,
-                },
+                permissions: { printing: 'highResolution', modifying: false, copying: false, annotating: false, fillingForms: false, documentAssembly: false },
             });
-            
             const pdfBytes = await pdfDoc.save();
             downloadBlob(pdfBytes, 'Amazing_Protected.pdf', 'application/pdf');
-            
             await AdManager.showInterstitial();
-            
             resetProtect();
         } catch (error) {
-            alert("Error encrypting PDF. Ensure the file is valid and not already protected.");
-            console.error(error);
+            alert("Error encrypting PDF. File might be already protected.");
         } finally {
             btnProtectAction.innerHTML = '<i class="fas fa-shield-alt"></i> Encrypt PDF';
+        }
+    });
+}
+
+// --- UNLOCK PDF LOGIC ---
+let unlockFile = null;
+const unlockDropZone = document.getElementById('unlock-drop-zone');
+const unlockInput = document.getElementById('unlock-file-input');
+const unlockInfo = document.getElementById('unlock-file-info');
+const unlockControls = document.getElementById('unlock-controls');
+const btnUnlockAction = document.getElementById('btn-unlock-action');
+
+if (unlockDropZone) {
+    unlockDropZone.addEventListener('click', () => unlockInput.click());
+    unlockInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            unlockFile = file;
+            unlockDropZone.style.display = 'none';
+            unlockInfo.innerHTML = `
+                <div style="${fileItemStyle}">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
+                        <div style="font-weight: 600;">${file.name}</div>
+                    </div>
+                    <button onclick="resetUnlock()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+            unlockControls.style.display = 'block';
+        }
+    });
+
+    window.resetUnlock = () => {
+        unlockFile = null;
+        unlockInput.value = '';
+        unlockDropZone.style.display = 'block';
+        unlockInfo.innerHTML = '';
+        unlockControls.style.display = 'none';
+        document.getElementById('unlock-password').value = '';
+    };
+
+    btnUnlockAction.addEventListener('click', async () => {
+        const password = document.getElementById('unlock-password').value;
+        if (!unlockFile || !password) return alert("Please enter the current password to unlock.");
+        
+        btnUnlockAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unlocking...';
+        try {
+            const arrayBuffer = await unlockFile.arrayBuffer();
+            // Load the PDF using the provided password
+            const pdfDoc = await PDFDocument.load(arrayBuffer, { password: password });
+            
+            // Saving it without encryption options permanently unlocks it
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(pdfBytes, 'Amazing_Unlocked.pdf', 'application/pdf');
+            
+            await AdManager.showInterstitial();
+            resetUnlock();
+        } catch (error) {
+            alert("Error unlocking PDF. The password might be incorrect.");
+            console.error(error);
+        } finally {
+            btnUnlockAction.innerHTML = '<i class="fas fa-unlock"></i> Unlock & Download';
         }
     });
 }
