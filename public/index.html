@@ -23,12 +23,12 @@
                 <div class="nav-section-title">Core Tools</div>
                 <button class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</button>
                 <button class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</button>
+                <button class="nav-btn" onclick="switchView('splitevenodd')"><i class="fas fa-columns"></i> Split Even/Odd</button>
                 <button class="nav-btn" onclick="switchView('delete')"><i class="fas fa-trash-alt"></i> Delete Pages</button>
                 <button class="nav-btn" onclick="switchView('reorder')"><i class="fas fa-sort-amount-up"></i> Reorder Pages</button>
                 <button class="nav-btn" onclick="switchView('addblank')"><i class="fas fa-file-medical"></i> Add Blank Page</button>
                 <button class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
                 <button class="nav-btn" onclick="switchView('rotate')"><i class="fas fa-sync-alt"></i> Rotate PDF</button>
-                <button class="nav-btn" onclick="switchView('crop')"><i class="fas fa-crop"></i> Crop PDF</button>
                 <button class="nav-btn" onclick="switchView('resizepdf')"><i class="fas fa-expand-arrows-alt"></i> Resize Pages</button>
                 <button class="nav-btn" onclick="switchView('repair')"><i class="fas fa-tools"></i> Repair PDF</button>
                 
@@ -41,13 +41,16 @@
                 <div class="nav-section-title">Edit & Security</div>
                 <button class="nav-btn" onclick="switchView('addtext')"><i class="fas fa-font"></i> Add Text</button>
                 <button class="nav-btn" onclick="switchView('pagenumbers')"><i class="fas fa-sort-numeric-down"></i> Page Numbers</button>
+                <button class="nav-btn" onclick="switchView('addmargins')"><i class="fas fa-border-all"></i> Add Margins</button>
+                <button class="nav-btn" onclick="switchView('crop')"><i class="fas fa-crop"></i> Crop PDF</button>
                 <button class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Text Watermark</button>
                 <button class="nav-btn" onclick="switchView('imagewatermark')"><i class="fas fa-images"></i> Image Watermark</button>
                 <button class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</button>
+                <button class="nav-btn" onclick="switchView('removeannots')"><i class="fas fa-eraser"></i> Clean Annotations</button>
                 <button class="nav-btn" onclick="switchView('metadata')"><i class="fas fa-info-circle"></i> Edit Metadata</button>
+                <button class="nav-btn" onclick="switchView('flatten')"><i class="fas fa-layer-group"></i> Flatten PDF</button>
                 <button class="nav-btn" onclick="switchView('protect')"><i class="fas fa-lock"></i> Protect PDF</button>
                 <button class="nav-btn" onclick="switchView('unlock')"><i class="fas fa-unlock"></i> Unlock PDF</button>
-                <button class="nav-btn" onclick="switchView('flatten')"><i class="fas fa-layer-group"></i> Flatten PDF</button>
             </nav>
         </aside>
 
@@ -74,25 +77,9 @@
                         <div class="tool-icon" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1);"><i class="fas fa-cut"></i></div>
                         <h3>Split PDF</h3><p>Extract specific pages into independent files.</p>
                     </div>
-                    <div class="tool-card glass" onclick="switchView('reorder')">
-                        <div class="tool-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);"><i class="fas fa-sort-amount-up"></i></div>
-                        <h3>Reorder Pages</h3><p>Change the sequence of pages in your PDF.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('addblank')">
-                        <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-file-medical"></i></div>
-                        <h3>Add Blank Page</h3><p>Insert empty white pages anywhere inside your document.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('addtext')">
-                        <div class="tool-icon" style="color: #6366f1; background: rgba(99, 102, 241, 0.1);"><i class="fas fa-font"></i></div>
-                        <h3>Add Text</h3><p>Type and embed text formatting onto your PDF document.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('resizepdf')">
-                        <div class="tool-icon" style="color: #14b8a6; background: rgba(20, 184, 166, 0.1);"><i class="fas fa-expand-arrows-alt"></i></div>
-                        <h3>Resize Pages</h3><p>Configure and scale layout dimensions to A4, Letter, etc.</p>
-                    </div>
-                    <div class="tool-card glass" onclick="switchView('delete')">
-                        <div class="tool-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fas fa-trash-alt"></i></div>
-                        <h3>Delete Pages</h3><p>Remove unwanted pages from your PDF file.</p>
+                    <div class="tool-card glass" onclick="switchView('splitevenodd')">
+                        <div class="tool-icon" style="color: #6366f1; background: rgba(99, 102, 241, 0.1);"><i class="fas fa-columns"></i></div>
+                        <h3>Split Even/Odd</h3><p>Separate your PDF into Even and Odd pages.</p>
                     </div>
                     <div class="tool-card glass" onclick="switchView('compress')">
                         <div class="tool-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);"><i class="fas fa-compress-arrows-alt"></i></div>
@@ -106,17 +93,35 @@
                         <div class="tool-icon" style="color: #eab308; background: rgba(234, 179, 8, 0.1);"><i class="fas fa-file-image"></i></div>
                         <h3>JPG to PDF</h3><p>Convert JPG images to PDF in seconds.</p>
                     </div>
+                    <div class="tool-card glass" onclick="switchView('addmargins')">
+                        <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-border-all"></i></div>
+                        <h3>Add Margins</h3><p>Add white borders around your pages for binding.</p>
+                    </div>
+                    <div class="tool-card glass" onclick="switchView('imagewatermark')">
+                        <div class="tool-icon" style="color: #ec4899; background: rgba(236, 72, 153, 0.1);"><i class="fas fa-images"></i></div>
+                        <h3>Image Watermark</h3><p>Overlay a PNG or JPG logo onto your PDF.</p>
+                    </div>
+                    <div class="tool-card glass" onclick="switchView('removeannots')">
+                        <div class="tool-icon" style="color: #8b5cf6; background: rgba(139, 92, 246, 0.1);"><i class="fas fa-eraser"></i></div>
+                        <h3>Clean Annotations</h3><p>Strip all comments and highlights from your PDF.</p>
+                    </div>
+                    <div class="tool-card glass" onclick="switchView('protect')">
+                        <div class="tool-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.1);"><i class="fas fa-lock"></i></div>
+                        <h3>Protect PDF</h3><p>Encrypt your PDF with a password.</p>
+                    </div>
                 </div>
             </section>
 
             <section id="view-merge" class="view-section"><div class="hero-header glass"><h1>Merge PDF</h1></div><div id="merge-ui-container"></div></section>
             <section id="view-split" class="view-section"><div class="hero-header glass"><h1>Split PDF</h1></div><div id="split-ui-container"></div></section>
+            <section id="view-splitevenodd" class="view-section"><div class="hero-header glass"><h1>Split Even/Odd</h1></div><div id="splitevenodd-ui-container"></div></section>
             <section id="view-delete" class="view-section"><div class="hero-header glass"><h1>Delete Pages</h1></div><div id="delete-ui-container"></div></section>
             <section id="view-reorder" class="view-section"><div class="hero-header glass"><h1>Reorder Pages</h1></div><div id="reorder-ui-container"></div></section>
             <section id="view-addblank" class="view-section"><div class="hero-header glass"><h1>Add Blank Page</h1></div><div id="addblank-ui-container"></div></section>
             <section id="view-compress" class="view-section"><div class="hero-header glass"><h1>Compress PDF</h1></div><div id="compress-ui-container"></div></section>
             <section id="view-rotate" class="view-section"><div class="hero-header glass"><h1>Rotate PDF</h1></div><div id="rotate-ui-container"></div></section>
             <section id="view-crop" class="view-section"><div class="hero-header glass"><h1>Crop PDF</h1></div><div id="crop-ui-container"></div></section>
+            <section id="view-addmargins" class="view-section"><div class="hero-header glass"><h1>Add Margins</h1></div><div id="addmargins-ui-container"></div></section>
             <section id="view-resizepdf" class="view-section"><div class="hero-header glass"><h1>Resize PDF Pages</h1></div><div id="resizepdf-ui-container"></div></section>
             <section id="view-pdftojpg" class="view-section"><div class="hero-header glass"><h1>PDF to JPG</h1></div><div id="pdftojpg-ui-container"></div></section>
             <section id="view-htmltopdf" class="view-section"><div class="hero-header glass"><h1>HTML to PDF</h1></div><div id="htmltopdf-ui-container"></div></section>
@@ -127,6 +132,7 @@
             <section id="view-watermark" class="view-section"><div class="hero-header glass"><h1>Text Watermark</h1></div><div id="watermark-ui-container"></div></section>
             <section id="view-imagewatermark" class="view-section"><div class="hero-header glass"><h1>Image Watermark</h1></div><div id="imagewatermark-ui-container"></div></section>
             <section id="view-sign" class="view-section"><div class="hero-header glass"><h1>Sign PDF</h1></div><div id="sign-ui-container"></div></section>
+            <section id="view-removeannots" class="view-section"><div class="hero-header glass"><h1>Clean Annotations</h1></div><div id="removeannots-ui-container"></div></section>
             <section id="view-repair" class="view-section"><div class="hero-header glass"><h1>Repair PDF</h1></div><div id="repair-ui-container"></div></section>
             <section id="view-metadata" class="view-section"><div class="hero-header glass"><h1>Edit Metadata</h1></div><div id="metadata-ui-container"></div></section>
             <section id="view-protect" class="view-section"><div class="hero-header glass"><h1>Protect PDF</h1></div><div id="protect-ui-container"></div></section>
