@@ -1,7 +1,7 @@
 import { PDFDocument, degrees, StandardFonts, rgb } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
-import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm'; // For zipping JPGs
+import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 import { AdManager } from './adManager.js';
 
 // --- GLOBAL ROUTING ---
@@ -17,7 +17,7 @@ window.switchView = (viewId) => {
 };
 
 // --- DYNAMIC UI INJECTION ---
-const views = ['merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten'];
+const views = ['merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 'crop', 'metadata', 'repair'];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
 
@@ -58,6 +58,9 @@ if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-
 if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text (e.g., CONFIDENTIAL)" style="${inputStyle}">`);
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
 if (ui.flatten) ui.flatten.innerHTML = generateSingleFileUI('flatten', 'fa-layer-group', '#64748b', 'Flatten', 'Flatten Document');
+if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f6', 'Crop PDF', 'Crop Pages', `<label style="color: var(--text-secondary);">Margin trim (in points):</label><input type="number" id="crop-margin" placeholder="e.g. 20" style="${inputStyle}">`);
+if (ui.metadata) ui.metadata.innerHTML = generateSingleFileUI('metadata', 'fa-info-circle', '#eab308', 'Edit Metadata', 'Update Metadata', `<input type="text" id="meta-title" placeholder="New Document Title" style="${inputStyle}"><input type="text" id="meta-author" placeholder="New Author Name" style="${inputStyle}">`);
+if (ui.repair) ui.repair.innerHTML = generateSingleFileUI('repair', 'fa-tools', '#10b981', 'Repair PDF', 'Attempt Repair');
 
 // --- UTILITIES & COMMON SINGLE FILE HANDLER ---
 function downloadBlob(bytes, filename, type) {
@@ -133,44 +136,28 @@ setupSingleFileLogic('delete', async (file) => {
     const rangeStr = document.getElementById('delete-ranges').value;
     if (!rangeStr) throw new Error("Range required");
     const pagesToDelete = parseRange(rangeStr);
-    
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);
-    
-    // Sort descending so deleting doesn't mess up subsequent indices
     pagesToDelete.sort((a, b) => b - a).forEach(index => {
-        if (index >= 0 && index < pdfDoc.getPageCount()) {
-            pdfDoc.removePage(index);
-        }
+        if (index >= 0 && index < pdfDoc.getPageCount()) pdfDoc.removePage(index);
     });
-    
     downloadBlob(await pdfDoc.save(), 'Amazing_Deleted.pdf', 'application/pdf');
 });
 
-// PDF to JPG (ZIP export)
+// PDF to JPG
 setupSingleFileLogic('pdftojpg', async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const zip = new JSZip();
-    
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 }); // High quality scale
+        const viewport = page.getViewport({ scale: 2.0 });
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        
-        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-        
-        // Convert canvas to base64
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-        const base64Data = dataUrl.split(',')[1];
-        zip.file(`Page_${i}.jpg`, base64Data, {base64: true});
+        canvas.height = viewport.height; canvas.width = viewport.width;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+        zip.file(`Page_${i}.jpg`, canvas.toDataURL('image/jpeg', 0.9).split(',')[1], {base64: true});
     }
-    
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    downloadBlob(zipBlob, 'Amazing_Images.zip', 'application/zip');
+    downloadBlob(await zip.generateAsync({ type: 'blob' }), 'Amazing_Images.zip', 'application/zip');
 });
 
 // Flatten PDF
@@ -182,6 +169,36 @@ setupSingleFileLogic('flatten', async (file) => {
     downloadBlob(await pdfDoc.save(), 'Amazing_Flattened.pdf', 'application/pdf');
 });
 
+// Crop PDF
+setupSingleFileLogic('crop', async (file) => {
+    const margin = parseInt(document.getElementById('crop-margin').value) || 20;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    pdfDoc.getPages().forEach(page => {
+        const { x, y, width, height } = page.getCropBox() || page.getMediaBox();
+        page.setCropBox(x + margin, y + margin, width - (margin * 2), height - (margin * 2));
+    });
+    downloadBlob(await pdfDoc.save(), 'Amazing_Cropped.pdf', 'application/pdf');
+});
+
+// Edit Metadata
+setupSingleFileLogic('metadata', async (file) => {
+    const title = document.getElementById('meta-title').value;
+    const author = document.getElementById('meta-author').value;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    if(title) pdfDoc.setTitle(title);
+    if(author) pdfDoc.setAuthor(author);
+    downloadBlob(await pdfDoc.save(), 'Amazing_Metadata.pdf', 'application/pdf');
+});
+
+// Repair PDF
+setupSingleFileLogic('repair', async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+    downloadBlob(await pdfDoc.save(), 'Amazing_Repaired.pdf', 'application/pdf');
+});
+
 // Extract Text
 setupSingleFileLogic('extract', async (file) => {
     const arrayBuffer = await file.arrayBuffer();
@@ -190,11 +207,9 @@ setupSingleFileLogic('extract', async (file) => {
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(" ");
-        fullText += `--- Page ${i} ---\n${pageText}\n\n`;
+        fullText += `--- Page ${i} ---\n${textContent.items.map(item => item.str).join(" ")}\n\n`;
     }
-    const encoder = new TextEncoder();
-    downloadBlob(encoder.encode(fullText), 'Amazing_Extracted.txt', 'text/plain');
+    downloadBlob(new TextEncoder().encode(fullText), 'Amazing_Extracted.txt', 'text/plain');
 });
 
 // Watermark PDF
@@ -205,10 +220,7 @@ setupSingleFileLogic('watermark', async (file) => {
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     pdfDoc.getPages().forEach((page) => {
         const { width, height } = page.getSize();
-        page.drawText(text, {
-            x: width / 2 - (font.widthOfTextAtSize(text, 60) / 2),
-            y: height / 2, size: 60, font: font, color: rgb(0.75, 0.75, 0.75), opacity: 0.5, rotate: degrees(45),
-        });
+        page.drawText(text, { x: width / 2 - (font.widthOfTextAtSize(text, 60) / 2), y: height / 2, size: 60, font: font, color: rgb(0.75, 0.75, 0.75), opacity: 0.5, rotate: degrees(45) });
     });
     downloadBlob(await pdfDoc.save(), 'Amazing_Watermarked.pdf', 'application/pdf');
 });
