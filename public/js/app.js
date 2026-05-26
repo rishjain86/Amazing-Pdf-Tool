@@ -22,6 +22,8 @@ window.switchView = (viewId) => {
 const mergeContainer = document.getElementById('merge-ui-container');
 const splitContainer = document.getElementById('split-ui-container');
 const compressContainer = document.getElementById('compress-ui-container');
+const jpgtopdfContainer = document.getElementById('jpgtopdf-ui-container');
+const protectContainer = document.getElementById('protect-ui-container');
 
 // Common CSS for injected elements (Using inline styles to ensure it works immediately)
 const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; background: rgba(59, 130, 246, 0.05); transition: 0.3s; margin-bottom: 20px;";
@@ -76,6 +78,37 @@ if (compressContainer) {
                 <option value="extreme">Extreme Compression (Less Quality, Smallest Size)</option>
             </select>
             <button id="btn-compress-action" style="${btnStyle.replace('var(--accent)', '#10b981')}"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
+        </div>
+    `;
+}
+
+// Inject JPG to PDF UI
+if (jpgtopdfContainer) {
+    jpgtopdfContainer.innerHTML = `
+        <div id="jpgtopdf-drop-zone" style="${dropZoneStyle}">
+            <i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i>
+            <h3>Drag & Drop JPG/PNG Images</h3>
+            <p style="color: var(--text-secondary); margin-top: 5px;">or click to select files</p>
+            <input type="file" id="jpgtopdf-file-input" multiple accept="image/jpeg, image/png" style="display: none;">
+        </div>
+        <div id="jpgtopdf-file-list" style="${fileListStyle}"></div>
+        <button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>
+    `;
+}
+
+// Inject Protect PDF UI
+if (protectContainer) {
+    protectContainer.innerHTML = `
+        <div id="protect-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#8b5cf6')}">
+            <i class="fas fa-lock" style="font-size: 3rem; color: #8b5cf6; margin-bottom: 15px;"></i>
+            <h3>Select PDF to Protect</h3>
+            <input type="file" id="protect-file-input" accept="application/pdf" style="display: none;">
+        </div>
+        <div id="protect-file-info" style="${fileListStyle}"></div>
+        <div id="protect-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <label style="display: block; margin-bottom: 10px; color: var(--text-secondary);">Set Password for PDF:</label>
+            <input type="password" id="protect-password" placeholder="Enter secure password" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: transparent; color: white; margin-bottom: 15px;">
+            <button id="btn-protect-action" style="${btnStyle.replace('var(--accent)', '#8b5cf6')}"><i class="fas fa-shield-alt"></i> Encrypt PDF</button>
         </div>
     `;
 }
@@ -293,6 +326,171 @@ if (compressDropZone) {
             console.error(error);
         } finally {
             btnCompressAction.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Compress PDF';
+        }
+    });
+}
+
+// --- JPG TO PDF LOGIC ---
+let imageFiles = [];
+const imgDropZone = document.getElementById('jpgtopdf-drop-zone');
+const imgInput = document.getElementById('jpgtopdf-file-input');
+const imgList = document.getElementById('jpgtopdf-file-list');
+const btnImgAction = document.getElementById('btn-jpgtopdf-action');
+
+if (imgDropZone) {
+    imgDropZone.addEventListener('click', () => imgInput.click());
+    imgInput.addEventListener('change', (e) => handleImageFiles(e.target.files));
+
+    function handleImageFiles(files) {
+        const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
+        imageFiles = [...imageFiles, ...imgs];
+        renderImageList();
+    }
+
+    function renderImageList() {
+        imgList.innerHTML = '';
+        imageFiles.forEach((file, index) => {
+            const div = document.createElement('div');
+            div.style = fileItemStyle;
+            div.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <i class="fas fa-image" style="color: #eab308; font-size: 1.5rem;"></i>
+                    <div>
+                        <div style="font-weight: 600;">${file.name}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${(file.size/1024/1024).toFixed(2)} MB</div>
+                    </div>
+                </div>
+                <button onclick="removeImageFile(${index})" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
+            `;
+            imgList.appendChild(div);
+        });
+
+        btnImgAction.style.display = imageFiles.length > 0 ? 'block' : 'none';
+        imgDropZone.style.padding = imageFiles.length > 0 ? '20px' : '40px 20px';
+    }
+
+    window.removeImageFile = (index) => {
+        imageFiles.splice(index, 1);
+        renderImageList();
+    };
+
+    btnImgAction.addEventListener('click', async () => {
+        if (imageFiles.length === 0) return;
+        btnImgAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+        
+        try {
+            const pdfDoc = await PDFDocument.create();
+            
+            for (const file of imageFiles) {
+                const arrayBuffer = await file.arrayBuffer();
+                let pdfImage;
+                
+                if (file.type === 'image/png') {
+                    pdfImage = await pdfDoc.embedPng(arrayBuffer);
+                } else if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
+                    pdfImage = await pdfDoc.embedJpg(arrayBuffer);
+                } else {
+                    continue; // Skip unsupported
+                }
+
+                const imgDims = pdfImage.scale(1);
+                const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
+                page.drawImage(pdfImage, {
+                    x: 0,
+                    y: 0,
+                    width: imgDims.width,
+                    height: imgDims.height,
+                });
+            }
+            
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(pdfBytes, 'Amazing_Images.pdf', 'application/pdf');
+            
+            await AdManager.showInterstitial();
+            
+            imageFiles = [];
+            renderImageList();
+        } catch (error) {
+            alert("Error converting images to PDF.");
+            console.error(error);
+        } finally {
+            btnImgAction.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
+        }
+    });
+}
+
+// --- PROTECT PDF LOGIC ---
+let protectFile = null;
+const protectDropZone = document.getElementById('protect-drop-zone');
+const protectInput = document.getElementById('protect-file-input');
+const protectInfo = document.getElementById('protect-file-info');
+const protectControls = document.getElementById('protect-controls');
+const btnProtectAction = document.getElementById('btn-protect-action');
+
+if (protectDropZone) {
+    protectDropZone.addEventListener('click', () => protectInput.click());
+    protectInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            protectFile = file;
+            protectDropZone.style.display = 'none';
+            
+            protectInfo.innerHTML = `
+                <div style="${fileItemStyle}">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-file-pdf" style="color: #ef4444; font-size: 1.5rem;"></i>
+                        <div style="font-weight: 600;">${file.name}</div>
+                    </div>
+                    <button onclick="resetProtect()" style="background: var(--glass-border); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+            protectControls.style.display = 'block';
+        }
+    });
+
+    window.resetProtect = () => {
+        protectFile = null;
+        protectInput.value = '';
+        protectDropZone.style.display = 'block';
+        protectInfo.innerHTML = '';
+        protectControls.style.display = 'none';
+        document.getElementById('protect-password').value = '';
+    };
+
+    btnProtectAction.addEventListener('click', async () => {
+        const password = document.getElementById('protect-password').value;
+        if (!protectFile || !password) return alert("Please enter a valid password.");
+        
+        btnProtectAction.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Encrypting...';
+        try {
+            const arrayBuffer = await protectFile.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+            
+            // Encrypting the document with AES encryption via pdf-lib
+            await pdfDoc.encrypt({
+                userPassword: password,
+                ownerPassword: password,
+                permissions: {
+                    printing: 'highResolution',
+                    modifying: false,
+                    copying: false,
+                    annotating: false,
+                    fillingForms: false,
+                    documentAssembly: false,
+                },
+            });
+            
+            const pdfBytes = await pdfDoc.save();
+            downloadBlob(pdfBytes, 'Amazing_Protected.pdf', 'application/pdf');
+            
+            await AdManager.showInterstitial();
+            
+            resetProtect();
+        } catch (error) {
+            alert("Error encrypting PDF. Ensure the file is valid and not already protected.");
+            console.error(error);
+        } finally {
+            btnProtectAction.innerHTML = '<i class="fas fa-shield-alt"></i> Encrypt PDF';
         }
     });
 }
