@@ -320,34 +320,35 @@ setupSingleFileLogic('sign', async (file) => {
     return { bytes: await pdfDoc.save(), filename: 'Amazing_Signed.pdf', type: 'application/pdf' };
 });
 
-// Protect PDF LOGIC (Stable Method)
 setupSingleFileLogic('protect', async (file) => {
     const password = document.getElementById('protect-password').value;
     if (!password) throw new Error("Password required");
-    const arrayBuffer = await file.arrayBuffer();
-    const pdfDoc = await PDFDocument.load(arrayBuffer);
     
-    // Stable method: save() ke options mein encryption pass karein
-    const pdfBytes = await pdfDoc.save({
+    // PDF load karein
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    
+    // Naya PDF create karke pages copy karein (Standard way to ensure encryption applies)
+    const newPdf = await PDFDocument.create();
+    const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+    copiedPages.forEach(p => newPdf.addPage(p));
+
+    // Ab naye PDF par encryption apply karein
+    const pdfBytes = await newPdf.save({
         userPassword: password,
         ownerPassword: password,
         encrypt: {
             userPassword: password,
             ownerPassword: password,
             permissions: {
-                printing: 'highResolution',
+                printing: 'none',
                 modifying: false,
-                copying: false,
-                annotating: false,
-                fillingForms: false,
-                documentAssembly: false,
+                copying: false
             }
         }
     });
     
     return { bytes: pdfBytes, filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
 });
-
 
 setupSingleFileLogic('unlock', async (file) => {
     const password = document.getElementById('unlock-password').value;
