@@ -1,0 +1,6 @@
+{
+  "appId": "com.amazing.pdftool",
+  "appName": "Amazing PDF TOOL",
+  "webDir": "public",
+  "bundledWebRuntime": false
+}
