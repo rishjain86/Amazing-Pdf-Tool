@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: # Allows manual trigger from Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,6 +33,10 @@ jobs:
 
     - name: Sync App Code
       run: npx cap sync android
+
+    - name: Inject AdMob App ID Automatically
+      run: |
+        sed -i '/<\/application>/i \        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>' android/app/src/main/AndroidManifest.xml
 
     - name: Grant Execute Permission for Gradle
       run: chmod +x android/gradlew
