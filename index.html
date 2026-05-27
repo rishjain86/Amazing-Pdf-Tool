@@ -1,416 +1,762 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Amazing PDF Tool</title>
+import { PDFDocument, degrees, StandardFonts, rgb, PDFName } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
+import { AdManager } from './adManager.js';
+import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
+import { Share } from 'https://cdn.jsdelivr.net/npm/@capacitor/share@6.0.0/+esm';
+import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
+
+// --- CUSTOM STYLISH ALERT POPUP ---
+function showCustomAlert(message) {
+    let alertBox = document.getElementById('custom-alert-box');
+    if (!alertBox) {
+        alertBox = document.createElement('div');
+        alertBox.id = 'custom-alert-box';
+        alertBox.style = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.3s ease; pointer-events: none;";
+        alertBox.innerHTML = `
+            <div style="background: var(--surface-color); padding: 30px; border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; max-width: 85%; width: 320px; transform: translateY(20px); transition: transform 0.3s ease;">
+                <i class="fas fa-shield-alt" style="font-size: 3rem; color: #f59e0b; margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px; color: white; font-size: 1.2rem;">Notice</h3>
+                <p id="custom-alert-msg" style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;"></p>
+                <button id="custom-alert-btn" style="background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 1rem; transition: 0.2s;">Got it</button>
+            </div>
+        `;
+        document.body.appendChild(alertBox);
+        document.getElementById('custom-alert-btn').addEventListener('click', () => {
+            alertBox.style.opacity = '0';
+            alertBox.style.pointerEvents = 'none';
+            alertBox.children[0].style.transform = 'translateY(20px)';
+        });
+    }
+    document.getElementById('custom-alert-msg').innerHTML = message;
+    alertBox.style.pointerEvents = 'auto';
+    alertBox.style.opacity = '1';
+    alertBox.children[0].style.transform = 'translateY(0)';
+}
+
+// SMART ERROR HANDLER FOR ENCRYPTED FILES
+function handleError(error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('encrypted') || msg.includes('password') || msg.includes('decrypt')) {
+        showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
+    } else {
+        showCustomAlert(`Error: ${error.message}`);
+    }
+}
+
+// --- HARDWARE BACK BUTTON LOGIC ---
+let lastBackPress = 0;
+if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+    App.addListener('backButton', () => {
+        const activeView = document.querySelector('.view-section.active').id;
+        if (activeView !== 'view-dashboard') {
+            window.switchView('dashboard');
+        } else {
+            const now = new Date().getTime();
+            if (now - lastBackPress < 2000) App.exitApp();
+            else lastBackPress = now;
+        }
+    });
+}
+
+// --- GLOBAL ROUTING ---
+window.switchView = (viewId) => {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(viewId));
+    if(activeBtn) activeBtn.classList.add('active');
+
+    document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
     
-    <link rel="icon" type="image/png" href="assets/icon.png?v=2">
+    const targetView = document.getElementById(`view-${viewId}`);
+    if(targetView) targetView.classList.add('active');
+
+    if(viewId === 'history') window.renderHistory();
+};
+
+// --- DYNAMIC UI INJECTION ---
+const views = [
+    'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
+    'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
+    'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf',
+    'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots'
+];
+const ui = {};
+views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
+
+const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; background: rgba(59, 130, 246, 0.05); transition: 0.3s; margin-bottom: 20px;";
+const btnStyle = "background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 15px;";
+const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px;";
+const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
+const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
+
+// NEW BRANDING HEADER LOGIC
+const brandHeaderHtml = `
+    <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
+        <img src="assets/icon.png?v=2" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
+        <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
+    </div>
+`;
+
+const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    ${brandHeaderHtml}
+    <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
+        <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
+        <h3>Select PDF to ${title}</h3>
+        <input type="file" id="${id}-file-input" accept="application/pdf" style="display: none;">
+    </div>
+    <div id="${id}-file-info" style="${fileListStyle}"></div>
+    <div id="${id}-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+        ${extraHtml}
+        <button id="btn-${id}-action" style="${btnStyle.replace('var(--accent)', color)}"><i class="fas ${icon}"></i> ${btnText}</button>
+    </div>
+`;
+
+const generateMultipleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    ${brandHeaderHtml}
+    <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
+        <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
+        <h3>Drag & Drop PDFs to ${title}</h3>
+        <input type="file" id="${id}-file-input" multiple accept="application/pdf" style="display: none;">
+    </div>
+    <div id="${id}-file-list" style="${fileListStyle}"></div>
+    <div id="${id}-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+        ${extraHtml}
+        <button id="btn-${id}-action" style="${btnStyle.replace('var(--accent)', color)}"><i class="fas ${icon}"></i> ${btnText}</button>
+    </div>
+`;
+
+if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
+if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
+if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
+
+// BATCH ENABLED UIs
+if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt Batch', `<input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle}">`);
+if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock Batch', `<input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle}">`);
+if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Batch');
+
+// SINGLE FILE UIs
+if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
+if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
+if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-amount-up', '#8b5cf6', 'Reorder Pages', 'Apply New Order', `<input type="text" id="reorder-input" placeholder="e.g. 3, 1, 2" style="${inputStyle}">`);
+if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
+if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
+if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
+if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text" style="${inputStyle}">`);
+if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
+if (ui.flatten) ui.flatten.innerHTML = generateSingleFileUI('flatten', 'fa-layer-group', '#64748b', 'Flatten', 'Flatten Document');
+if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f6', 'Crop PDF', 'Crop Pages', `<input type="number" id="crop-margin" placeholder="e.g. 20" style="${inputStyle}">`);
+if (ui.metadata) ui.metadata.innerHTML = generateSingleFileUI('metadata', 'fa-info-circle', '#eab308', 'Edit Metadata', 'Update Metadata', `<input type="text" id="meta-title" placeholder="New Document Title" style="${inputStyle}"><input type="text" id="meta-author" placeholder="New Author Name" style="${inputStyle}">`);
+if (ui.repair) ui.repair.innerHTML = generateSingleFileUI('repair', 'fa-tools', '#10b981', 'Repair PDF', 'Attempt Repair');
+if (ui.addtext) ui.addtext.innerHTML = generateSingleFileUI('addtext', 'fa-font', '#6366f1', 'Add Text', 'Embed Text', `<input type="text" id="addtext-string" placeholder="Text" style="${inputStyle}"><input type="number" id="addtext-page" placeholder="Page Num" value="1" style="${inputStyle}"><input type="number" id="addtext-x" placeholder="X" value="50" style="${inputStyle}"><input type="number" id="addtext-y" placeholder="Y" value="50" style="${inputStyle}">`);
+if (ui.addblank) ui.addblank.innerHTML = generateSingleFileUI('addblank', 'fa-file-medical', '#10b981', 'Insert Blank Page', 'Insert & Download', `<select id="addblank-position" style="${inputStyle}"><option value="start">At the very beginning</option><option value="end">At the very end</option></select>`);
+if (ui.resizepdf) ui.resizepdf.innerHTML = generateSingleFileUI('resizepdf', 'fa-expand-arrows-alt', '#14b8a6', 'Resize Pages', 'Scale Document', `<select id="resize-profile" style="${inputStyle}"><option value="A4">A4 Profile</option><option value="Letter">Letter Profile</option><option value="Legal">Legal Profile</option></select>`);
+if (ui.splitevenodd) ui.splitevenodd.innerHTML = generateSingleFileUI('splitevenodd', 'fa-columns', '#6366f1', 'Split Even/Odd', 'Split & Download ZIP');
+if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', 'Add Margins', `<input type="number" id="margin-size" placeholder="Margin size (points)" value="30" style="${inputStyle}">`);
+if (ui.removeannots) ui.removeannots.innerHTML = generateSingleFileUI('removeannots', 'fa-eraser', '#8b5cf6', 'Clean Annotations', 'Remove All');
+
+if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers', `
+    <label style="color:var(--text-secondary);">Select Position:</label>
+    <select id="pagenumbers-position" style="${inputStyle}"><option value="bottom-center">Bottom Center</option><option value="bottom-right">Bottom Right</option><option value="top-center">Top Center</option><option value="top-right">Top Right</option></select>
+    <label style="color:var(--text-secondary);">Format:</label>
+    <select id="pagenumbers-format" style="${inputStyle}"><option value="1">1, 2, 3...</option><option value="Page 1">Page 1, Page 2...</option><option value="Page 1 of 10">Page 1 of 10...</option></select>
+`);
+if (ui.imagewatermark) ui.imagewatermark.innerHTML = generateSingleFileUI('imagewatermark', 'fa-images', '#ec4899', 'Add Image Overlay', 'Stamp Image', `
+    <label style="color: var(--text-secondary);">Select Logo/Image (PNG/JPG):</label>
+    <input type="file" id="imagewatermark-overlay-input" accept="image/png, image/jpeg" style="${inputStyle}">
+`);
+
+// --- UTILS ---
+const getBaseName = (filename) => filename.substring(0, filename.lastIndexOf('.')) || filename;
+
+// --- ROBUST HISTORY & DOWNLOAD LOGIC ---
+const DB_NAME = 'AmazingPDFHistory';
+const STORE_NAME = 'files';
+
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveToHistory(bytes, filename, type) {
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).add({ filename, type, data: bytes, date: new Date().getTime() });
+    return new Promise(resolve => tx.oncomplete = resolve);
+}
+
+window.getHistory = async () => {
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).getAll();
+    return new Promise(resolve => req.onsuccess = () => resolve(req.result.sort((a,b) => b.date - a.date)));
+};
+
+window.deleteHistory = async (id) => {
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(id);
+    return new Promise(resolve => tx.oncomplete = resolve);
+};
+
+window.renderHistory = async () => {
+    const list = document.getElementById('history-list');
+    if (!list) return;
+    list.innerHTML = '<p>Loading...</p>';
+    const items = await window.getHistory();
+    if (!items.length) return list.innerHTML = '<p style="color:var(--text-secondary);">No downloads history found.</p>';
+    list.innerHTML = '';
+    items.forEach(item => {
+        list.innerHTML += `<div style="${fileItemStyle}">
+            <div><b>${item.filename}</b><br><small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()}</small></div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="triggerHistoryDownload(${item.id})" style="background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-share-alt"></i></button>
+                <button onclick="removeHistoryItem(${item.id})" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>`;
+    });
+};
+
+window.removeHistoryItem = async (id) => { await window.deleteHistory(id); window.renderHistory(); };
+window.triggerHistoryDownload = async (id) => {
+    const items = await window.getHistory();
+    const item = items.find(i => i.id === id);
+    if(item) await processAndDownload(item.data, item.filename, item.type, false);
+};
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+    return window.btoa(binary);
+}
+
+// SMART SAVE + SHARE FUNCTION
+async function processAndDownload(bytes, filename, type, saveToDb = true) {
+    if(saveToDb) {
+        try { await saveToHistory(bytes, filename, type); } catch(e) { console.error("History Save Error", e); }
+    }
     
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --surface-color: #1e293b;
-            --accent: #3b82f6;
-            --text-main: #f8fafc;
-            --text-secondary: #94a3b8;
-            --glass-border: rgba(255, 255, 255, 0.1);
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        try {
+            const base64 = bytesToBase64(bytes);
+            const savedFile = await Filesystem.writeFile({ 
+                path: filename, 
+                data: base64, 
+                directory: Directory.Documents 
+            });
+            await Share.share({ 
+                title: filename, 
+                text: 'Here is your processed file from Amazing PDF',
+                url: savedFile.uri 
+            });
+        } catch (e) {
+            showCustomAlert("File saved securely to your Documents and History tab!");
         }
+    } else {
+        const blob = new Blob([bytes], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+function parseRange(rangeStr) {
+    let pages = [];
+    rangeStr.split(',').forEach(part => {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+        } else pages.push(parseInt(part.trim()) - 1);
+    });
+    return [...new Set(pages)].sort((a, b) => a - b);
+}
+
+// --- CORE ACTION HANDLERS ---
+function setupSingleFileLogic(id, actionCallback) {
+    const dropZone = document.getElementById(`${id}-drop-zone`);
+    const input = document.getElementById(`${id}-file-input`);
+    const info = document.getElementById(`${id}-file-info`);
+    const controls = document.getElementById(`${id}-controls`);
+    const btn = document.getElementById(`btn-${id}-action`);
+    let currentFile = null;
+
+    if (!dropZone || !input || !btn) return;
+
+    dropZone.addEventListener('click', () => input.click());
+    input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            currentFile = file;
+            dropZone.style.display = 'none';
+            info.innerHTML = `<div style="${fileItemStyle}">
+                <div style="display:flex; align-items:center; gap:15px;"><i class="fas fa-file-pdf" style="color:#ef4444; font-size:1.5rem;"></i><b>${file.name}</b></div>
+                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
+            </div>`;
+            controls.style.display = 'block';
+            document.getElementById(`reset-${id}`).addEventListener('click', () => {
+                currentFile = null; input.value = '';
+                dropZone.style.display = 'block'; info.innerHTML = ''; controls.style.display = 'none';
+            });
         }
+    });
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+    btn.addEventListener('click', async () => {
+        if (!currentFile) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        try {
+            const result = await actionCallback(currentFile);
+            document.getElementById(`reset-${id}`).click();
+            await processAndDownload(result.bytes, result.filename, result.type);
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (error) {
+            handleError(error);
+        } finally {
+            btn.innerHTML = originalText;
         }
+    });
+}
 
-        /* --- SIDEBAR --- */
-        .sidebar {
-            width: 260px;
-            background-color: var(--surface-color);
-            border-right: 1px solid var(--glass-border);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            transition: 0.3s;
-        }
+function setupMultipleFileLogic(id, actionCallback) {
+    const dropZone = document.getElementById(`${id}-drop-zone`);
+    const input = document.getElementById(`${id}-file-input`);
+    const listContainer = document.getElementById(`${id}-file-list`);
+    const controls = document.getElementById(`${id}-controls`);
+    const btn = document.getElementById(`btn-${id}-action`);
+    let currentFiles = [];
 
-        .brand-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 20px;
-            border-bottom: 1px solid var(--glass-border);
-        }
+    if (!dropZone || !input || !btn) return;
 
-        .brand-logo span {
-            font-weight: 700;
-            font-size: 1.3rem;
-            background: linear-gradient(to right, #10b981, #3b82f6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .nav-btn {
-            padding: 15px 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            cursor: pointer;
-            transition: 0.2s;
-            border-left: 3px solid transparent;
-        }
-
-        .nav-btn:hover, .nav-btn.active {
-            background-color: rgba(59, 130, 246, 0.1);
-            color: var(--accent);
-            border-left: 3px solid var(--accent);
-        }
-
-        .menu-label {
-            padding: 20px 20px 10px;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            color: var(--text-secondary);
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-
-        /* --- MAIN CONTENT & MOBILE HEADER --- */
-        .main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow-y: auto;
-            padding-bottom: 60px; /* AdMob Banner ke liye bottom space */
-        }
-
-        .mobile-header {
-            display: none;
-            padding: 15px 20px;
-            background-color: var(--surface-color);
-            border-bottom: 1px solid var(--glass-border);
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .view-section {
-            display: none;
-            padding: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .view-section.active {
-            display: block;
-        }
-
-        .page-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .page-header h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-
-        .page-header p {
-            color: var(--text-secondary);
-        }
-
-        /* --- DASHBOARD GRID --- */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-
-        .tool-card {
-            background-color: var(--surface-color);
-            border: 1px solid var(--glass-border);
-            padding: 25px 20px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.3s;
-            text-align: left;
-        }
-
-        .tool-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-
-        .tool-icon {
-            font-size: 2rem;
-            margin-bottom: 15px;
-            display: inline-block;
-        }
-
-        .tool-card h3 {
-            font-size: 1.1rem;
-            margin-bottom: 8px;
-        }
-
-        .tool-card p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 768px) {
-            .sidebar { display: none; }
-            .mobile-header { display: flex; }
-            .view-section { padding: 20px; }
-            .page-header h1 { font-size: 1.5rem; }
-            
-            .dashboard-grid { 
-                grid-template-columns: repeat(2, 1fr); 
-                gap: 12px; 
+    dropZone.addEventListener('click', () => input.click());
+    
+    function renderList() {
+        listContainer.innerHTML = '';
+        currentFiles.forEach((f, i) => {
+            listContainer.innerHTML += `<div style="${fileItemStyle}">
+                <div><b>${f.name}</b></div>
+                <button onclick="removeBatchFile('${id}', ${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button>
+            </div>`;
+        });
+        if(currentFiles.length > 0) {
+            controls.style.display = 'block';
+            dropZone.style.display = 'none';
+            if(!document.getElementById(`add-more-${id}`)) {
+               const addMoreBtn = document.createElement('button');
+               addMoreBtn.id = `add-more-${id}`;
+               addMoreBtn.innerHTML = '+ Add More PDFs';
+               addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer;`;
+               addMoreBtn.onclick = () => input.click();
+               listContainer.appendChild(addMoreBtn);
             }
-            .tool-card { padding: 15px 12px; }
-            .tool-icon { font-size: 1.5rem; margin-bottom: 10px; }
-            .tool-card h3 { font-size: 0.9rem; margin-bottom: 5px; }
-            .tool-card p { font-size: 0.75rem; }
+        } else {
+            controls.style.display = 'none';
+            dropZone.style.display = 'block';
         }
-    </style>
-</head>
-<body>
+    }
 
-    <div class="sidebar">
-        <div class="brand-logo">
-            <img src="assets/icon.png?v=2" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
-            <span>Amazing PDF</span>
-        </div>
+    window.removeBatchFile = (listId, index) => {
+        if(listId === id) { currentFiles.splice(index, 1); renderList(); }
+    };
 
-        <div class="nav-btn active" onclick="switchView('dashboard')">
-            <i class="fas fa-home"></i> Dashboard
-        </div>
-        <div class="nav-btn" onclick="switchView('history')">
-            <i class="fas fa-history"></i> My History
-        </div>
-        
-        <div class="menu-label">Main Tools</div>
-        <div class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</div>
-        <div class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</div>
-        <div class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress"></i> Compress PDF</div>
-        
-        <div class="menu-label">Security</div>
-        <div class="nav-btn" onclick="switchView('protect')"><i class="fas fa-lock"></i> Protect PDF</div>
-        <div class="nav-btn" onclick="switchView('unlock')"><i class="fas fa-unlock"></i> Unlock PDF</div>
-        <div class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Watermark</div>
-        <div class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</div>
-    </div>
+    input.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+        currentFiles = [...currentFiles, ...files];
+        renderList();
+    });
 
-    <div class="main-wrapper">
-        
-        <div class="mobile-header">
-            <div class="brand-logo" style="padding: 0; border: none;">
-                <img src="assets/icon.png?v=2" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
-            </div>
-            <input type="text" id="mobile-search" placeholder="Search tools..." style="width: 55%; padding: 10px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.85rem; padding-left: 15px; outline: none;">
-            <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.4rem;">
-                <i class="fas fa-history"></i>
-            </div>
-        </div>
+    btn.addEventListener('click', async () => {
+        if (!currentFiles.length) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Batch...';
+        try {
+            const result = await actionCallback(currentFiles);
+            currentFiles = []; renderList();
+            await processAndDownload(result.bytes, result.filename, result.type);
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (error) {
+            handleError(error);
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    });
+}
 
-        <div id="view-dashboard" class="view-section active">
-            <div class="page-header">
-                <h1>Every tool you need to work with PDFs</h1>
-                <p>100% FREE, Fast, and Secure.</p>
-            </div>
-            
-            <div class="dashboard-grid">
-                <div class="tool-card" onclick="switchView('history')">
-                    <i class="fas fa-history tool-icon" style="color: #3b82f6;"></i>
-                    <h3>My History</h3>
-                    <p>Access downloaded files.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('merge')">
-                    <i class="fas fa-object-group tool-icon" style="color: #ef4444;"></i>
-                    <h3>Merge PDF</h3>
-                    <p>Combine multiple PDFs.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('split')">
-                    <i class="fas fa-cut tool-icon" style="color: #f59e0b;"></i>
-                    <h3>Split PDF</h3>
-                    <p>Extract specific pages.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('compress')">
-                    <i class="fas fa-compress-arrows-alt tool-icon" style="color: #10b981;"></i>
-                    <h3>Compress PDF</h3>
-                    <p>Reduce file size.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('protect')">
-                    <i class="fas fa-lock tool-icon" style="color: #8b5cf6;"></i>
-                    <h3>Protect PDF</h3>
-                    <p>Add secure password.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('unlock')">
-                    <i class="fas fa-unlock tool-icon" style="color: #06b6d4;"></i>
-                    <h3>Unlock PDF</h3>
-                    <p>Remove passwords.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('pdftojpg')">
-                    <i class="fas fa-file-archive tool-icon" style="color: #eab308;"></i>
-                    <h3>PDF to JPG</h3>
-                    <p>Extract pages as images.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('jpgtopdf')">
-                    <i class="fas fa-images tool-icon" style="color: #f97316;"></i>
-                    <h3>JPG to PDF</h3>
-                    <p>Images to PDF document.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('htmltopdf')">
-                    <i class="fas fa-code tool-icon" style="color: #f97316;"></i>
-                    <h3>HTML to PDF</h3>
-                    <p>Code to document.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('rotate')">
-                    <i class="fas fa-sync-alt tool-icon" style="color: #3b82f6;"></i>
-                    <h3>Rotate PDF</h3>
-                    <p>Fix page orientation.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('delete')">
-                    <i class="fas fa-trash-alt tool-icon" style="color: #ef4444;"></i>
-                    <h3>Delete Pages</h3>
-                    <p>Remove unwanted pages.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('watermark')">
-                    <i class="fas fa-stamp tool-icon" style="color: #ec4899;"></i>
-                    <h3>Watermark</h3>
-                    <p>Add text watermark.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('imagewatermark')">
-                    <i class="fas fa-images tool-icon" style="color: #ec4899;"></i>
-                    <h3>Image Watermark</h3>
-                    <p>Add logo overlay.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('sign')">
-                    <i class="fas fa-signature tool-icon" style="color: #8b5cf6;"></i>
-                    <h3>Sign PDF</h3>
-                    <p>Add your signature.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('pagenumbers')">
-                    <i class="fas fa-sort-numeric-down tool-icon" style="color: #6366f1;"></i>
-                    <h3>Page Numbers</h3>
-                    <p>Add numbers to pages.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('extract')">
-                    <i class="fas fa-file-alt tool-icon" style="color: #14b8a6;"></i>
-                    <h3>Extract Text</h3>
-                    <p>Get text from document.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('flatten')">
-                    <i class="fas fa-layer-group tool-icon" style="color: #64748b;"></i>
-                    <h3>Flatten PDF</h3>
-                    <p>Make form uneditable.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('crop')">
-                    <i class="fas fa-crop tool-icon" style="color: #3b82f6;"></i>
-                    <h3>Crop PDF</h3>
-                    <p>Adjust page margins.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('metadata')">
-                    <i class="fas fa-info-circle tool-icon" style="color: #eab308;"></i>
-                    <h3>Edit Metadata</h3>
-                    <p>Change author & title.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('repair')">
-                    <i class="fas fa-tools tool-icon" style="color: #10b981;"></i>
-                    <h3>Repair PDF</h3>
-                    <p>Fix corrupt documents.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('reorder')">
-                    <i class="fas fa-sort-amount-up tool-icon" style="color: #8b5cf6;"></i>
-                    <h3>Reorder Pages</h3>
-                    <p>Change page sequence.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('addtext')">
-                    <i class="fas fa-font tool-icon" style="color: #6366f1;"></i>
-                    <h3>Add Text</h3>
-                    <p>Embed custom text.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('addblank')">
-                    <i class="fas fa-file-medical tool-icon" style="color: #10b981;"></i>
-                    <h3>Add Blank Page</h3>
-                    <p>Insert an empty page.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('resizepdf')">
-                    <i class="fas fa-expand-arrows-alt tool-icon" style="color: #14b8a6;"></i>
-                    <h3>Resize PDF</h3>
-                    <p>Scale document sizes.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('splitevenodd')">
-                    <i class="fas fa-columns tool-icon" style="color: #6366f1;"></i>
-                    <h3>Split Even/Odd</h3>
-                    <p>Separate page sets.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('addmargins')">
-                    <i class="fas fa-border-all tool-icon" style="color: #3b82f6;"></i>
-                    <h3>Add Margins</h3>
-                    <p>Increase border size.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('removeannots')">
-                    <i class="fas fa-eraser tool-icon" style="color: #8b5cf6;"></i>
-                    <h3>Clean Annots</h3>
-                    <p>Remove annotations.</p>
-                </div>
-            </div>
-        </div>
+// --- FEATURES IMPLEMENTATIONS LOGIC ---
 
-        <div id="view-history" class="view-section">
-            <h2><i class="fas fa-history"></i> My Download History</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Your processed files are saved locally.</p>
-            <div id="history-list"></div>
-        </div>
+setupSingleFileLogic('split', async (file) => {
+    const pagesToExtract = parseRange(document.getElementById('split-ranges').value);
+    if (!pagesToExtract.length) throw new Error("Range required");
+    const sourcePdf = await PDFDocument.load(await file.arrayBuffer());
+    const newPdf = await PDFDocument.create();
+    const copiedPages = await newPdf.copyPages(sourcePdf, pagesToExtract);
+    copiedPages.forEach(p => newPdf.addPage(p));
+    return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Split.pdf`, type: 'application/pdf' };
+});
 
-        <div id="view-merge" class="view-section"><div id="merge-ui-container"></div></div>
-        <div id="view-split" class="view-section"><div id="split-ui-container"></div></div>
-        <div id="view-compress" class="view-section"><div id="compress-ui-container"></div></div>
-        <div id="view-delete" class="view-section"><div id="delete-ui-container"></div></div>
-        <div id="view-rotate" class="view-section"><div id="rotate-ui-container"></div></div>
-        <div id="view-pdftojpg" class="view-section"><div id="pdftojpg-ui-container"></div></div>
-        <div id="view-jpgtopdf" class="view-section"><div id="jpgtopdf-ui-container"></div></div>
-        <div id="view-protect" class="view-section"><div id="protect-ui-container"></div></div>
-        <div id="view-unlock" class="view-section"><div id="unlock-ui-container"></div></div>
-        <div id="view-watermark" class="view-section"><div id="watermark-ui-container"></div></div>
-        <div id="view-sign" class="view-section"><div id="sign-ui-container"></div></div>
-        <div id="view-extract" class="view-section"><div id="extract-ui-container"></div></div>
-        <div id="view-flatten" class="view-section"><div id="flatten-ui-container"></div></div>
-        <div id="view-crop" class="view-section"><div id="crop-ui-container"></div></div>
-        <div id="view-metadata" class="view-section"><div id="metadata-ui-container"></div></div>
-        <div id="view-repair" class="view-section"><div id="repair-ui-container"></div></div>
-        <div id="view-reorder" class="view-section"><div id="reorder-ui-container"></div></div>
-        <div id="view-imagewatermark" class="view-section"><div id="imagewatermark-ui-container"></div></div>
-        <div id="view-htmltopdf" class="view-section"><div id="htmltopdf-ui-container"></div></div>
-        <div id="view-addtext" class="view-section"><div id="addtext-ui-container"></div></div>
-        <div id="view-addblank" class="view-section"><div id="addblank-ui-container"></div></div>
-        <div id="view-resizepdf" class="view-section"><div id="resizepdf-ui-container"></div></div>
-        <div id="view-splitevenodd" class="view-section"><div id="splitevenodd-ui-container"></div></div>
-        <div id="view-addmargins" class="view-section"><div id="addmargins-ui-container"></div></div>
-        <div id="view-removeannots" class="view-section"><div id="removeannots-ui-container"></div></div>
-        <div id="view-pagenumbers" class="view-section"><div id="pagenumbers-ui-container"></div></div>
+setupSingleFileLogic('delete', async (file) => {
+    const pagesToDelete = parseRange(document.getElementById('delete-ranges').value);
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    pagesToDelete.sort((a, b) => b - a).forEach(i => { if (i >= 0 && i < pdfDoc.getPageCount()) pdfDoc.removePage(i); });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Deleted.pdf`, type: 'application/pdf' };
+});
 
-    </div>
+setupSingleFileLogic('rotate', async (file) => {
+    const angle = parseInt(document.getElementById('rotate-angle').value);
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    pdfDoc.getPages().forEach(p => p.setRotation(degrees(p.getRotation().angle + angle)));
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Rotated.pdf`, type: 'application/pdf' };
+});
 
-    <script type="module" src="app.js?v=2"></script>
-</body>
-</html>
+setupSingleFileLogic('flatten', async (file) => {
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    const form = pdfDoc.getForm(); if(form) form.flatten();
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Flattened.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('crop', async (file) => {
+    const margin = parseInt(document.getElementById('crop-margin').value) || 20;
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    pdfDoc.getPages().forEach(page => {
+        const { x, y, width, height } = page.getCropBox() || page.getMediaBox();
+        page.setCropBox(x + margin, y + margin, width - (margin * 2), height - (margin * 2));
+    });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Cropped.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('metadata', async (file) => {
+    const title = document.getElementById('meta-title').value;
+    const author = document.getElementById('meta-author').value;
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    if(title) pdfDoc.setTitle(title); if(author) pdfDoc.setAuthor(author);
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Metadata.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('repair', async (file) => {
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Repaired.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('sign', async (file) => {
+    const name = document.getElementById('sign-text').value;
+    if (!name) throw new Error("Name required.");
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+    const page = pdfDoc.getPages()[0];
+    page.drawText(`Signed by: ${name}`, { x: page.getSize().width - 200, y: 50, size: 18, font, color: rgb(0, 0, 0.8) });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Signed.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('addtext', async (file) => {
+    const text = document.getElementById('addtext-string').value;
+    const pageIdx = parseInt(document.getElementById('addtext-page').value) - 1;
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    pdfDoc.getPages()[pageIdx].drawText(text, { x: 50, y: 50, size: 14, font, color: rgb(0,0,0) });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_TextAdded.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('addblank', async (file) => {
+    const pos = document.getElementById('addblank-position').value;
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    if (pos === 'start') pdfDoc.insertPage(0); else pdfDoc.addPage();
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_BlankPage.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('resizepdf', async (file) => {
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    pdfDoc.getPages().forEach(page => page.setSize(595.28, 841.89));
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Resized.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('reorder', async (file) => {
+    const indices = document.getElementById('reorder-input').value.split(',').map(n => parseInt(n.trim()) - 1);
+    const srcDoc = await PDFDocument.load(await file.arrayBuffer());
+    const newPdf = await PDFDocument.create();
+    const copied = await newPdf.copyPages(srcDoc, indices);
+    copied.forEach(p => newPdf.addPage(p));
+    return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Reordered.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('addmargins', async (file) => {
+    const margin = parseInt(document.getElementById('margin-size').value) || 30;
+    const doc = await PDFDocument.load(await file.arrayBuffer());
+    doc.getPages().forEach(page => {
+        const { width, height } = page.getSize();
+        page.setSize(width + (margin * 2), height + (margin * 2));
+        page.translateContent(margin, margin);
+    });
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Margined.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('removeannots', async (file) => {
+    const doc = await PDFDocument.load(await file.arrayBuffer());
+    doc.getPages().forEach(page => { if(page.node.Annots) page.node.delete(PDFName.of('Annots')); });
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Cleaned.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('watermark', async (file) => {
+    const text = document.getElementById('watermark-text').value || "CONFIDENTIAL";
+    const doc = await PDFDocument.load(await file.arrayBuffer());
+    const font = await doc.embedFont(StandardFonts.HelveticaBold);
+    doc.getPages().forEach(page => {
+        const { width, height } = page.getSize();
+        page.drawText(text, { x: width/2 - (font.widthOfTextAtSize(text,60)/2), y: height/2, size: 60, font, color: rgb(0.75,0.75,0.75), opacity: 0.5, rotate: degrees(45) });
+    });
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Watermark.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('splitevenodd', async (file) => {
+    const srcDoc = await PDFDocument.load(await file.arrayBuffer());
+    const oddDoc = await PDFDocument.create(), evenDoc = await PDFDocument.create();
+    let oddIdx = [], evenIdx = [];
+    for(let i=0; i<srcDoc.getPageCount(); i++) { if(i%2===0) oddIdx.push(i); else evenIdx.push(i); }
+    const zip = new JSZip();
+    if(oddIdx.length) { const oP = await oddDoc.copyPages(srcDoc, oddIdx); oP.forEach(p => oddDoc.addPage(p)); zip.file("Odd_Pages.pdf", await oddDoc.save()); }
+    if(evenIdx.length) { const eP = await evenDoc.copyPages(srcDoc, evenIdx); eP.forEach(p => evenDoc.addPage(p)); zip.file("Even_Pages.pdf", await evenDoc.save()); }
+    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_EvenOdd.zip`, type: 'application/zip' };
+});
+
+setupSingleFileLogic('pdftojpg', async (file) => {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const zip = new JSZip();
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const canvas = document.createElement('canvas');
+        const viewport = page.getViewport({ scale: 2.0 });
+        canvas.height = viewport.height; canvas.width = viewport.width;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        zip.file(`Page_${i}.jpg`, canvas.toDataURL('image/jpeg', 0.9).split(',')[1], {base64: true});
+    }
+    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_Images.zip`, type: 'application/zip' };
+});
+
+setupSingleFileLogic('extract', async (file) => {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += `--- Page ${i} ---\n${textContent.items.map(item => item.str).join(" ")}\n\n`;
+    }
+    return { bytes: new TextEncoder().encode(fullText), filename: `${getBaseName(file.name)}_Extracted.txt`, type: 'text/plain' };
+});
+
+setupSingleFileLogic('pagenumbers', async (file) => {
+    const position = document.getElementById('pagenumbers-position').value;
+    const format = document.getElementById('pagenumbers-format').value;
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const pages = pdfDoc.getPages();
+    const totalPages = pages.length;
+
+    pages.forEach((page, index) => {
+        const { width, height } = page.getSize();
+        const pageNum = index + 1;
+        let text = `${pageNum}`;
+        if (format === 'Page 1') text = `Page ${pageNum}`;
+        if (format === 'Page 1 of 10') text = `Page ${pageNum} of ${totalPages}`;
+
+        const textWidth = helveticaFont.widthOfTextAtSize(text, 12);
+        let x = width / 2 - textWidth / 2;
+        let y = 30;
+
+        if (position === 'bottom-right') x = width - textWidth - 30;
+        if (position === 'top-center') y = height - 30;
+        if (position === 'top-right') { x = width - textWidth - 30; y = height - 30; }
+
+        page.drawText(text, { x, y, size: 12, font: helveticaFont, color: rgb(0,0,0) });
+    });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Numbered.pdf`, type: 'application/pdf' };
+});
+
+setupSingleFileLogic('imagewatermark', async (file) => {
+    const imgInput = document.getElementById('imagewatermark-overlay-input');
+    if (!imgInput.files.length) throw new Error("Please select an image file first.");
+    const imgFile = imgInput.files[0];
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
+    let pdfImg = imgFile.type === 'image/png' ? await pdfDoc.embedPng(await imgFile.arrayBuffer()) : await pdfDoc.embedJpg(await imgFile.arrayBuffer());
+    const dims = pdfImg.scale(0.5);
+
+    pdfDoc.getPages().forEach(page => {
+        const { width, height } = page.getSize();
+        page.drawImage(pdfImg, { x: width / 2 - dims.width / 2, y: height / 2 - dims.height / 2, width: dims.width, height: dims.height, opacity: 0.4 });
+    });
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_ImgWatermark.pdf`, type: 'application/pdf' };
+});
+
+// MULTIPLE FILES BATCH IMPLEMENTATIONS
+setupMultipleFileLogic('compress', async (files) => {
+    if (files.length === 1) {
+        const file = files[0];
+        const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
+        const newPdf = await PDFDocument.create();
+        const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach(p => newPdf.addPage(p));
+        return { bytes: await newPdf.save({ useObjectStreams: true }), filename: `${getBaseName(file.name)}_Compressed.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
+            const newPdf = await PDFDocument.create();
+            const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach(p => newPdf.addPage(p));
+            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await newPdf.save({ useObjectStreams: true }));
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Compressed.zip`, type: 'application/zip' };
+    }
+});
+
+setupMultipleFileLogic('unlock', async (files) => {
+    const password = document.getElementById('unlock-password').value;
+    if (files.length === 1) {
+        const pdfDoc = await PDFDocument.load(await files[0].arrayBuffer(), { password });
+        return { bytes: await pdfDoc.save(), filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            try {
+                const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password });
+                zip.file(`${getBaseName(file.name)}_Unlocked.pdf`, await pdfDoc.save());
+            } catch (e) { console.warn(`Failed to unlock ${file.name}`); }
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Unlocked.zip`, type: 'application/zip' };
+    }
+});
+
+setupMultipleFileLogic('protect', async (files) => {
+    const password = document.getElementById('protect-password').value;
+    if (!password) throw new Error("Password required");
+    if (!navigator.onLine) throw new Error("You must be online to use the Secure Cloud Protect feature.");
+
+    const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
+    
+    if (files.length === 1) {
+        const formData = new FormData();
+        formData.append('file', files[0]);
+        formData.append('password', password);
+        const response = await fetch(VERCEL_API_URL, { method: 'POST', body: formData });
+        if (!response.ok) throw new Error("Server error while protecting file.");
+        const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
+        return { bytes, filename: `${getBaseName(files[0].name)}_Protected.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('password', password);
+            const response = await fetch(VERCEL_API_URL, { method: 'POST', body: formData });
+            if (response.ok) {
+                const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
+                zip.file(`${getBaseName(file.name)}_Protected.pdf`, bytes);
+            }
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Protected.zip`, type: 'application/zip' };
+    }
+});
+
+// --- MANUAL HANDLERS FOR CUSTOM ENGINE TOOLS ---
+if (ui.htmltopdf) {
+    document.getElementById('btn-htmltopdf-action')?.addEventListener('click', async () => {
+        const htmlContent = document.getElementById('html-input').value;
+        if (!htmlContent) {
+            showCustomAlert("Please enter HTML code first.");
+            return;
+        }
+        const btn = document.getElementById('btn-htmltopdf-action');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+        try {
+            const blob = await html2pdf().set({ margin: 1, jsPDF: { format: 'letter' } }).from(htmlContent).output('blob');
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            document.getElementById('html-input').value = '';
+            await processAndDownload(bytes, 'HTML_Converted.pdf', 'application/pdf');
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch(e) { handleError(e); }
+        finally { btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; }
+    });
+}
+
+let mergeFiles = [];
+if (ui.merge) {
+    const mergeInput = document.getElementById('merge-file-input');
+    document.getElementById('merge-drop-zone')?.addEventListener('click', () => mergeInput.click());
+    mergeInput?.addEventListener('change', (e) => { mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; renderMergeList(); });
+    function renderMergeList() {
+        const list = document.getElementById('merge-file-list'); list.innerHTML = '';
+        mergeFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeMerge(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
+        document.getElementById('btn-merge-action').style.display = mergeFiles.length > 1 ? 'block' : 'none';
+    }
+    window.removeMerge = (i) => { mergeFiles.splice(i, 1); renderMergeList(); };
+    
+    document.getElementById('btn-merge-action')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-merge-action'); btn.innerHTML = 'Processing...';
+        try {
+            const mergedPdf = await PDFDocument.create();
+            for (const file of mergeFiles) {
+                const pdf = await PDFDocument.load(await file.arrayBuffer());
+                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                copiedPages.forEach(p => mergedPdf.addPage(p));
+            }
+            const bytes = await mergedPdf.save();
+            const outputName = mergeFiles.length > 0 ? `${getBaseName(mergeFiles[0].name)}_Merged.pdf` : 'Amazing_Merged.pdf';
+            mergeFiles = []; renderMergeList();
+            await processAndDownload(bytes, outputName, 'application/pdf');
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (e) { handleError(e); }
+        finally { btn.innerHTML = 'Merge Files Now'; }
+    });
+}
+
+let imageFiles = [];
+if (ui.jpgtopdf) {
+    const imgInput = document.getElementById('jpgtopdf-file-input');
+    document.getElementById('jpgtopdf-drop-zone')?.addEventListener('click', () => imgInput.click());
+    imgInput?.addEventListener('change', (e) => { imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); });
+    function renderImgList() {
+        const list = document.getElementById('jpgtopdf-file-list'); list.innerHTML = '';
+        imageFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeImg(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
+        document.getElementById('btn-jpgtopdf-action').style.display = imageFiles.length > 0 ? 'block' : 'none';
+    }
+    window.removeImg = (i) => { imageFiles.splice(i, 1); renderImgList(); };
+    
+    document.getElementById('btn-jpgtopdf-action')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-jpgtopdf-action'); btn.innerHTML = 'Converting...';
+        try {
+            const pdfDoc = await PDFDocument.create();
+            for (const file of imageFiles) {
+                let pdfImage = file.type === 'image/png' ? await pdfDoc.embedPng(await file.arrayBuffer()) : await pdfDoc.embedJpg(await file.arrayBuffer());
+                const dims = pdfImage.scale(1);
+                const page = pdfDoc.addPage([dims.width, dims.height]);
+                page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
+            }
+            const bytes = await pdfDoc.save();
+            const outputName = imageFiles.length > 0 ? `${getBaseName(imageFiles[0].name)}_Images.pdf` : 'Amazing_Images.pdf';
+            imageFiles = []; renderImgList();
+            await processAndDownload(bytes, outputName, 'application/pdf');
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (e) { handleError(e); }
+        finally { btn.innerHTML = 'Convert to PDF'; }
+    });
+}
+
+// --- SEARCH FILTERING LOGIC ---
+document.getElementById('mobile-search')?.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    document.querySelectorAll('.tool-card').forEach(card => {
+        const title = card.querySelector('h3').innerText.toLowerCase();
+        card.style.display = title.includes(searchTerm) ? 'block' : 'none';
+    });
+});
+
+// --- LOAD ADMOB BANNER AT BOTTOM ---
+if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner === 'function') {
+    AdManager.showBanner();
+}
