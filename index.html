@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Amazing PDF Tool</title>
     
-    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="icon" type="image/png" href="assets/icon.png?v=2">
     
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -181,6 +181,16 @@
             .mobile-header { display: flex; }
             .view-section { padding: 20px; }
             .page-header h1 { font-size: 1.5rem; }
+            
+            /* MOBILE 2-COLUMN GRID UPDATE */
+            .dashboard-grid { 
+                grid-template-columns: repeat(2, 1fr); 
+                gap: 12px; 
+            }
+            .tool-card { padding: 15px 12px; }
+            .tool-icon { font-size: 1.5rem; margin-bottom: 10px; }
+            .tool-card h3 { font-size: 0.9rem; margin-bottom: 5px; }
+            .tool-card p { font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -188,7 +198,7 @@
 
     <div class="sidebar">
         <div class="brand-logo">
-            <img src="assets/icon.png" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+            <img src="assets/icon.png?v=2" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             <span>Amazing PDF</span>
         </div>
 
@@ -210,7 +220,7 @@
         
         <div class="mobile-header">
             <div class="brand-logo" style="padding: 0; border: none;">
-                <img src="assets/icon.png" style="width: 28px; height: 28px; border-radius: 6px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); object-fit: contain;">
+                <img src="assets/icon.png?v=2" style="width: 28px; height: 28px; border-radius: 6px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); object-fit: contain;">
             </div>
             <input type="text" id="mobile-search" placeholder="Search tools..." style="width: 60%; padding: 8px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.8rem; padding-left: 15px; outline: none;">
             <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.2rem;">
@@ -221,7 +231,7 @@
         <div id="view-dashboard" class="view-section active">
             <div class="page-header">
                 <h1>Every tool you need to work with PDFs</h1>
-                <p>100% FREE, offline, and secure.</p>
+                <p>100% FREE, Fast, and Secure.</p>
             </div>
             
             <div class="dashboard-grid">
