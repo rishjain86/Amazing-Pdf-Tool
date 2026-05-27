@@ -50,7 +50,16 @@ const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px 
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
 
+// NEW BRANDING HEADER LOGIC (USING ICON.PNG FROM ASSETS)
+const brandHeaderHtml = `
+    <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
+        <img src="assets/icon.png" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
+        <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
+    </div>
+`;
+
 const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    ${brandHeaderHtml}
     <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
         <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
         <h3>Select PDF to ${title}</h3>
@@ -63,10 +72,9 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
     </div>
 `;
 
-if (ui.merge) ui.merge.innerHTML = `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
-if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><img src="/assets/icon.png" style="width: 20px; height: 20px; border-radius: 4px;">
- Convert to PDF</button>`;
-if (ui.htmltopdf) ui.htmltopdf.innerHTML = `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
+if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
+if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
+if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
 
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
 if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
@@ -90,7 +98,6 @@ if (ui.splitevenodd) ui.splitevenodd.innerHTML = generateSingleFileUI('spliteven
 if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', 'Add Margins', `<input type="number" id="margin-size" placeholder="Margin size (points)" value="30" style="${inputStyle}">`);
 if (ui.removeannots) ui.removeannots.innerHTML = generateSingleFileUI('removeannots', 'fa-eraser', '#8b5cf6', 'Clean Annotations', 'Remove All');
 
-// Recovered features inputs inside generateSingleFileUI extra HTML
 if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers', `
     <label style="color:var(--text-secondary);">Select Position:</label>
     <select id="pagenumbers-position" style="${inputStyle}"><option value="bottom-center">Bottom Center</option><option value="bottom-right">Bottom Right</option><option value="top-center">Top Center</option><option value="top-right">Top Right</option></select>
@@ -203,7 +210,7 @@ function parseRange(rangeStr) {
     return [...new Set(pages)].sort((a, b) => a - b);
 }
 
-// --- CORE ACTION HANDLER (Anti-Stuck Architecture) ---
+// --- CORE ACTION HANDLER ---
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`);
     const input = document.getElementById(`${id}-file-input`);
@@ -238,9 +245,9 @@ function setupSingleFileLogic(id, actionCallback) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         try {
             const result = await actionCallback(currentFile);
-            document.getElementById(`reset-${id}`).click(); // Reset layout frame before popups
+            document.getElementById(`reset-${id}`).click();
             await processAndDownload(result.bytes, result.filename, result.type);
-            await AdManager.showInterstitial(); // safe fire out
+            await AdManager.showInterstitial();
         } catch (error) {
             alert(`Error: ${error.message}`);
         } finally {
@@ -249,7 +256,7 @@ function setupSingleFileLogic(id, actionCallback) {
     });
 }
 
-// --- 100% COMPLETE FEATURES IMPLEMENTATIONS LOGIC ---
+// --- FEATURES IMPLEMENTATIONS LOGIC ---
 setupSingleFileLogic('compress', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
     const newPdf = await PDFDocument.create();
@@ -321,7 +328,7 @@ setupSingleFileLogic('sign', async (file) => {
     return { bytes: await pdfDoc.save(), filename: 'Amazing_Signed.pdf', type: 'application/pdf' };
 });
 
-// --- UPDATED PROTECT LOGIC (VERCEL API) ---
+// --- PROTECT VIA VERCEL FULL URL API ---
 setupSingleFileLogic('protect', async (file) => {
     const password = document.getElementById('protect-password').value;
     if (!password) throw new Error("Password required");
@@ -330,8 +337,7 @@ setupSingleFileLogic('protect', async (file) => {
         throw new Error("You must be online to use the Secure Cloud Protect feature.");
     }
 
-    // Vercel auto-routes /api/protect to your backend function
-    const VERCEL_API_URL = "/api/protect"; 
+    const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
     
     const formData = new FormData();
     formData.append('file', file);
@@ -454,7 +460,6 @@ setupSingleFileLogic('extract', async (file) => {
     return { bytes: new TextEncoder().encode(fullText), filename: 'Amazing_Extracted.txt', type: 'text/plain' };
 });
 
-// Recovered Feature Logic Block 1: Page Numbers
 setupSingleFileLogic('pagenumbers', async (file) => {
     const position = document.getElementById('pagenumbers-position').value;
     const format = document.getElementById('pagenumbers-format').value;
@@ -483,7 +488,6 @@ setupSingleFileLogic('pagenumbers', async (file) => {
     return { bytes: await pdfDoc.save(), filename: 'Amazing_Numbered.pdf', type: 'application/pdf' };
 });
 
-// Recovered Feature Logic Block 2: Image Watermark
 setupSingleFileLogic('imagewatermark', async (file) => {
     const imgInput = document.getElementById('imagewatermark-overlay-input');
     if (!imgInput.files.length) throw new Error("Please select an image file first.");
