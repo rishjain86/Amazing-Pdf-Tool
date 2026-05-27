@@ -3,140 +3,326 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Amazing PDF TOOL</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <title>Amazing PDF Tool</title>
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --accent: #3b82f6;
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--surface-color);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            transition: 0.3s;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        /* NEW NEON GRADIENT TEXT */
+        .brand-logo span {
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: linear-gradient(to right, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-btn {
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            cursor: pointer;
+            transition: 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--accent);
+            border-left: 3px solid var(--accent);
+        }
+
+        .menu-label {
+            padding: 20px 20px 10px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        /* --- MAIN CONTENT & MOBILE HEADER --- */
+        .main-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .mobile-header {
+            display: none;
+            padding: 15px 20px;
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--glass-border);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .view-section {
+            display: none;
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .page-header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+        }
+
+        /* --- DASHBOARD GRID --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .tool-card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--glass-border);
+            padding: 25px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: left;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .tool-icon {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .tool-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .tool-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .mobile-header { display: flex; }
+            .view-section { padding: 20px; }
+            .page-header h1 { font-size: 1.5rem; }
+        }
+    </style>
 </head>
 <body>
-    <div class="app-layout">
-        <aside class="sidebar glass" id="sidebar">
-            <div class="brand">
-    <img src="/assets/icon.png" style="width: 35px; height: 35px; border-radius: 8px; margin-right: 10px;">
-    <h2>Amazing PDF</h2>
-</div>
 
-            <nav class="nav-menu">
-                <button class="nav-btn active" onclick="switchView('dashboard')"><i class="fas fa-home"></i> Dashboard</button>
-                <button class="nav-btn" onclick="switchView('history')"><i class="fas fa-history"></i> History</button>
-                <div class="nav-section-title">Tools</div>
-                <button class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</button>
-                <button class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</button>
-                <button class="nav-btn" onclick="switchView('splitevenodd')"><i class="fas fa-columns"></i> Split Even/Odd</button>
-                <button class="nav-btn" onclick="switchView('delete')"><i class="fas fa-trash-alt"></i> Delete Pages</button>
-                <button class="nav-btn" onclick="switchView('reorder')"><i class="fas fa-sort-amount-up"></i> Reorder Pages</button>
-                <button class="nav-btn" onclick="switchView('addblank')"><i class="fas fa-file-medical"></i> Add Blank Page</button>
-                <button class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress-arrows-alt"></i> Compress PDF</button>
-                <button class="nav-btn" onclick="switchView('rotate')"><i class="fas fa-sync-alt"></i> Rotate PDF</button>
-                <button class="nav-btn" onclick="switchView('resizepdf')"><i class="fas fa-expand-arrows-alt"></i> Resize Pages</button>
-                <button class="nav-btn" onclick="switchView('jpgtopdf')"><i class="fas fa-file-image"></i> JPG to PDF</button>
-                <button class="nav-btn" onclick="switchView('pdftojpg')"><i class="fas fa-file-archive"></i> PDF to JPG</button>
-                <button class="nav-btn" onclick="switchView('htmltopdf')"><i class="fas fa-code"></i> HTML to PDF</button>
-                <button class="nav-btn" onclick="switchView('extract')"><i class="fas fa-file-alt"></i> Extract Text</button>
-                <button class="nav-btn" onclick="switchView('addtext')"><i class="fas fa-font"></i> Add Text</button>
-                <button class="nav-btn" onclick="switchView('pagenumbers')"><i class="fas fa-sort-numeric-down"></i> Page Numbers</button>
-                <button class="nav-btn" onclick="switchView('addmargins')"><i class="fas fa-border-all"></i> Add Margins</button>
-                <button class="nav-btn" onclick="switchView('crop')"><i class="fas fa-crop"></i> Crop PDF</button>
-                <button class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Text Watermark</button>
-                <button class="nav-btn" onclick="switchView('imagewatermark')"><i class="fas fa-images"></i> Image Watermark</button>
-                <button class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</button>
-                <button class="nav-btn" onclick="switchView('removeannots')"><i class="fas fa-eraser"></i> Clean Annots</button>
-                <button class="nav-btn" onclick="switchView('metadata')"><i class="fas fa-info-circle"></i> Edit Metadata</button>
-                <button class="nav-btn" onclick="switchView('flatten')"><i class="fas fa-layer-group"></i> Flatten PDF</button>
-                <button class="nav-btn" onclick="switchView('repair')"><i class="fas fa-tools"></i> Repair PDF</button>
-                <button class="nav-btn" onclick="switchView('protect')"><i class="fas fa-lock"></i> Protect PDF</button>
-                <button class="nav-btn" onclick="switchView('unlock')"><i class="fas fa-unlock"></i> Unlock PDF</button>
-            </nav>
-        </aside>
+    <div class="sidebar">
+        <div class="brand-logo">
+            <img src="assets/icon.png" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+            <span>Amazing PDF</span>
+        </div>
 
-        <main class="workspace">
-            <div class="mobile-header glass hidden-desktop" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;">
-                <div class="brand">
-    <img src="/assets/icon.png" style="width: 35px; height: 35px; border-radius: 8px; margin-right: 10px;">
-    <h2>Amazing PDF</h2>
-</div>
+        <div class="nav-btn active" onclick="switchView('dashboard')">
+            <i class="fas fa-home"></i> Home Dashboard
+        </div>
+        <div class="nav-btn" onclick="switchView('history')">
+            <i class="fas fa-history"></i> My History
+        </div>
+        
+        <div class="menu-label">All Tools</div>
+        <div class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</div>
+        <div class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</div>
+        <div class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress"></i> Compress PDF</div>
+        <div class="nav-btn" onclick="switchView('protect')"><i class="fas fa-lock"></i> Protect PDF</div>
+        </div>
 
-                <button onclick="switchView('history')" style="background: rgba(255,255,255,0.1); border: none; color: white; font-size: 1.2rem; padding: 8px 12px; border-radius: 8px; cursor: pointer;">
-                    <i class="fas fa-history"></i>
-                </button>
+    <div class="main-wrapper">
+        
+        <div class="mobile-header">
+            <div class="brand-logo" style="padding: 0; border: none;">
+                <img src="assets/icon.png" style="width: 28px; height: 28px; border-radius: 6px; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); object-fit: contain;">
+                <span style="font-size: 1.1rem;">Amazing PDF</span>
             </div>
+            <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.2rem;">
+                <i class="fas fa-history"></i>
+            </div>
+        </div>
 
-            <section id="view-dashboard" class="view-section active">
-                <div class="hero-header glass">
-                    <h1>Every tool you need to work with PDFs</h1>
-                    <p>100% FREE, offline, and secure.</p>
+        <div id="view-dashboard" class="view-section active">
+            <div class="page-header">
+                <h1>Every tool you need to work with PDFs</h1>
+                <p>100% FREE, offline, and secure.</p>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="tool-card" onclick="switchView('history')">
+                    <i class="fas fa-history tool-icon" style="color: #3b82f6;"></i>
+                    <h3>My History</h3>
+                    <p>Access downloaded files.</p>
                 </div>
-                
-                <div class="dashboard-grid">
-                    <div class="tool-card glass" onclick="switchView('history')"><div class="tool-icon" style="color:#3b82f6; background:rgba(59,130,246,0.1);"><i class="fas fa-history"></i></div><h3>My History</h3><p>Access downloaded files.</p></div>
-                    <div class="tool-card glass" onclick="switchView('merge')"><div class="tool-icon" style="color:#ef4444; background:rgba(239,68,68,0.1);"><i class="fas fa-object-group"></i></div><h3>Merge PDF</h3><p>Combine multiple PDFs.</p></div>
-                    <div class="tool-card glass" onclick="switchView('split')"><div class="tool-icon" style="color:#f59e0b; background:rgba(245,158,11,0.1);"><i class="fas fa-cut"></i></div><h3>Split PDF</h3><p>Extract specific pages.</p></div>
-                    <div class="tool-card glass" onclick="switchView('splitevenodd')"><div class="tool-icon" style="color:#6366f1; background:rgba(99,102,241,0.1);"><i class="fas fa-columns"></i></div><h3>Split Even/Odd</h3><p>Separate Even & Odd pages.</p></div>
-                    <div class="tool-card glass" onclick="switchView('delete')"><div class="tool-icon" style="color:#ef4444; background:rgba(239,68,68,0.1);"><i class="fas fa-trash-alt"></i></div><h3>Delete Pages</h3><p>Remove unwanted pages.</p></div>
-                    <div class="tool-card glass" onclick="switchView('reorder')"><div class="tool-icon" style="color:#8b5cf6; background:rgba(139,92,246,0.1);"><i class="fas fa-sort-amount-up"></i></div><h3>Reorder Pages</h3><p>Change page sequence.</p></div>
-                    <div class="tool-card glass" onclick="switchView('addblank')"><div class="tool-icon" style="color:#10b981; background:rgba(16,185,129,0.1);"><i class="fas fa-file-medical"></i></div><h3>Add Blank Page</h3><p>Insert empty pages.</p></div>
-                    <div class="tool-card glass" onclick="switchView('compress')"><div class="tool-icon" style="color:#10b981; background:rgba(16,185,129,0.1);"><i class="fas fa-compress-arrows-alt"></i></div><h3>Compress PDF</h3><p>Reduce file size.</p></div>
-                    <div class="tool-card glass" onclick="switchView('rotate')"><div class="tool-icon" style="color:#3b82f6; background:rgba(59,130,246,0.1);"><i class="fas fa-sync-alt"></i></div><h3>Rotate PDF</h3><p>Fix orientation.</p></div>
-                    <div class="tool-card glass" onclick="switchView('resizepdf')"><div class="tool-icon" style="color:#14b8a6; background:rgba(20,184,166,0.1);"><i class="fas fa-expand-arrows-alt"></i></div><h3>Resize Pages</h3><p>Scale to A4/Letter.</p></div>
-                    <div class="tool-card glass" onclick="switchView('jpgtopdf')"><div class="tool-icon" style="color:#eab308; background:rgba(234,179,8,0.1);"><i class="fas fa-file-image"></i></div><h3>JPG to PDF</h3><p>Images to PDF.</p></div>
-                    <div class="tool-card glass" onclick="switchView('pdftojpg')"><div class="tool-icon" style="color:#eab308; background:rgba(234,179,8,0.1);"><i class="fas fa-file-archive"></i></div><h3>PDF to JPG</h3><p>Extract pages as images.</p></div>
-                    <div class="tool-card glass" onclick="switchView('htmltopdf')"><div class="tool-icon" style="color:#f97316; background:rgba(249,115,22,0.1);"><i class="fas fa-code"></i></div><h3>HTML to PDF</h3><p>Code to Document.</p></div>
-                    <div class="tool-card glass" onclick="switchView('extract')"><div class="tool-icon" style="color:#14b8a6; background:rgba(20,184,166,0.1);"><i class="fas fa-file-alt"></i></div><h3>Extract Text</h3><p>Get readable text.</p></div>
-                    <div class="tool-card glass" onclick="switchView('addtext')"><div class="tool-icon" style="color:#6366f1; background:rgba(99,102,241,0.1);"><i class="fas fa-font"></i></div><h3>Add Text</h3><p>Write on PDF.</p></div>
-                    <div class="tool-card glass" onclick="switchView('pagenumbers')"><div class="tool-icon" style="color:#6366f1; background:rgba(99,102,241,0.1);"><i class="fas fa-sort-numeric-down"></i></div><h3>Page Numbers</h3><p>Insert numbers.</p></div>
-                    <div class="tool-card glass" onclick="switchView('addmargins')"><div class="tool-icon" style="color:#3b82f6; background:rgba(59,130,246,0.1);"><i class="fas fa-border-all"></i></div><h3>Add Margins</h3><p>Create white borders.</p></div>
-                    <div class="tool-card glass" onclick="switchView('crop')"><div class="tool-icon" style="color:#3b82f6; background:rgba(59,130,246,0.1);"><i class="fas fa-crop"></i></div><h3>Crop PDF</h3><p>Trim edges.</p></div>
-                    <div class="tool-card glass" onclick="switchView('watermark')"><div class="tool-icon" style="color:#ec4899; background:rgba(236,72,153,0.1);"><i class="fas fa-stamp"></i></div><h3>Text Watermark</h3><p>Stamp your file.</p></div>
-                    <div class="tool-card glass" onclick="switchView('imagewatermark')"><div class="tool-icon" style="color:#ec4899; background:rgba(236,72,153,0.1);"><i class="fas fa-images"></i></div><h3>Image Watermark</h3><p>Overlay a logo.</p></div>
-                    <div class="tool-card glass" onclick="switchView('sign')"><div class="tool-icon" style="color:#8b5cf6; background:rgba(139,92,246,0.1);"><i class="fas fa-signature"></i></div><h3>Sign PDF</h3><p>Add text signature.</p></div>
-                    <div class="tool-card glass" onclick="switchView('removeannots')"><div class="tool-icon" style="color:#8b5cf6; background:rgba(139,92,246,0.1);"><i class="fas fa-eraser"></i></div><h3>Clean Annots</h3><p>Remove highlights.</p></div>
-                    <div class="tool-card glass" onclick="switchView('metadata')"><div class="tool-icon" style="color:#eab308; background:rgba(234,179,8,0.1);"><i class="fas fa-info-circle"></i></div><h3>Metadata</h3><p>Edit properties.</p></div>
-                    <div class="tool-card glass" onclick="switchView('flatten')"><div class="tool-icon" style="color:#64748b; background:rgba(100,116,139,0.1);"><i class="fas fa-layer-group"></i></div><h3>Flatten PDF</h3><p>Lock elements.</p></div>
-                    <div class="tool-card glass" onclick="switchView('repair')"><div class="tool-icon" style="color:#10b981; background:rgba(16,185,129,0.1);"><i class="fas fa-tools"></i></div><h3>Repair PDF</h3><p>Fix broken files.</p></div>
-                    <div class="tool-card glass" onclick="switchView('protect')"><div class="tool-icon" style="color:#3b82f6; background:rgba(59,130,246,0.1);"><i class="fas fa-lock"></i></div><h3>Protect PDF</h3><p>Add password.</p></div>
-                    <div class="tool-card glass" onclick="switchView('unlock')"><div class="tool-icon" style="color:#06b6d4; background:rgba(6,182,212,0.1);"><i class="fas fa-unlock"></i></div><h3>Unlock PDF</h3><p>Remove security.</p></div>
+                <div class="tool-card" onclick="switchView('merge')">
+                    <i class="fas fa-object-group tool-icon" style="color: #ef4444;"></i>
+                    <h3>Merge PDF</h3>
+                    <p>Combine multiple PDFs.</p>
                 </div>
-            </section>
+                <div class="tool-card" onclick="switchView('split')">
+                    <i class="fas fa-cut tool-icon" style="color: #f59e0b;"></i>
+                    <h3>Split PDF</h3>
+                    <p>Extract specific pages.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('compress')">
+                    <i class="fas fa-compress-arrows-alt tool-icon" style="color: #10b981;"></i>
+                    <h3>Compress PDF</h3>
+                    <p>Reduce file size.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('protect')">
+                    <i class="fas fa-lock tool-icon" style="color: #8b5cf6;"></i>
+                    <h3>Protect PDF</h3>
+                    <p>Add secure password.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('unlock')">
+                    <i class="fas fa-unlock tool-icon" style="color: #06b6d4;"></i>
+                    <h3>Unlock PDF</h3>
+                    <p>Remove passwords.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('pdftojpg')">
+                    <i class="fas fa-file-archive tool-icon" style="color: #eab308;"></i>
+                    <h3>PDF to JPG</h3>
+                    <p>Extract pages as images.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('jpgtopdf')">
+                    <i class="fas fa-images tool-icon" style="color: #f97316;"></i>
+                    <h3>JPG to PDF</h3>
+                    <p>Images to PDF document.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('rotate')">
+                    <i class="fas fa-sync-alt tool-icon" style="color: #3b82f6;"></i>
+                    <h3>Rotate PDF</h3>
+                    <p>Fix page orientation.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('delete')">
+                    <i class="fas fa-trash-alt tool-icon" style="color: #ef4444;"></i>
+                    <h3>Delete Pages</h3>
+                    <p>Remove unwanted pages.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('watermark')">
+                    <i class="fas fa-stamp tool-icon" style="color: #ec4899;"></i>
+                    <h3>Watermark</h3>
+                    <p>Add text watermark.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('sign')">
+                    <i class="fas fa-signature tool-icon" style="color: #8b5cf6;"></i>
+                    <h3>Sign PDF</h3>
+                    <p>Add your signature.</p>
+                </div>
+            </div>
+        </div>
 
-            <section id="view-history" class="view-section">
-                <div class="hero-header glass">
-                    <h1>My Downloads History</h1>
-                    <p>Access and share your recently generated files offline anytime.</p>
-                </div>
-                <div id="history-list" style="margin-top: 20px;"></div>
-            </section>
+        <div id="view-history" class="view-section">
+            <h2><i class="fas fa-history"></i> My Download History</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Your processed files are saved locally.</p>
+            <div id="history-list"></div>
+        </div>
 
-            <section id="view-merge" class="view-section"><div class="hero-header glass"><h1>Merge PDF</h1></div><div id="merge-ui-container"></div></section>
-            <section id="view-split" class="view-section"><div class="hero-header glass"><h1>Split PDF</h1></div><div id="split-ui-container"></div></section>
-            <section id="view-splitevenodd" class="view-section"><div class="hero-header glass"><h1>Split Even/Odd</h1></div><div id="splitevenodd-ui-container"></div></section>
-            <section id="view-delete" class="view-section"><div class="hero-header glass"><h1>Delete Pages</h1></div><div id="delete-ui-container"></div></section>
-            <section id="view-reorder" class="view-section"><div class="hero-header glass"><h1>Reorder Pages</h1></div><div id="reorder-ui-container"></div></section>
-            <section id="view-addblank" class="view-section"><div class="hero-header glass"><h1>Add Blank Page</h1></div><div id="addblank-ui-container"></div></section>
-            <section id="view-compress" class="view-section"><div class="hero-header glass"><h1>Compress PDF</h1></div><div id="compress-ui-container"></div></section>
-            <section id="view-rotate" class="view-section"><div class="hero-header glass"><h1>Rotate PDF</h1></div><div id="rotate-ui-container"></div></section>
-            <section id="view-crop" class="view-section"><div class="hero-header glass"><h1>Crop PDF</h1></div><div id="crop-ui-container"></div></section>
-            <section id="view-addmargins" class="view-section"><div class="hero-header glass"><h1>Add Margins</h1></div><div id="addmargins-ui-container"></div></section>
-            <section id="view-resizepdf" class="view-section"><div class="hero-header glass"><h1>Resize PDF Pages</h1></div><div id="resizepdf-ui-container"></div></section>
-            <section id="view-pdftojpg" class="view-section"><div class="hero-header glass"><h1>PDF to JPG</h1></div><div id="pdftojpg-ui-container"></div></section>
-            <section id="view-htmltopdf" class="view-section"><div class="hero-header glass"><h1>HTML to PDF</h1></div><div id="htmltopdf-ui-container"></div></section>
-            <section id="view-pagenumbers" class="view-section"><div class="hero-header glass"><h1>Page Numbers</h1></div><div id="pagenumbers-ui-container"></div></section>
-            <section id="view-jpgtopdf" class="view-section"><div class="hero-header glass"><h1>JPG to PDF</h1></div><div id="jpgtopdf-ui-container"></div></section>
-            <section id="view-extract" class="view-section"><div class="hero-header glass"><h1>Extract Text</h1></div><div id="extract-ui-container"></div></section>
-            <section id="view-addtext" class="view-section"><div class="hero-header glass"><h1>Add Text to PDF</h1></div><div id="addtext-ui-container"></div></section>
-            <section id="view-watermark" class="view-section"><div class="hero-header glass"><h1>Text Watermark</h1></div><div id="watermark-ui-container"></div></section>
-            <section id="view-imagewatermark" class="view-section"><div class="hero-header glass"><h1>Image Watermark</h1></div><div id="imagewatermark-ui-container"></div></section>
-            <section id="view-sign" class="view-section"><div class="hero-header glass"><h1>Sign PDF</h1></div><div id="sign-ui-container"></div></section>
-            <section id="view-removeannots" class="view-section"><div class="hero-header glass"><h1>Clean Annotations</h1></div><div id="removeannots-ui-container"></div></section>
-            <section id="view-repair" class="view-section"><div class="hero-header glass"><h1>Repair PDF</h1></div><div id="repair-ui-container"></div></section>
-            <section id="view-metadata" class="view-section"><div class="hero-header glass"><h1>Edit Metadata</h1></div><div id="metadata-ui-container"></div></section>
-            <section id="view-protect" class="view-section"><div class="hero-header glass"><h1>Protect PDF</h1></div><div id="protect-ui-container"></div></section>
-            <section id="view-unlock" class="view-section"><div class="hero-header glass"><h1>Unlock PDF</h1></div><div id="unlock-ui-container"></div></section>
-            <section id="view-flatten" class="view-section"><div class="hero-header glass"><h1>Flatten PDF</h1></div><div id="flatten-ui-container"></div></section>
-        </main>
+        <div id="view-merge" class="view-section"><div id="merge-ui-container"></div></div>
+        <div id="view-split" class="view-section"><div id="split-ui-container"></div></div>
+        <div id="view-compress" class="view-section"><div id="compress-ui-container"></div></div>
+        <div id="view-delete" class="view-section"><div id="delete-ui-container"></div></div>
+        <div id="view-rotate" class="view-section"><div id="rotate-ui-container"></div></div>
+        <div id="view-pdftojpg" class="view-section"><div id="pdftojpg-ui-container"></div></div>
+        <div id="view-jpgtopdf" class="view-section"><div id="jpgtopdf-ui-container"></div></div>
+        <div id="view-protect" class="view-section"><div id="protect-ui-container"></div></div>
+        <div id="view-unlock" class="view-section"><div id="unlock-ui-container"></div></div>
+        <div id="view-watermark" class="view-section"><div id="watermark-ui-container"></div></div>
+        <div id="view-sign" class="view-section"><div id="sign-ui-container"></div></div>
+        <div id="view-extract" class="view-section"><div id="extract-ui-container"></div></div>
+        <div id="view-flatten" class="view-section"><div id="flatten-ui-container"></div></div>
+        <div id="view-crop" class="view-section"><div id="crop-ui-container"></div></div>
+        <div id="view-metadata" class="view-section"><div id="metadata-ui-container"></div></div>
+        <div id="view-repair" class="view-section"><div id="repair-ui-container"></div></div>
+        <div id="view-reorder" class="view-section"><div id="reorder-ui-container"></div></div>
+        <div id="view-imagewatermark" class="view-section"><div id="imagewatermark-ui-container"></div></div>
+        <div id="view-htmltopdf" class="view-section"><div id="htmltopdf-ui-container"></div></div>
+        <div id="view-addtext" class="view-section"><div id="addtext-ui-container"></div></div>
+        <div id="view-addblank" class="view-section"><div id="addblank-ui-container"></div></div>
+        <div id="view-resizepdf" class="view-section"><div id="resizepdf-ui-container"></div></div>
+        <div id="view-splitevenodd" class="view-section"><div id="splitevenodd-ui-container"></div></div>
+        <div id="view-addmargins" class="view-section"><div id="addmargins-ui-container"></div></div>
+        <div id="view-removeannots" class="view-section"><div id="removeannots-ui-container"></div></div>
+        <div id="view-pagenumbers" class="view-section"><div id="pagenumbers-ui-container"></div></div>
+
     </div>
-    
-    <script src="app.js" type="module"></script>
+
+    <script type="module" src="app.js"></script>
 </body>
 </html>
