@@ -28,10 +28,10 @@ jobs:
     - name: Auto-Copy Files to Public for App Build
       run: |
         mkdir -p public
-        cp index.html public/
-        cp app.js public/
-        cp -r assets public/ || true
+        cp *.html public/ || true
+        cp *.js public/ || true
         cp *.css public/ || true
+        cp -r assets public/ || true
 
     - name: Create Android Project
       run: npx cap add android || true
