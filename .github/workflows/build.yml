@@ -25,6 +25,14 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
+    - name: Auto-Copy Files to Public for App Build
+      run: |
+        mkdir -p public
+        cp index.html public/
+        cp app.js public/
+        cp -r assets public/ || true
+        cp *.css public/ || true
+
     - name: Create Android Project
       run: npx cap add android || true
 
@@ -49,3 +57,4 @@ jobs:
       with:
         name: Amazing-PDF-App
         path: android/app/build/outputs/apk/debug/app-debug.apk
+        
