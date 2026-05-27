@@ -584,3 +584,12 @@ if (ui.jpgtopdf) {
         finally { btn.innerHTML = 'Convert to PDF'; }
     });
 }
+
+// --- SEARCH FILTERING LOGIC ---
+document.getElementById('mobile-search')?.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    document.querySelectorAll('.tool-card').forEach(card => {
+        const title = card.querySelector('h3').innerText.toLowerCase();
+        card.style.display = title.includes(searchTerm) ? 'block' : 'none';
+    });
+});
