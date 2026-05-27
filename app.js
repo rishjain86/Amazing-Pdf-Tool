@@ -52,10 +52,10 @@ const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px 
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
 
-// NEW BRANDING HEADER LOGIC (USING ICON.PNG FROM ASSETS)
+// NEW BRANDING HEADER LOGIC
 const brandHeaderHtml = `
     <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
-        <img src="assets/icon.png" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
+        <img src="assets/icon.png?v=2" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
         <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
     </div>
 `;
@@ -74,7 +74,6 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
     </div>
 `;
 
-// GENERATE MULTIPLE FILE UI HELPER
 const generateMultipleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
     ${brandHeaderHtml}
     <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
@@ -210,13 +209,11 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
             const base64 = bytesToBase64(bytes);
-            // Save to Documents Directory for easy File Manager Access
             const savedFile = await Filesystem.writeFile({ 
                 path: filename, 
                 data: base64, 
                 directory: Directory.Documents 
             });
-            // Trigger Native Share to give immediate action choice
             await Share.share({ 
                 title: filename, 
                 text: 'Here is your processed file from Amazing PDF',
@@ -357,7 +354,6 @@ function setupMultipleFileLogic(id, actionCallback) {
 
 // --- FEATURES IMPLEMENTATIONS LOGIC ---
 
-// SINGLE FILE IMPLEMENTATIONS (Updated with Dynamic Naming)
 setupSingleFileLogic('split', async (file) => {
     const pagesToExtract = parseRange(document.getElementById('split-ranges').value);
     if (!pagesToExtract.length) throw new Error("Range required");
@@ -559,7 +555,7 @@ setupSingleFileLogic('imagewatermark', async (file) => {
     return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_ImgWatermark.pdf`, type: 'application/pdf' };
 });
 
-// MULTIPLE FILES BATCH IMPLEMENTATIONS (Protect, Unlock, Compress)
+// MULTIPLE FILES BATCH IMPLEMENTATIONS
 setupMultipleFileLogic('compress', async (files) => {
     if (files.length === 1) {
         const file = files[0];
@@ -598,7 +594,6 @@ setupMultipleFileLogic('unlock', async (files) => {
     }
 });
 
-// MULTIPLE FILES PROTECT VIA VERCEL FULL URL API
 setupMultipleFileLogic('protect', async (files) => {
     const password = document.getElementById('protect-password').value;
     if (!password) throw new Error("Password required");
@@ -719,3 +714,8 @@ document.getElementById('mobile-search')?.addEventListener('input', (e) => {
         card.style.display = title.includes(searchTerm) ? 'block' : 'none';
     });
 });
+
+// --- LOAD ADMOB BANNER AT BOTTOM ---
+if(window.AdManager && typeof window.AdManager.showBanner === 'function') {
+    window.AdManager.showBanner();
+}
