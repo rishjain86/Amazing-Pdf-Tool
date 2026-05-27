@@ -1,50 +1,44 @@
 name: Build Android APK
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-      - name: Install Dependencies
-        run: npm install
+    - name: Install Dependencies
+      run: npm install
 
-      - name: Setup Capacitor Android
-        run: |
-          npx cap add android || true
-          npx cap sync android
+    - name: Create Android Project
+      run: npx cap add android || true
 
-      - name: Inject AdMob App ID (Fail-safe Method)
-        run: |
-          node -e "const fs = require('fs'); const path = 'android/app/src/main/AndroidManifest.xml'; let content = fs.readFileSync(path, 'utf8'); content = content.replace('</application>', '    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"ca-app-pub-3940256099942544~3347511713\"/>\n    </application>'); fs.writeFileSync(path, content);"
+    - name: Generate App Icons & Splash
+      run: npx @capacitor/assets generate || true
 
-      - name: Build Android APK
-        working-directory: ./android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
+    - name: Sync App Code
+      run: npx cap sync android
 
-      - name: Upload APK File
-        uses: actions/upload-artifact@v4
-        with:
-          name: Amazing-PDF-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+    - name: Build APK File
+      run: cd android && ./gradlew assembleDebug
+
+    - name: Upload APK for Download
+      uses: actions/upload-artifact@v4
+      with:
+        name: Amazing-PDF-App
+        path: android/app/build/outputs/apk/debug/app-debug.apk
