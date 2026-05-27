@@ -25,11 +25,13 @@ if (window.Capacitor && window.Capacitor.isNativePlatform()) {
 // --- GLOBAL ROUTING ---
 window.switchView = (viewId) => {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
+    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(viewId));
     if(activeBtn) activeBtn.classList.add('active');
 
     document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
-    document.getElementById(`view-${viewId}`).classList.add('active');
+    
+    const targetView = document.getElementById(`view-${viewId}`);
+    if(targetView) targetView.classList.add('active');
 
     if(viewId === 'history') window.renderHistory();
 };
@@ -148,6 +150,7 @@ window.deleteHistory = async (id) => {
 
 window.renderHistory = async () => {
     const list = document.getElementById('history-list');
+    if (!list) return;
     list.innerHTML = '<p>Loading...</p>';
     const items = await window.getHistory();
     if (!items.length) return list.innerHTML = '<p style="color:var(--text-secondary);">No downloads history found.</p>';
@@ -219,7 +222,7 @@ function setupSingleFileLogic(id, actionCallback) {
     const btn = document.getElementById(`btn-${id}-action`);
     let currentFile = null;
 
-    if (!dropZone) return;
+    if (!dropZone || !input || !btn) return;
 
     dropZone.addEventListener('click', () => input.click());
     input.addEventListener('change', (e) => {
@@ -247,7 +250,7 @@ function setupSingleFileLogic(id, actionCallback) {
             const result = await actionCallback(currentFile);
             document.getElementById(`reset-${id}`).click();
             await processAndDownload(result.bytes, result.filename, result.type);
-            await AdManager.showInterstitial();
+            if(window.AdManager) await AdManager.showInterstitial();
         } catch (error) {
             alert(`Error: ${error.message}`);
         } finally {
@@ -505,7 +508,7 @@ setupSingleFileLogic('imagewatermark', async (file) => {
 
 // --- MANUAL HANDLERS FOR CUSTOM ENGINE TOOLS ---
 if (ui.htmltopdf) {
-    document.getElementById('btn-htmltopdf-action').addEventListener('click', async () => {
+    document.getElementById('btn-htmltopdf-action')?.addEventListener('click', async () => {
         const htmlContent = document.getElementById('html-input').value;
         if (!htmlContent) return alert("Please enter HTML code.");
         const btn = document.getElementById('btn-htmltopdf-action');
@@ -515,7 +518,7 @@ if (ui.htmltopdf) {
             const bytes = new Uint8Array(await blob.arrayBuffer());
             document.getElementById('html-input').value = '';
             await processAndDownload(bytes, 'Amazing_Converted.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
+            if(window.AdManager) await AdManager.showInterstitial();
         } catch(e) { alert("Error converting."); }
         finally { btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; }
     });
@@ -524,8 +527,8 @@ if (ui.htmltopdf) {
 let mergeFiles = [];
 if (ui.merge) {
     const mergeInput = document.getElementById('merge-file-input');
-    document.getElementById('merge-drop-zone').addEventListener('click', () => mergeInput.click());
-    mergeInput.addEventListener('change', (e) => { mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; renderMergeList(); });
+    document.getElementById('merge-drop-zone')?.addEventListener('click', () => mergeInput.click());
+    mergeInput?.addEventListener('change', (e) => { mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; renderMergeList(); });
     function renderMergeList() {
         const list = document.getElementById('merge-file-list'); list.innerHTML = '';
         mergeFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeMerge(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
@@ -533,7 +536,7 @@ if (ui.merge) {
     }
     window.removeMerge = (i) => { mergeFiles.splice(i, 1); renderMergeList(); };
     
-    document.getElementById('btn-merge-action').addEventListener('click', async () => {
+    document.getElementById('btn-merge-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-merge-action'); btn.innerHTML = 'Processing...';
         try {
             const mergedPdf = await PDFDocument.create();
@@ -545,7 +548,7 @@ if (ui.merge) {
             const bytes = await mergedPdf.save();
             mergeFiles = []; renderMergeList();
             await processAndDownload(bytes, 'Amazing_Merged.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
+            if(window.AdManager) await AdManager.showInterstitial();
         } catch (e) { alert("Error merging"); }
         finally { btn.innerHTML = 'Merge Files Now'; }
     });
@@ -554,8 +557,8 @@ if (ui.merge) {
 let imageFiles = [];
 if (ui.jpgtopdf) {
     const imgInput = document.getElementById('jpgtopdf-file-input');
-    document.getElementById('jpgtopdf-drop-zone').addEventListener('click', () => imgInput.click());
-    imgInput.addEventListener('change', (e) => { imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); });
+    document.getElementById('jpgtopdf-drop-zone')?.addEventListener('click', () => imgInput.click());
+    imgInput?.addEventListener('change', (e) => { imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); });
     function renderImgList() {
         const list = document.getElementById('jpgtopdf-file-list'); list.innerHTML = '';
         imageFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeImg(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
@@ -563,7 +566,7 @@ if (ui.jpgtopdf) {
     }
     window.removeImg = (i) => { imageFiles.splice(i, 1); renderImgList(); };
     
-    document.getElementById('btn-jpgtopdf-action').addEventListener('click', async () => {
+    document.getElementById('btn-jpgtopdf-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-jpgtopdf-action'); btn.innerHTML = 'Converting...';
         try {
             const pdfDoc = await PDFDocument.create();
@@ -576,7 +579,7 @@ if (ui.jpgtopdf) {
             const bytes = await pdfDoc.save();
             imageFiles = []; renderImgList();
             await processAndDownload(bytes, 'Amazing_Images.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
+            if(window.AdManager) await AdManager.showInterstitial();
         } catch (e) { alert("Error converting"); }
         finally { btn.innerHTML = 'Convert to PDF'; }
     });
