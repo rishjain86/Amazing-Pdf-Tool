@@ -74,18 +74,36 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
     </div>
 `;
 
+// GENERATE MULTIPLE FILE UI HELPER
+const generateMultipleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    ${brandHeaderHtml}
+    <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
+        <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
+        <h3>Drag & Drop PDFs to ${title}</h3>
+        <input type="file" id="${id}-file-input" multiple accept="application/pdf" style="display: none;">
+    </div>
+    <div id="${id}-file-list" style="${fileListStyle}"></div>
+    <div id="${id}-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+        ${extraHtml}
+        <button id="btn-${id}-action" style="${btnStyle.replace('var(--accent)', color)}"><i class="fas ${icon}"></i> ${btnText}</button>
+    </div>
+`;
+
 if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
 if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
 if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
 
+// BATCH ENABLED UIs
+if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt Batch', `<input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle}">`);
+if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock Batch', `<input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle}">`);
+if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Batch');
+
+// SINGLE FILE UIs
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
 if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
 if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-amount-up', '#8b5cf6', 'Reorder Pages', 'Apply New Order', `<input type="text" id="reorder-input" placeholder="e.g. 3, 1, 2" style="${inputStyle}">`);
-if (ui.compress) ui.compress.innerHTML = generateSingleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress PDF');
 if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
 if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
-if (ui.protect) ui.protect.innerHTML = generateSingleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt PDF', `<input type="password" id="protect-password" placeholder="Set Password" style="${inputStyle}">`);
-if (ui.unlock) ui.unlock.innerHTML = generateSingleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock PDF', `<input type="password" id="unlock-password" placeholder="Current Password" style="${inputStyle}">`);
 if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
 if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text" style="${inputStyle}">`);
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
@@ -110,6 +128,9 @@ if (ui.imagewatermark) ui.imagewatermark.innerHTML = generateSingleFileUI('image
     <label style="color: var(--text-secondary);">Select Logo/Image (PNG/JPG):</label>
     <input type="file" id="imagewatermark-overlay-input" accept="image/png, image/jpeg" style="${inputStyle}">
 `);
+
+// --- UTILS ---
+const getBaseName = (filename) => filename.substring(0, filename.lastIndexOf('.')) || filename;
 
 // --- ROBUST HISTORY & DOWNLOAD LOGIC ---
 const DB_NAME = 'AmazingPDFHistory';
@@ -180,6 +201,7 @@ function bytesToBase64(bytes) {
     return window.btoa(binary);
 }
 
+// SMART SAVE + SHARE FUNCTION
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if(saveToDb) {
         try { await saveToHistory(bytes, filename, type); } catch(e) { console.error("History Save Error", e); }
@@ -188,10 +210,20 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
             const base64 = bytesToBase64(bytes);
-            const savedFile = await Filesystem.writeFile({ path: filename, data: base64, directory: Directory.Cache });
-            await Share.share({ title: filename, url: savedFile.uri });
+            // Save to Documents Directory for easy File Manager Access
+            const savedFile = await Filesystem.writeFile({ 
+                path: filename, 
+                data: base64, 
+                directory: Directory.Documents 
+            });
+            // Trigger Native Share to give immediate action choice
+            await Share.share({ 
+                title: filename, 
+                text: 'Here is your processed file from Amazing PDF',
+                url: savedFile.uri 
+            });
         } catch (e) {
-            alert("Saved securely to History tab!");
+            alert("File saved securely to your Documents and History tab!");
         }
     } else {
         const blob = new Blob([bytes], { type });
@@ -213,7 +245,7 @@ function parseRange(rangeStr) {
     return [...new Set(pages)].sort((a, b) => a - b);
 }
 
-// --- CORE ACTION HANDLER ---
+// --- CORE ACTION HANDLERS ---
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`);
     const input = document.getElementById(`${id}-file-input`);
@@ -259,15 +291,73 @@ function setupSingleFileLogic(id, actionCallback) {
     });
 }
 
-// --- FEATURES IMPLEMENTATIONS LOGIC ---
-setupSingleFileLogic('compress', async (file) => {
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
-    const newPdf = await PDFDocument.create();
-    const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-    copiedPages.forEach(p => newPdf.addPage(p));
-    return { bytes: await newPdf.save({ useObjectStreams: true }), filename: 'Amazing_Compressed.pdf', type: 'application/pdf' };
-});
+function setupMultipleFileLogic(id, actionCallback) {
+    const dropZone = document.getElementById(`${id}-drop-zone`);
+    const input = document.getElementById(`${id}-file-input`);
+    const listContainer = document.getElementById(`${id}-file-list`);
+    const controls = document.getElementById(`${id}-controls`);
+    const btn = document.getElementById(`btn-${id}-action`);
+    let currentFiles = [];
 
+    if (!dropZone || !input || !btn) return;
+
+    dropZone.addEventListener('click', () => input.click());
+    
+    function renderList() {
+        listContainer.innerHTML = '';
+        currentFiles.forEach((f, i) => {
+            listContainer.innerHTML += `<div style="${fileItemStyle}">
+                <div><b>${f.name}</b></div>
+                <button onclick="removeBatchFile('${id}', ${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button>
+            </div>`;
+        });
+        if(currentFiles.length > 0) {
+            controls.style.display = 'block';
+            dropZone.style.display = 'none';
+            if(!document.getElementById(`add-more-${id}`)) {
+               const addMoreBtn = document.createElement('button');
+               addMoreBtn.id = `add-more-${id}`;
+               addMoreBtn.innerHTML = '+ Add More PDFs';
+               addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer;`;
+               addMoreBtn.onclick = () => input.click();
+               listContainer.appendChild(addMoreBtn);
+            }
+        } else {
+            controls.style.display = 'none';
+            dropZone.style.display = 'block';
+        }
+    }
+
+    window.removeBatchFile = (listId, index) => {
+        if(listId === id) { currentFiles.splice(index, 1); renderList(); }
+    };
+
+    input.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+        currentFiles = [...currentFiles, ...files];
+        renderList();
+    });
+
+    btn.addEventListener('click', async () => {
+        if (!currentFiles.length) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Batch...';
+        try {
+            const result = await actionCallback(currentFiles);
+            currentFiles = []; renderList();
+            await processAndDownload(result.bytes, result.filename, result.type);
+            if(window.AdManager) await AdManager.showInterstitial();
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    });
+}
+
+// --- FEATURES IMPLEMENTATIONS LOGIC ---
+
+// SINGLE FILE IMPLEMENTATIONS (Updated with Dynamic Naming)
 setupSingleFileLogic('split', async (file) => {
     const pagesToExtract = parseRange(document.getElementById('split-ranges').value);
     if (!pagesToExtract.length) throw new Error("Range required");
@@ -275,27 +365,27 @@ setupSingleFileLogic('split', async (file) => {
     const newPdf = await PDFDocument.create();
     const copiedPages = await newPdf.copyPages(sourcePdf, pagesToExtract);
     copiedPages.forEach(p => newPdf.addPage(p));
-    return { bytes: await newPdf.save(), filename: 'Amazing_Split.pdf', type: 'application/pdf' };
+    return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Split.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('delete', async (file) => {
     const pagesToDelete = parseRange(document.getElementById('delete-ranges').value);
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     pagesToDelete.sort((a, b) => b - a).forEach(i => { if (i >= 0 && i < pdfDoc.getPageCount()) pdfDoc.removePage(i); });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Deleted.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Deleted.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('rotate', async (file) => {
     const angle = parseInt(document.getElementById('rotate-angle').value);
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     pdfDoc.getPages().forEach(p => p.setRotation(degrees(p.getRotation().angle + angle)));
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Rotated.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Rotated.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('flatten', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     const form = pdfDoc.getForm(); if(form) form.flatten();
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Flattened.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Flattened.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('crop', async (file) => {
@@ -305,7 +395,7 @@ setupSingleFileLogic('crop', async (file) => {
         const { x, y, width, height } = page.getCropBox() || page.getMediaBox();
         page.setCropBox(x + margin, y + margin, width - (margin * 2), height - (margin * 2));
     });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Cropped.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Cropped.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('metadata', async (file) => {
@@ -313,12 +403,12 @@ setupSingleFileLogic('metadata', async (file) => {
     const author = document.getElementById('meta-author').value;
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     if(title) pdfDoc.setTitle(title); if(author) pdfDoc.setAuthor(author);
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Metadata.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Metadata.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('repair', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Repaired.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Repaired.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('sign', async (file) => {
@@ -328,44 +418,7 @@ setupSingleFileLogic('sign', async (file) => {
     const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
     const page = pdfDoc.getPages()[0];
     page.drawText(`Signed by: ${name}`, { x: page.getSize().width - 200, y: 50, size: 18, font, color: rgb(0, 0, 0.8) });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Signed.pdf', type: 'application/pdf' };
-});
-
-// --- PROTECT VIA VERCEL FULL URL API ---
-setupSingleFileLogic('protect', async (file) => {
-    const password = document.getElementById('protect-password').value;
-    if (!password) throw new Error("Password required");
-    
-    if (!navigator.onLine) {
-        throw new Error("You must be online to use the Secure Cloud Protect feature.");
-    }
-
-    const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('password', password);
-
-    const response = await fetch(VERCEL_API_URL, {
-        method: 'POST',
-        body: formData
-    });
-
-    if (!response.ok) {
-        throw new Error("Server error while protecting file. Please try again.");
-    }
-
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    
-    return { bytes: bytes, filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
-});
-
-setupSingleFileLogic('unlock', async (file) => {
-    const password = document.getElementById('unlock-password').value;
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Unlocked.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Signed.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('addtext', async (file) => {
@@ -374,20 +427,20 @@ setupSingleFileLogic('addtext', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     pdfDoc.getPages()[pageIdx].drawText(text, { x: 50, y: 50, size: 14, font, color: rgb(0,0,0) });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_TextAdded.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_TextAdded.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('addblank', async (file) => {
     const pos = document.getElementById('addblank-position').value;
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     if (pos === 'start') pdfDoc.insertPage(0); else pdfDoc.addPage();
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_BlankPage.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_BlankPage.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('resizepdf', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     pdfDoc.getPages().forEach(page => page.setSize(595.28, 841.89));
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Resized.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Resized.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('reorder', async (file) => {
@@ -396,7 +449,7 @@ setupSingleFileLogic('reorder', async (file) => {
     const newPdf = await PDFDocument.create();
     const copied = await newPdf.copyPages(srcDoc, indices);
     copied.forEach(p => newPdf.addPage(p));
-    return { bytes: await newPdf.save(), filename: 'Amazing_Reordered.pdf', type: 'application/pdf' };
+    return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Reordered.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('addmargins', async (file) => {
@@ -407,13 +460,13 @@ setupSingleFileLogic('addmargins', async (file) => {
         page.setSize(width + (margin * 2), height + (margin * 2));
         page.translateContent(margin, margin);
     });
-    return { bytes: await doc.save(), filename: 'Amazing_Margined.pdf', type: 'application/pdf' };
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Margined.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('removeannots', async (file) => {
     const doc = await PDFDocument.load(await file.arrayBuffer());
     doc.getPages().forEach(page => { if(page.node.Annots) page.node.delete(PDFName.of('Annots')); });
-    return { bytes: await doc.save(), filename: 'Amazing_Cleaned.pdf', type: 'application/pdf' };
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Cleaned.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('watermark', async (file) => {
@@ -424,7 +477,7 @@ setupSingleFileLogic('watermark', async (file) => {
         const { width, height } = page.getSize();
         page.drawText(text, { x: width/2 - (font.widthOfTextAtSize(text,60)/2), y: height/2, size: 60, font, color: rgb(0.75,0.75,0.75), opacity: 0.5, rotate: degrees(45) });
     });
-    return { bytes: await doc.save(), filename: 'Amazing_Watermark.pdf', type: 'application/pdf' };
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Watermark.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('splitevenodd', async (file) => {
@@ -435,7 +488,7 @@ setupSingleFileLogic('splitevenodd', async (file) => {
     const zip = new JSZip();
     if(oddIdx.length) { const oP = await oddDoc.copyPages(srcDoc, oddIdx); oP.forEach(p => oddDoc.addPage(p)); zip.file("Odd_Pages.pdf", await oddDoc.save()); }
     if(evenIdx.length) { const eP = await evenDoc.copyPages(srcDoc, evenIdx); eP.forEach(p => evenDoc.addPage(p)); zip.file("Even_Pages.pdf", await evenDoc.save()); }
-    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: 'Amazing_EvenOdd.zip', type: 'application/zip' };
+    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_EvenOdd.zip`, type: 'application/zip' };
 });
 
 setupSingleFileLogic('pdftojpg', async (file) => {
@@ -449,7 +502,7 @@ setupSingleFileLogic('pdftojpg', async (file) => {
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
         zip.file(`Page_${i}.jpg`, canvas.toDataURL('image/jpeg', 0.9).split(',')[1], {base64: true});
     }
-    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: 'Amazing_Images.zip', type: 'application/zip' };
+    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_Images.zip`, type: 'application/zip' };
 });
 
 setupSingleFileLogic('extract', async (file) => {
@@ -460,7 +513,7 @@ setupSingleFileLogic('extract', async (file) => {
         const textContent = await page.getTextContent();
         fullText += `--- Page ${i} ---\n${textContent.items.map(item => item.str).join(" ")}\n\n`;
     }
-    return { bytes: new TextEncoder().encode(fullText), filename: 'Amazing_Extracted.txt', type: 'text/plain' };
+    return { bytes: new TextEncoder().encode(fullText), filename: `${getBaseName(file.name)}_Extracted.txt`, type: 'text/plain' };
 });
 
 setupSingleFileLogic('pagenumbers', async (file) => {
@@ -488,7 +541,7 @@ setupSingleFileLogic('pagenumbers', async (file) => {
 
         page.drawText(text, { x, y, size: 12, font: helveticaFont, color: rgb(0,0,0) });
     });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Numbered.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Numbered.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('imagewatermark', async (file) => {
@@ -503,7 +556,78 @@ setupSingleFileLogic('imagewatermark', async (file) => {
         const { width, height } = page.getSize();
         page.drawImage(pdfImg, { x: width / 2 - dims.width / 2, y: height / 2 - dims.height / 2, width: dims.width, height: dims.height, opacity: 0.4 });
     });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_ImageWatermark.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_ImgWatermark.pdf`, type: 'application/pdf' };
+});
+
+// MULTIPLE FILES BATCH IMPLEMENTATIONS (Protect, Unlock, Compress)
+setupMultipleFileLogic('compress', async (files) => {
+    if (files.length === 1) {
+        const file = files[0];
+        const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
+        const newPdf = await PDFDocument.create();
+        const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach(p => newPdf.addPage(p));
+        return { bytes: await newPdf.save({ useObjectStreams: true }), filename: `${getBaseName(file.name)}_Compressed.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
+            const newPdf = await PDFDocument.create();
+            const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach(p => newPdf.addPage(p));
+            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await newPdf.save({ useObjectStreams: true }));
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Compressed.zip`, type: 'application/zip' };
+    }
+});
+
+setupMultipleFileLogic('unlock', async (files) => {
+    const password = document.getElementById('unlock-password').value;
+    if (files.length === 1) {
+        const pdfDoc = await PDFDocument.load(await files[0].arrayBuffer(), { password });
+        return { bytes: await pdfDoc.save(), filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            try {
+                const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password });
+                zip.file(`${getBaseName(file.name)}_Unlocked.pdf`, await pdfDoc.save());
+            } catch (e) { console.warn(`Failed to unlock ${file.name}`); }
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Unlocked.zip`, type: 'application/zip' };
+    }
+});
+
+// MULTIPLE FILES PROTECT VIA VERCEL FULL URL API
+setupMultipleFileLogic('protect', async (files) => {
+    const password = document.getElementById('protect-password').value;
+    if (!password) throw new Error("Password required");
+    if (!navigator.onLine) throw new Error("You must be online to use the Secure Cloud Protect feature.");
+
+    const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
+    
+    if (files.length === 1) {
+        const formData = new FormData();
+        formData.append('file', files[0]);
+        formData.append('password', password);
+        const response = await fetch(VERCEL_API_URL, { method: 'POST', body: formData });
+        if (!response.ok) throw new Error("Server error while protecting file.");
+        const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
+        return { bytes, filename: `${getBaseName(files[0].name)}_Protected.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('password', password);
+            const response = await fetch(VERCEL_API_URL, { method: 'POST', body: formData });
+            if (response.ok) {
+                const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
+                zip.file(`${getBaseName(file.name)}_Protected.pdf`, bytes);
+            }
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Protected.zip`, type: 'application/zip' };
+    }
 });
 
 // --- MANUAL HANDLERS FOR CUSTOM ENGINE TOOLS ---
@@ -517,7 +641,7 @@ if (ui.htmltopdf) {
             const blob = await html2pdf().set({ margin: 1, jsPDF: { format: 'letter' } }).from(htmlContent).output('blob');
             const bytes = new Uint8Array(await blob.arrayBuffer());
             document.getElementById('html-input').value = '';
-            await processAndDownload(bytes, 'Amazing_Converted.pdf', 'application/pdf');
+            await processAndDownload(bytes, 'HTML_Converted.pdf', 'application/pdf');
             if(window.AdManager) await AdManager.showInterstitial();
         } catch(e) { alert("Error converting."); }
         finally { btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; }
@@ -546,8 +670,9 @@ if (ui.merge) {
                 copiedPages.forEach(p => mergedPdf.addPage(p));
             }
             const bytes = await mergedPdf.save();
+            const outputName = mergeFiles.length > 0 ? `${getBaseName(mergeFiles[0].name)}_Merged.pdf` : 'Amazing_Merged.pdf';
             mergeFiles = []; renderMergeList();
-            await processAndDownload(bytes, 'Amazing_Merged.pdf', 'application/pdf');
+            await processAndDownload(bytes, outputName, 'application/pdf');
             if(window.AdManager) await AdManager.showInterstitial();
         } catch (e) { alert("Error merging"); }
         finally { btn.innerHTML = 'Merge Files Now'; }
@@ -577,8 +702,9 @@ if (ui.jpgtopdf) {
                 page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
             }
             const bytes = await pdfDoc.save();
+            const outputName = imageFiles.length > 0 ? `${getBaseName(imageFiles[0].name)}_Images.pdf` : 'Amazing_Images.pdf';
             imageFiles = []; renderImgList();
-            await processAndDownload(bytes, 'Amazing_Images.pdf', 'application/pdf');
+            await processAndDownload(bytes, outputName, 'application/pdf');
             if(window.AdManager) await AdManager.showInterstitial();
         } catch (e) { alert("Error converting"); }
         finally { btn.innerHTML = 'Convert to PDF'; }
