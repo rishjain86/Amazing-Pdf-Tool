@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual trigger from Actions tab
 
 jobs:
   build:
@@ -34,6 +34,9 @@ jobs:
     - name: Sync App Code
       run: npx cap sync android
 
+    - name: Grant Execute Permission for Gradle
+      run: chmod +x android/gradlew
+
     - name: Build APK File
       run: cd android && ./gradlew assembleDebug
 
@@ -42,3 +45,4 @@ jobs:
       with:
         name: Amazing-PDF-App
         path: android/app/build/outputs/apk/debug/app-debug.apk
+        
