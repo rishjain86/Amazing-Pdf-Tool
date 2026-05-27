@@ -320,34 +320,36 @@ setupSingleFileLogic('sign', async (file) => {
     return { bytes: await pdfDoc.save(), filename: 'Amazing_Signed.pdf', type: 'application/pdf' };
 });
 
+// --- UPDATED PROTECT LOGIC (VERCEL API) ---
 setupSingleFileLogic('protect', async (file) => {
     const password = document.getElementById('protect-password').value;
     if (!password) throw new Error("Password required");
     
-    // PDF load karein
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
-    
-    // Naya PDF create karke pages copy karein (Standard way to ensure encryption applies)
-    const newPdf = await PDFDocument.create();
-    const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-    copiedPages.forEach(p => newPdf.addPage(p));
+    if (!navigator.onLine) {
+        throw new Error("You must be online to use the Secure Cloud Protect feature.");
+    }
 
-    // Ab naye PDF par encryption apply karein
-    const pdfBytes = await newPdf.save({
-        userPassword: password,
-        ownerPassword: password,
-        encrypt: {
-            userPassword: password,
-            ownerPassword: password,
-            permissions: {
-                printing: 'none',
-                modifying: false,
-                copying: false
-            }
-        }
-    });
+    // Vercel auto-routes /api/protect to your backend function
+    const VERCEL_API_URL = "/api/protect"; 
     
-    return { bytes: pdfBytes, filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('password', password);
+
+    const response = await fetch(VERCEL_API_URL, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        throw new Error("Server error while protecting file. Please try again.");
+    }
+
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    return { bytes: bytes, filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
 });
 
 setupSingleFileLogic('unlock', async (file) => {
