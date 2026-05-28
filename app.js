@@ -43,7 +43,7 @@ function handleError(error) {
 
     if (msg.includes('encrypted') || msg.includes('password') || msg.includes('decrypt')) {
         if (activeView === 'view-unlock') {
-            showCustomAlert("Unlock Failed ❌<br><br>Incorrect password or unsupported encryption format.");
+            showCustomAlert("Unlock Failed ❌<br><br>Incorrect password, or API server issue.");
         } else {
             showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
         }
@@ -344,23 +344,34 @@ function setupMultipleFileLogic(id, actionCallback) {
 
     dropZone.addEventListener('click', () => input.click());
     
+    // SECURE RENDER LIST FUNCTION (Fixes the delete button issue)
     function renderList() {
         listContainer.innerHTML = '';
         currentFiles.forEach((f, i) => {
-            listContainer.innerHTML += `<div style="${fileItemStyle}">
-                <div><b>${f.name}</b></div>
-                <button onclick="removeBatchFile('${id}', ${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button>
-            </div>`;
+            const itemDiv = document.createElement('div');
+            itemDiv.style = fileItemStyle;
+            itemDiv.innerHTML = `<div><b>${f.name}</b></div><button class="remove-btn" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>`;
+            listContainer.appendChild(itemDiv);
         });
+
+        // Add event listeners securely without global conflict
+        listContainer.querySelectorAll('.remove-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                currentFiles.splice(idx, 1);
+                renderList();
+            });
+        });
+
         if(currentFiles.length > 0) {
             controls.style.display = 'block';
             dropZone.style.display = 'none';
             if(!document.getElementById(`add-more-${id}`)) {
                const addMoreBtn = document.createElement('button');
                addMoreBtn.id = `add-more-${id}`;
-               addMoreBtn.innerHTML = '+ Add More PDFs';
-               addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer;`;
-               addMoreBtn.onclick = () => input.click();
+               addMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Add More PDFs';
+               addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer; font-weight:600;`;
+               addMoreBtn.addEventListener('click', () => input.click());
                listContainer.appendChild(addMoreBtn);
             }
         } else {
@@ -369,14 +380,11 @@ function setupMultipleFileLogic(id, actionCallback) {
         }
     }
 
-    window.removeBatchFile = (listId, index) => {
-        if(listId === id) { currentFiles.splice(index, 1); renderList(); }
-    };
-
     input.addEventListener('change', (e) => {
         const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
         currentFiles = [...currentFiles, ...files];
         renderList();
+        input.value = ''; // Reset input so same file can be selected again if needed
     });
 
     btn.addEventListener('click', async () => {
@@ -385,7 +393,7 @@ function setupMultipleFileLogic(id, actionCallback) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         try {
             const result = await actionCallback(currentFiles);
-            currentFiles = []; renderList();
+            currentFiles = []; renderList(); // Clear list on success
             await processAndDownload(result.bytes, result.filename, result.type);
             if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
         } catch (error) {
@@ -601,7 +609,6 @@ setupSingleFileLogic('imagewatermark', async (file) => {
 
 // MULTIPLE FILES BATCH IMPLEMENTATIONS
 setupMultipleFileLogic('compress', async (files) => {
-    // Single file = Normal PDF format output
     if (files.length === 1) {
         const file = files[0];
         const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
@@ -610,7 +617,6 @@ setupMultipleFileLogic('compress', async (files) => {
         copiedPages.forEach(p => newPdf.addPage(p));
         return { bytes: await newPdf.save({ useObjectStreams: true }), filename: `${getBaseName(file.name)}_Compressed.pdf`, type: 'application/pdf' };
     } else {
-        // Multiple files = ZIP format output
         const zip = new JSZip();
         for (const file of files) {
             const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
@@ -652,11 +658,9 @@ setupMultipleFileLogic('unlock', async (files) => {
     };
 
     if (files.length === 1) {
-        // Single file = Normal PDF format output
         const bytes = await unlockSingleFile(files[0], password);
         return { bytes, filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
     } else {
-        // Multiple files = ZIP format output
         const zip = new JSZip();
         let successCount = 0;
         for (const file of files) {
@@ -683,7 +687,6 @@ setupMultipleFileLogic('protect', async (files) => {
     const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
     
     if (files.length === 1) {
-        // Single file = Normal PDF format output
         const formData = new FormData();
         formData.append('file', files[0]);
         formData.append('password', password);
@@ -692,7 +695,6 @@ setupMultipleFileLogic('protect', async (files) => {
         const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
         return { bytes, filename: `${getBaseName(files[0].name)}_Protected.pdf`, type: 'application/pdf' };
     } else {
-        // Multiple files = ZIP format output
         const zip = new JSZip();
         for (const file of files) {
             const formData = new FormData();
@@ -729,17 +731,37 @@ if (ui.htmltopdf) {
     });
 }
 
+// SECURE MERGE LIST FUNCTION
 let mergeFiles = [];
 if (ui.merge) {
     const mergeInput = document.getElementById('merge-file-input');
     document.getElementById('merge-drop-zone')?.addEventListener('click', () => mergeInput.click());
-    mergeInput?.addEventListener('change', (e) => { mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; renderMergeList(); });
+    
     function renderMergeList() {
-        const list = document.getElementById('merge-file-list'); list.innerHTML = '';
-        mergeFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeMerge(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
+        const list = document.getElementById('merge-file-list'); 
+        list.innerHTML = '';
+        mergeFiles.forEach((f, i) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style = fileItemStyle;
+            itemDiv.innerHTML = `<div><b>${f.name}</b></div><button class="remove-merge" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>`;
+            list.appendChild(itemDiv);
+        });
+
+        list.querySelectorAll('.remove-merge').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                mergeFiles.splice(idx, 1);
+                renderMergeList();
+            });
+        });
         document.getElementById('btn-merge-action').style.display = mergeFiles.length > 1 ? 'block' : 'none';
     }
-    window.removeMerge = (i) => { mergeFiles.splice(i, 1); renderMergeList(); };
+
+    mergeInput?.addEventListener('change', (e) => { 
+        mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; 
+        renderMergeList(); 
+        mergeInput.value = '';
+    });
     
     document.getElementById('btn-merge-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-merge-action'); btn.innerHTML = 'Processing...';
@@ -760,17 +782,37 @@ if (ui.merge) {
     });
 }
 
+// SECURE JPG TO PDF LIST FUNCTION
 let imageFiles = [];
 if (ui.jpgtopdf) {
     const imgInput = document.getElementById('jpgtopdf-file-input');
     document.getElementById('jpgtopdf-drop-zone')?.addEventListener('click', () => imgInput.click());
-    imgInput?.addEventListener('change', (e) => { imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); });
+    
     function renderImgList() {
-        const list = document.getElementById('jpgtopdf-file-list'); list.innerHTML = '';
-        imageFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeImg(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
+        const list = document.getElementById('jpgtopdf-file-list'); 
+        list.innerHTML = '';
+        imageFiles.forEach((f, i) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style = fileItemStyle;
+            itemDiv.innerHTML = `<div><b>${f.name}</b></div><button class="remove-img" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>`;
+            list.appendChild(itemDiv);
+        });
+
+        list.querySelectorAll('.remove-img').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                imageFiles.splice(idx, 1);
+                renderImgList();
+            });
+        });
         document.getElementById('btn-jpgtopdf-action').style.display = imageFiles.length > 0 ? 'block' : 'none';
     }
-    window.removeImg = (i) => { imageFiles.splice(i, 1); renderImgList(); };
+
+    imgInput?.addEventListener('change', (e) => { 
+        imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; 
+        renderImgList(); 
+        imgInput.value = '';
+    });
     
     document.getElementById('btn-jpgtopdf-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-jpgtopdf-action'); btn.innerHTML = 'Converting...';
