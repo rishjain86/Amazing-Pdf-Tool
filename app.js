@@ -43,7 +43,7 @@ function handleError(error) {
 
     if (msg.includes('encrypted') || msg.includes('password') || msg.includes('decrypt')) {
         if (activeView === 'view-unlock') {
-            showCustomAlert("Unlock Failed ❌<br><br>Either the password is incorrect, or the PDF uses advanced encryption which is not supported in offline mode.");
+            showCustomAlert("Unlock Failed ❌<br><br>Incorrect password or unsupported encryption format.");
         } else {
             showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
         }
@@ -137,9 +137,9 @@ if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-dr
 if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
 
 // BATCH ENABLED UIs
-if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt Batch', `<input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle}">`);
-if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock Batch', `<input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle}">`);
-if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Batch');
+if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt Files', `<input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle}">`);
+if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock Files', `<input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle}">`);
+if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Files');
 
 // SINGLE FILE UIs
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
@@ -382,7 +382,7 @@ function setupMultipleFileLogic(id, actionCallback) {
     btn.addEventListener('click', async () => {
         if (!currentFiles.length) return;
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Batch...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         try {
             const result = await actionCallback(currentFiles);
             currentFiles = []; renderList();
@@ -601,6 +601,7 @@ setupSingleFileLogic('imagewatermark', async (file) => {
 
 // MULTIPLE FILES BATCH IMPLEMENTATIONS
 setupMultipleFileLogic('compress', async (files) => {
+    // Single file = Normal PDF format output
     if (files.length === 1) {
         const file = files[0];
         const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
@@ -609,6 +610,7 @@ setupMultipleFileLogic('compress', async (files) => {
         copiedPages.forEach(p => newPdf.addPage(p));
         return { bytes: await newPdf.save({ useObjectStreams: true }), filename: `${getBaseName(file.name)}_Compressed.pdf`, type: 'application/pdf' };
     } else {
+        // Multiple files = ZIP format output
         const zip = new JSZip();
         for (const file of files) {
             const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
@@ -621,30 +623,53 @@ setupMultipleFileLogic('compress', async (files) => {
     }
 });
 
-// FIXED UNLOCK LOGIC 
+// FIXED UNLOCK LOGIC (SMART CLOUD FALLBACK FOR AES)
 setupMultipleFileLogic('unlock', async (files) => {
     const password = document.getElementById('unlock-password').value;
     if (!password) {
         throw new Error("Please enter a password to unlock the file.");
     }
 
+    const unlockSingleFile = async (file, pwd) => {
+        try {
+            // Attempt 1: Offline Engine (Works for standard basic encryption)
+            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password: pwd });
+            return await pdfDoc.save();
+        } catch (err) {
+            // Attempt 2: Smart Cloud Engine (Works for Advanced AES Encryption like Vercel)
+            if (!navigator.onLine) {
+                throw new Error("This PDF uses advanced encryption. Please turn on your internet to unlock it via Cloud.");
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('password', pwd);
+            const response = await fetch("https://amazing-pdf-tool.vercel.app/api/unlock", { method: 'POST', body: formData });
+            if (!response.ok) {
+                throw new Error("Unlock Failed ❌ Incorrect password or server error.");
+            }
+            return new Uint8Array(await (await response.blob()).arrayBuffer());
+        }
+    };
+
     if (files.length === 1) {
-        const pdfDoc = await PDFDocument.load(await files[0].arrayBuffer(), { password });
-        return { bytes: await pdfDoc.save(), filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
+        // Single file = Normal PDF format output
+        const bytes = await unlockSingleFile(files[0], password);
+        return { bytes, filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
     } else {
+        // Multiple files = ZIP format output
         const zip = new JSZip();
         let successCount = 0;
         for (const file of files) {
             try {
-                const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password });
-                zip.file(`${getBaseName(file.name)}_Unlocked.pdf`, await pdfDoc.save());
+                const bytes = await unlockSingleFile(file, password);
+                zip.file(`${getBaseName(file.name)}_Unlocked.pdf`, bytes);
                 successCount++;
             } catch (e) { 
                 console.warn(`Failed to unlock ${file.name}`); 
             }
         }
         if (successCount === 0) {
-            throw new Error("Failed to unlock files. Incorrect password or unsupported encryption.");
+            throw new Error("Failed to unlock any files. Please check if the password is correct.");
         }
         return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Unlocked.zip`, type: 'application/zip' };
     }
@@ -658,6 +683,7 @@ setupMultipleFileLogic('protect', async (files) => {
     const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
     
     if (files.length === 1) {
+        // Single file = Normal PDF format output
         const formData = new FormData();
         formData.append('file', files[0]);
         formData.append('password', password);
@@ -666,6 +692,7 @@ setupMultipleFileLogic('protect', async (files) => {
         const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
         return { bytes, filename: `${getBaseName(files[0].name)}_Protected.pdf`, type: 'application/pdf' };
     } else {
+        // Multiple files = ZIP format output
         const zip = new JSZip();
         for (const file of files) {
             const formData = new FormData();
