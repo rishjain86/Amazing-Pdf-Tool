@@ -38,8 +38,15 @@ function showCustomAlert(message) {
 // SMART ERROR HANDLER FOR ENCRYPTED FILES
 function handleError(error) {
     const msg = error.message.toLowerCase();
+    const activeViewElement = document.querySelector('.view-section.active');
+    const activeView = activeViewElement ? activeViewElement.id : '';
+
     if (msg.includes('encrypted') || msg.includes('password') || msg.includes('decrypt')) {
-        showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
+        if (activeView === 'view-unlock') {
+            showCustomAlert("Unlock Failed ❌<br><br>Either the password is incorrect, or the PDF uses advanced encryption which is not supported in offline mode.");
+        } else {
+            showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
+        }
     } else {
         showCustomAlert(`Error: ${error.message}`);
     }
@@ -614,18 +621,30 @@ setupMultipleFileLogic('compress', async (files) => {
     }
 });
 
+// FIXED UNLOCK LOGIC 
 setupMultipleFileLogic('unlock', async (files) => {
     const password = document.getElementById('unlock-password').value;
+    if (!password) {
+        throw new Error("Please enter a password to unlock the file.");
+    }
+
     if (files.length === 1) {
         const pdfDoc = await PDFDocument.load(await files[0].arrayBuffer(), { password });
         return { bytes: await pdfDoc.save(), filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
     } else {
         const zip = new JSZip();
+        let successCount = 0;
         for (const file of files) {
             try {
                 const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password });
                 zip.file(`${getBaseName(file.name)}_Unlocked.pdf`, await pdfDoc.save());
-            } catch (e) { console.warn(`Failed to unlock ${file.name}`); }
+                successCount++;
+            } catch (e) { 
+                console.warn(`Failed to unlock ${file.name}`); 
+            }
+        }
+        if (successCount === 0) {
+            throw new Error("Failed to unlock files. Incorrect password or unsupported encryption.");
         }
         return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Unlocked.zip`, type: 'application/zip' };
     }
