@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Amazing PDF Tool</title>
     
-    <link rel="icon" type="image/png" href="assets/icon.png?v=3">
+    <link rel="icon" type="image/png" href="assets/icon.png?v=4">
     
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -175,6 +175,12 @@
             font-size: 0.9rem;
         }
 
+        /* TEXT OVERFLOW FIX CLASSES */
+        .text-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+        .text-container { flex: 1; min-width: 0; margin-right: 15px; }
+
+        .info-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border); margin-bottom: 20px; line-height: 1.6; }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .mobile-header { display: flex; }
@@ -196,7 +202,7 @@
 
     <div class="sidebar">
         <div class="brand-logo">
-            <img src="assets/icon.png?v=3" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+            <img src="assets/icon.png?v=4" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             <span>Amazing PDF</span>
         </div>
 
@@ -217,13 +223,18 @@
         <div class="nav-btn" onclick="switchView('unlock')"><i class="fas fa-unlock"></i> Unlock PDF</div>
         <div class="nav-btn" onclick="switchView('watermark')"><i class="fas fa-stamp"></i> Watermark</div>
         <div class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</div>
+
+        <div class="menu-label">About & Legal</div>
+        <div class="nav-btn" onclick="switchView('contact')"><i class="fas fa-envelope"></i> Contact Us</div>
+        <div class="nav-btn" onclick="switchView('privacy')"><i class="fas fa-user-shield"></i> Privacy Policy</div>
+        <div class="nav-btn" onclick="switchView('terms')"><i class="fas fa-file-contract"></i> Terms & Cond.</div>
     </div>
 
     <div class="main-wrapper">
         
         <div class="mobile-header">
             <div class="brand-logo" style="padding: 0; border: none;">
-                <img src="assets/icon.png?v=3" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+                <img src="assets/icon.png?v=4" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             </div>
             <input type="text" id="mobile-search" placeholder="Search tools..." style="width: 55%; padding: 10px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.85rem; padding-left: 15px; outline: none;">
             <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.4rem;">
@@ -382,6 +393,36 @@
             <div id="history-list"></div>
         </div>
 
+        <div id="view-contact" class="view-section">
+            <h2 style="margin-bottom: 20px;"><i class="fas fa-envelope"></i> Contact Us</h2>
+            <div class="info-card">
+                <h3>We'd love to hear from you!</h3><br>
+                <p>If you have any questions, feedback, or face any issues while using Amazing PDF Tool, feel free to reach out to our support team.</p><br>
+                <p><strong>Email:</strong> amazingdeals121@gmail.com</p> 
+            </div>
+        </div>
+
+        <div id="view-privacy" class="view-section">
+            <h2 style="margin-bottom: 20px;"><i class="fas fa-user-shield"></i> Privacy Policy</h2>
+            <div class="info-card" style="font-size: 0.9rem;">
+                <p><strong>Last Updated: May 2026</strong></p><br>
+                <p>Your privacy is important to us. Amazing PDF Tool processes most files locally on your device ensuring maximum security. For features requiring advanced processing (like AES encryption), files are securely transmitted to our cloud servers and are immediately deleted after processing.</p><br>
+                <p>We do not store, share, or sell your personal documents. We use third-party services like Google AdMob which may collect non-personal data to serve relevant ads.</p>
+            </div>
+        </div>
+
+        <div id="view-terms" class="view-section">
+            <h2 style="margin-bottom: 20px;"><i class="fas fa-file-contract"></i> Terms & Conditions</h2>
+            <div class="info-card" style="font-size: 0.9rem;">
+                <p>By using Amazing PDF Tool, you agree to these terms:</p><br>
+                <ul style="margin-left: 20px;">
+                    <li>You will not use this app for illegal activities.</li>
+                    <li>The app is provided "as is" without warranties of any kind.</li>
+                    <li>We reserve the right to modify or terminate services at any time.</li>
+                </ul>
+            </div>
+        </div>
+
         <div id="view-merge" class="view-section"><div id="merge-ui-container"></div></div>
         <div id="view-split" class="view-section"><div id="split-ui-container"></div></div>
         <div id="view-compress" class="view-section"><div id="compress-ui-container"></div></div>
@@ -411,6 +452,6 @@
 
     </div>
 
-    <script type="module" src="app.js?v=3"></script>
+    <script type="module" src="app.js?v=4"></script>
 </body>
 </html>
