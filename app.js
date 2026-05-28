@@ -7,6 +7,44 @@ import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/f
 import { Share } from 'https://cdn.jsdelivr.net/npm/@capacitor/share@6.0.0/+esm';
 import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 
+// --- CUSTOM STYLISH ALERT POPUP ---
+function showCustomAlert(message) {
+    let alertBox = document.getElementById('custom-alert-box');
+    if (!alertBox) {
+        alertBox = document.createElement('div');
+        alertBox.id = 'custom-alert-box';
+        alertBox.style = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.3s ease; pointer-events: none;";
+        alertBox.innerHTML = `
+            <div style="background: var(--surface-color); padding: 30px; border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; max-width: 85%; width: 320px; transform: translateY(20px); transition: transform 0.3s ease;">
+                <i class="fas fa-shield-alt" style="font-size: 3rem; color: #f59e0b; margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px; color: white; font-size: 1.2rem;">Notice</h3>
+                <p id="custom-alert-msg" style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;"></p>
+                <button id="custom-alert-btn" style="background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 1rem; transition: 0.2s;">Got it</button>
+            </div>
+        `;
+        document.body.appendChild(alertBox);
+        document.getElementById('custom-alert-btn').addEventListener('click', () => {
+            alertBox.style.opacity = '0';
+            alertBox.style.pointerEvents = 'none';
+            alertBox.children[0].style.transform = 'translateY(20px)';
+        });
+    }
+    document.getElementById('custom-alert-msg').innerHTML = message;
+    alertBox.style.pointerEvents = 'auto';
+    alertBox.style.opacity = '1';
+    alertBox.children[0].style.transform = 'translateY(0)';
+}
+
+// SMART ERROR HANDLER FOR ENCRYPTED FILES
+function handleError(error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('encrypted') || msg.includes('password') || msg.includes('decrypt')) {
+        showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
+    } else {
+        showCustomAlert(`Error: ${error.message}`);
+    }
+}
+
 // --- HARDWARE BACK BUTTON LOGIC ---
 let lastBackPress = 0;
 if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -52,10 +90,9 @@ const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px 
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
 
-// NEW BRANDING HEADER LOGIC
 const brandHeaderHtml = `
     <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
-        <img src="assets/icon.png?v=2" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
+        <img src="assets/icon.png?v=3" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
         <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
     </div>
 `;
@@ -220,7 +257,7 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
                 url: savedFile.uri 
             });
         } catch (e) {
-            alert("File saved securely to your Documents and History tab!");
+            showCustomAlert("File saved securely to your Documents and History tab!");
         }
     } else {
         const blob = new Blob([bytes], { type });
@@ -279,9 +316,9 @@ function setupSingleFileLogic(id, actionCallback) {
             const result = await actionCallback(currentFile);
             document.getElementById(`reset-${id}`).click();
             await processAndDownload(result.bytes, result.filename, result.type);
-            if(window.AdManager) await AdManager.showInterstitial();
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            handleError(error);
         } finally {
             btn.innerHTML = originalText;
         }
@@ -343,9 +380,9 @@ function setupMultipleFileLogic(id, actionCallback) {
             const result = await actionCallback(currentFiles);
             currentFiles = []; renderList();
             await processAndDownload(result.bytes, result.filename, result.type);
-            if(window.AdManager) await AdManager.showInterstitial();
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            handleError(error);
         } finally {
             btn.innerHTML = originalText;
         }
@@ -629,7 +666,10 @@ setupMultipleFileLogic('protect', async (files) => {
 if (ui.htmltopdf) {
     document.getElementById('btn-htmltopdf-action')?.addEventListener('click', async () => {
         const htmlContent = document.getElementById('html-input').value;
-        if (!htmlContent) return alert("Please enter HTML code.");
+        if (!htmlContent) {
+            showCustomAlert("Please enter HTML code first.");
+            return;
+        }
         const btn = document.getElementById('btn-htmltopdf-action');
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
         try {
@@ -637,8 +677,8 @@ if (ui.htmltopdf) {
             const bytes = new Uint8Array(await blob.arrayBuffer());
             document.getElementById('html-input').value = '';
             await processAndDownload(bytes, 'HTML_Converted.pdf', 'application/pdf');
-            if(window.AdManager) await AdManager.showInterstitial();
-        } catch(e) { alert("Error converting."); }
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch(e) { handleError(e); }
         finally { btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; }
     });
 }
@@ -668,8 +708,8 @@ if (ui.merge) {
             const outputName = mergeFiles.length > 0 ? `${getBaseName(mergeFiles[0].name)}_Merged.pdf` : 'Amazing_Merged.pdf';
             mergeFiles = []; renderMergeList();
             await processAndDownload(bytes, outputName, 'application/pdf');
-            if(window.AdManager) await AdManager.showInterstitial();
-        } catch (e) { alert("Error merging"); }
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (e) { handleError(e); }
         finally { btn.innerHTML = 'Merge Files Now'; }
     });
 }
@@ -700,8 +740,8 @@ if (ui.jpgtopdf) {
             const outputName = imageFiles.length > 0 ? `${getBaseName(imageFiles[0].name)}_Images.pdf` : 'Amazing_Images.pdf';
             imageFiles = []; renderImgList();
             await processAndDownload(bytes, outputName, 'application/pdf');
-            if(window.AdManager) await AdManager.showInterstitial();
-        } catch (e) { alert("Error converting"); }
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (e) { handleError(e); }
         finally { btn.innerHTML = 'Convert to PDF'; }
     });
 }
@@ -716,6 +756,6 @@ document.getElementById('mobile-search')?.addEventListener('input', (e) => {
 });
 
 // --- LOAD ADMOB BANNER AT BOTTOM ---
-if(window.AdManager && typeof window.AdManager.showBanner === 'function') {
-    window.AdManager.showBanner();
+if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner === 'function') {
+    AdManager.showBanner();
 }
