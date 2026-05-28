@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Amazing PDF Tool</title>
     
-    <link rel="icon" type="image/png" href="assets/icon.png?v=4">
+    <link rel="icon" type="image/png" href="assets/icon.png?v=5">
     
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -202,7 +202,7 @@
 
     <div class="sidebar">
         <div class="brand-logo">
-            <img src="assets/icon.png?v=4" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+            <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             <span>Amazing PDF</span>
         </div>
 
@@ -234,7 +234,7 @@
         
         <div class="mobile-header">
             <div class="brand-logo" style="padding: 0; border: none;">
-                <img src="assets/icon.png?v=4" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+                <img src="assets/icon.png?v=5" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             </div>
             <input type="text" id="mobile-search" placeholder="Search tools..." style="width: 55%; padding: 10px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.85rem; padding-left: 15px; outline: none;">
             <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.4rem;">
@@ -384,6 +384,22 @@
                     <h3>Clean Annots</h3>
                     <p>Remove annotations.</p>
                 </div>
+                
+                <div class="tool-card" onclick="switchView('contact')">
+                    <i class="fas fa-envelope tool-icon" style="color: #10b981;"></i>
+                    <h3>Contact Us</h3>
+                    <p>Get in touch for support.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('privacy')">
+                    <i class="fas fa-user-shield tool-icon" style="color: #f59e0b;"></i>
+                    <h3>Privacy Policy</h3>
+                    <p>How we protect your data.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('terms')">
+                    <i class="fas fa-file-contract tool-icon" style="color: #64748b;"></i>
+                    <h3>Terms & Cond.</h3>
+                    <p>App usage guidelines.</p>
+                </div>
             </div>
         </div>
 
@@ -452,6 +468,6 @@
 
     </div>
 
-    <script type="module" src="app.js?v=4"></script>
+    <script type="module" src="app.js?v=5"></script>
 </body>
 </html>
