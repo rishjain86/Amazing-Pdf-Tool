@@ -86,7 +86,8 @@ const views = [
     'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
     'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
     'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf',
-    'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots'
+    'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots',
+    'contact', 'privacy', 'terms'
 ];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
@@ -95,11 +96,11 @@ const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; pa
 const btnStyle = "background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 15px;";
 const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px;";
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
-const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
+const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border); gap: 10px;";
 
 const brandHeaderHtml = `
     <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
-        <img src="assets/icon.png?v=3" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
+        <img src="assets/icon.png?v=5" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
         <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
     </div>
 `;
@@ -212,6 +213,7 @@ window.deleteHistory = async (id) => {
     return new Promise(resolve => tx.oncomplete = resolve);
 };
 
+// TEXT ELLIPSIS IN HISTORY LIST
 window.renderHistory = async () => {
     const list = document.getElementById('history-list');
     if (!list) return;
@@ -221,8 +223,11 @@ window.renderHistory = async () => {
     list.innerHTML = '';
     items.forEach(item => {
         list.innerHTML += `<div style="${fileItemStyle}">
-            <div><b>${item.filename}</b><br><small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()}</small></div>
-            <div style="display:flex; gap:10px;">
+            <div class="text-container">
+                <b class="text-ellipsis">${item.filename}</b>
+                <small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()}</small>
+            </div>
+            <div style="display:flex; gap:10px; flex-shrink: 0;">
                 <button onclick="triggerHistoryDownload(${item.id})" style="background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-share-alt"></i></button>
                 <button onclick="removeHistoryItem(${item.id})" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-trash"></i></button>
             </div>
@@ -304,8 +309,11 @@ function setupSingleFileLogic(id, actionCallback) {
             currentFile = file;
             dropZone.style.display = 'none';
             info.innerHTML = `<div style="${fileItemStyle}">
-                <div style="display:flex; align-items:center; gap:15px;"><i class="fas fa-file-pdf" style="color:#ef4444; font-size:1.5rem;"></i><b>${file.name}</b></div>
-                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
+                <div class="text-container" style="display:flex; align-items:center; gap:15px; min-width:0;">
+                    <i class="fas fa-file-pdf" style="color:#ef4444; font-size:1.5rem; flex-shrink:0;"></i>
+                    <b class="text-ellipsis">${file.name}</b>
+                </div>
+                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>
             </div>`;
             controls.style.display = 'block';
             document.getElementById(`reset-${id}`).addEventListener('click', () => {
@@ -344,17 +352,15 @@ function setupMultipleFileLogic(id, actionCallback) {
 
     dropZone.addEventListener('click', () => input.click());
     
-    // SECURE RENDER LIST FUNCTION (Fixes the delete button issue)
     function renderList() {
         listContainer.innerHTML = '';
         currentFiles.forEach((f, i) => {
             const itemDiv = document.createElement('div');
             itemDiv.style = fileItemStyle;
-            itemDiv.innerHTML = `<div><b>${f.name}</b></div><button class="remove-btn" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>`;
+            itemDiv.innerHTML = `<div class="text-container"><b class="text-ellipsis">${f.name}</b></div><button class="remove-btn" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
             listContainer.appendChild(itemDiv);
         });
 
-        // Add event listeners securely without global conflict
         listContainer.querySelectorAll('.remove-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 const idx = parseInt(e.currentTarget.getAttribute('data-index'));
@@ -384,7 +390,7 @@ function setupMultipleFileLogic(id, actionCallback) {
         const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
         currentFiles = [...currentFiles, ...files];
         renderList();
-        input.value = ''; // Reset input so same file can be selected again if needed
+        input.value = ''; 
     });
 
     btn.addEventListener('click', async () => {
@@ -393,7 +399,7 @@ function setupMultipleFileLogic(id, actionCallback) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         try {
             const result = await actionCallback(currentFiles);
-            currentFiles = []; renderList(); // Clear list on success
+            currentFiles = []; renderList(); 
             await processAndDownload(result.bytes, result.filename, result.type);
             if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
         } catch (error) {
@@ -638,11 +644,9 @@ setupMultipleFileLogic('unlock', async (files) => {
 
     const unlockSingleFile = async (file, pwd) => {
         try {
-            // Attempt 1: Offline Engine (Works for standard basic encryption)
             const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password: pwd });
             return await pdfDoc.save();
         } catch (err) {
-            // Attempt 2: Smart Cloud Engine (Works for Advanced AES Encryption like Vercel)
             if (!navigator.onLine) {
                 throw new Error("This PDF uses advanced encryption. Please turn on your internet to unlock it via Cloud.");
             }
@@ -743,7 +747,7 @@ if (ui.merge) {
         mergeFiles.forEach((f, i) => {
             const itemDiv = document.createElement('div');
             itemDiv.style = fileItemStyle;
-            itemDiv.innerHTML = `<div><b>${f.name}</b></div><button class="remove-merge" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>`;
+            itemDiv.innerHTML = `<div class="text-container"><b class="text-ellipsis">${f.name}</b></div><button class="remove-merge" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
             list.appendChild(itemDiv);
         });
 
@@ -794,7 +798,7 @@ if (ui.jpgtopdf) {
         imageFiles.forEach((f, i) => {
             const itemDiv = document.createElement('div');
             itemDiv.style = fileItemStyle;
-            itemDiv.innerHTML = `<div><b>${f.name}</b></div><button class="remove-img" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>`;
+            itemDiv.innerHTML = `<div class="text-container"><b class="text-ellipsis">${f.name}</b></div><button class="remove-img" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
             list.appendChild(itemDiv);
         });
 
