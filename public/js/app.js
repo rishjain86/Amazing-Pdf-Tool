@@ -7,6 +7,51 @@ import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/f
 import { Share } from 'https://cdn.jsdelivr.net/npm/@capacitor/share@6.0.0/+esm';
 import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 
+// --- CUSTOM STYLISH ALERT POPUP ---
+function showCustomAlert(message) {
+    let alertBox = document.getElementById('custom-alert-box');
+    if (!alertBox) {
+        alertBox = document.createElement('div');
+        alertBox.id = 'custom-alert-box';
+        alertBox.style = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.3s ease; pointer-events: none;";
+        alertBox.innerHTML = `
+            <div style="background: var(--surface-color); padding: 30px; border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; max-width: 85%; width: 320px; transform: translateY(20px); transition: transform 0.3s ease;">
+                <i class="fas fa-shield-alt" style="font-size: 3rem; color: #f59e0b; margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px; color: white; font-size: 1.2rem;">Notice</h3>
+                <p id="custom-alert-msg" style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;"></p>
+                <button id="custom-alert-btn" style="background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 1rem; transition: 0.2s;">Got it</button>
+            </div>
+        `;
+        document.body.appendChild(alertBox);
+        document.getElementById('custom-alert-btn').addEventListener('click', () => {
+            alertBox.style.opacity = '0';
+            alertBox.style.pointerEvents = 'none';
+            alertBox.children[0].style.transform = 'translateY(20px)';
+        });
+    }
+    document.getElementById('custom-alert-msg').innerHTML = message;
+    alertBox.style.pointerEvents = 'auto';
+    alertBox.style.opacity = '1';
+    alertBox.children[0].style.transform = 'translateY(0)';
+}
+
+// SMART ERROR HANDLER FOR ENCRYPTED FILES
+function handleError(error) {
+    const msg = error.message.toLowerCase();
+    const activeViewElement = document.querySelector('.view-section.active');
+    const activeView = activeViewElement ? activeViewElement.id : '';
+
+    if (msg.includes('encrypted') || msg.includes('password') || msg.includes('decrypt')) {
+        if (activeView === 'view-unlock') {
+            showCustomAlert("Unlock Failed ❌<br><br>Incorrect password, or API server issue.");
+        } else {
+            showCustomAlert("This PDF is password protected 🔒.<br><br>Please use the <b>'Unlock PDF'</b> tool first to remove the password before using this feature.");
+        }
+    } else {
+        showCustomAlert(`Error: ${error.message}`);
+    }
+}
+
 // --- HARDWARE BACK BUTTON LOGIC ---
 let lastBackPress = 0;
 if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -25,11 +70,13 @@ if (window.Capacitor && window.Capacitor.isNativePlatform()) {
 // --- GLOBAL ROUTING ---
 window.switchView = (viewId) => {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
+    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(viewId));
     if(activeBtn) activeBtn.classList.add('active');
 
     document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
-    document.getElementById(`view-${viewId}`).classList.add('active');
+    
+    const targetView = document.getElementById(`view-${viewId}`);
+    if(targetView) targetView.classList.add('active');
 
     if(viewId === 'history') window.renderHistory();
 };
@@ -39,7 +86,8 @@ const views = [
     'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
     'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
     'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf',
-    'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots'
+    'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots',
+    'contact', 'privacy', 'terms'
 ];
 const ui = {};
 views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
@@ -48,9 +96,17 @@ const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; pa
 const btnStyle = "background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 15px;";
 const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px;";
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
-const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border);";
+const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border); gap: 10px;";
+
+const brandHeaderHtml = `
+    <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
+        <img src="assets/icon.png?v=5" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
+        <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
+    </div>
+`;
 
 const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    ${brandHeaderHtml}
     <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
         <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
         <h3>Select PDF to ${title}</h3>
@@ -63,18 +119,35 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "") =
     </div>
 `;
 
-if (ui.merge) ui.merge.innerHTML = `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
-if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
-if (ui.htmltopdf) ui.htmltopdf.innerHTML = `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
+const generateMultipleFileUI = (id, icon, color, title, btnText, extraHtml = "") => `
+    ${brandHeaderHtml}
+    <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
+        <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
+        <h3>Drag & Drop PDFs to ${title}</h3>
+        <input type="file" id="${id}-file-input" multiple accept="application/pdf" style="display: none;">
+    </div>
+    <div id="${id}-file-list" style="${fileListStyle}"></div>
+    <div id="${id}-controls" style="display: none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+        ${extraHtml}
+        <button id="btn-${id}-action" style="${btnStyle.replace('var(--accent)', color)}"><i class="fas ${icon}"></i> ${btnText}</button>
+    </div>
+`;
 
+if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `<div id="merge-drop-zone" style="${dropZoneStyle}"><i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i><h3>Drag & Drop PDFs here</h3><input type="file" id="merge-file-input" multiple accept="application/pdf" style="display: none;"></div><div id="merge-file-list" style="${fileListStyle}"></div><button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>`;
+if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
+if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
+
+// BATCH ENABLED UIs
+if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt Files', `<input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle}">`);
+if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock Files', `<input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle}">`);
+if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Files');
+
+// SINGLE FILE UIs
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
 if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
 if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-amount-up', '#8b5cf6', 'Reorder Pages', 'Apply New Order', `<input type="text" id="reorder-input" placeholder="e.g. 3, 1, 2" style="${inputStyle}">`);
-if (ui.compress) ui.compress.innerHTML = generateSingleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress PDF');
 if (ui.rotate) ui.rotate.innerHTML = generateSingleFileUI('rotate', 'fa-sync-alt', '#3b82f6', 'Rotate', 'Rotate & Download', `<select id="rotate-angle" style="${inputStyle}"><option value="90">Right 90°</option><option value="180">Upside Down 180°</option><option value="-90">Left -90°</option></select>`);
 if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
-if (ui.protect) ui.protect.innerHTML = generateSingleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt PDF', `<input type="password" id="protect-password" placeholder="Set Password" style="${inputStyle}">`);
-if (ui.unlock) ui.unlock.innerHTML = generateSingleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock PDF', `<input type="password" id="unlock-password" placeholder="Current Password" style="${inputStyle}">`);
 if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-alt', '#14b8a6', 'Extract Text', 'Extract & Download TXT');
 if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', 'Add Watermark', `<input type="text" id="watermark-text" placeholder="Enter Watermark Text" style="${inputStyle}">`);
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', 'Sign Document', `<input type="text" id="sign-text" placeholder="Type your Full Name to sign" style="${inputStyle}">`);
@@ -89,7 +162,6 @@ if (ui.splitevenodd) ui.splitevenodd.innerHTML = generateSingleFileUI('spliteven
 if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', 'Add Margins', `<input type="number" id="margin-size" placeholder="Margin size (points)" value="30" style="${inputStyle}">`);
 if (ui.removeannots) ui.removeannots.innerHTML = generateSingleFileUI('removeannots', 'fa-eraser', '#8b5cf6', 'Clean Annotations', 'Remove All');
 
-// Recovered features inputs inside generateSingleFileUI extra HTML
 if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', 'Add Numbers', `
     <label style="color:var(--text-secondary);">Select Position:</label>
     <select id="pagenumbers-position" style="${inputStyle}"><option value="bottom-center">Bottom Center</option><option value="bottom-right">Bottom Right</option><option value="top-center">Top Center</option><option value="top-right">Top Right</option></select>
@@ -100,6 +172,9 @@ if (ui.imagewatermark) ui.imagewatermark.innerHTML = generateSingleFileUI('image
     <label style="color: var(--text-secondary);">Select Logo/Image (PNG/JPG):</label>
     <input type="file" id="imagewatermark-overlay-input" accept="image/png, image/jpeg" style="${inputStyle}">
 `);
+
+// --- UTILS ---
+const getBaseName = (filename) => filename.substring(0, filename.lastIndexOf('.')) || filename;
 
 // --- ROBUST HISTORY & DOWNLOAD LOGIC ---
 const DB_NAME = 'AmazingPDFHistory';
@@ -138,16 +213,21 @@ window.deleteHistory = async (id) => {
     return new Promise(resolve => tx.oncomplete = resolve);
 };
 
+// TEXT ELLIPSIS IN HISTORY LIST
 window.renderHistory = async () => {
     const list = document.getElementById('history-list');
+    if (!list) return;
     list.innerHTML = '<p>Loading...</p>';
     const items = await window.getHistory();
     if (!items.length) return list.innerHTML = '<p style="color:var(--text-secondary);">No downloads history found.</p>';
     list.innerHTML = '';
     items.forEach(item => {
         list.innerHTML += `<div style="${fileItemStyle}">
-            <div><b>${item.filename}</b><br><small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()}</small></div>
-            <div style="display:flex; gap:10px;">
+            <div class="text-container">
+                <b class="text-ellipsis">${item.filename}</b>
+                <small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()}</small>
+            </div>
+            <div style="display:flex; gap:10px; flex-shrink: 0;">
                 <button onclick="triggerHistoryDownload(${item.id})" style="background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-share-alt"></i></button>
                 <button onclick="removeHistoryItem(${item.id})" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-trash"></i></button>
             </div>
@@ -169,6 +249,7 @@ function bytesToBase64(bytes) {
     return window.btoa(binary);
 }
 
+// SMART SAVE + SHARE FUNCTION
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if(saveToDb) {
         try { await saveToHistory(bytes, filename, type); } catch(e) { console.error("History Save Error", e); }
@@ -177,10 +258,18 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
             const base64 = bytesToBase64(bytes);
-            const savedFile = await Filesystem.writeFile({ path: filename, data: base64, directory: Directory.Cache });
-            await Share.share({ title: filename, url: savedFile.uri });
+            const savedFile = await Filesystem.writeFile({ 
+                path: filename, 
+                data: base64, 
+                directory: Directory.Documents 
+            });
+            await Share.share({ 
+                title: filename, 
+                text: 'Here is your processed file from Amazing PDF',
+                url: savedFile.uri 
+            });
         } catch (e) {
-            alert("Saved securely to History tab!");
+            showCustomAlert("File saved securely to your Documents and History tab!");
         }
     } else {
         const blob = new Blob([bytes], { type });
@@ -202,7 +291,7 @@ function parseRange(rangeStr) {
     return [...new Set(pages)].sort((a, b) => a - b);
 }
 
-// --- CORE ACTION HANDLER (Anti-Stuck Architecture) ---
+// --- CORE ACTION HANDLERS ---
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`);
     const input = document.getElementById(`${id}-file-input`);
@@ -211,7 +300,7 @@ function setupSingleFileLogic(id, actionCallback) {
     const btn = document.getElementById(`btn-${id}-action`);
     let currentFile = null;
 
-    if (!dropZone) return;
+    if (!dropZone || !input || !btn) return;
 
     dropZone.addEventListener('click', () => input.click());
     input.addEventListener('change', (e) => {
@@ -220,8 +309,11 @@ function setupSingleFileLogic(id, actionCallback) {
             currentFile = file;
             dropZone.style.display = 'none';
             info.innerHTML = `<div style="${fileItemStyle}">
-                <div style="display:flex; align-items:center; gap:15px;"><i class="fas fa-file-pdf" style="color:#ef4444; font-size:1.5rem;"></i><b>${file.name}</b></div>
-                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
+                <div class="text-container" style="display:flex; align-items:center; gap:15px; min-width:0;">
+                    <i class="fas fa-file-pdf" style="color:#ef4444; font-size:1.5rem; flex-shrink:0;"></i>
+                    <b class="text-ellipsis">${file.name}</b>
+                </div>
+                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>
             </div>`;
             controls.style.display = 'block';
             document.getElementById(`reset-${id}`).addEventListener('click', () => {
@@ -237,25 +329,88 @@ function setupSingleFileLogic(id, actionCallback) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         try {
             const result = await actionCallback(currentFile);
-            document.getElementById(`reset-${id}`).click(); // Reset layout frame before popups
+            document.getElementById(`reset-${id}`).click();
             await processAndDownload(result.bytes, result.filename, result.type);
-            await AdManager.showInterstitial(); // safe fire out
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            handleError(error);
         } finally {
             btn.innerHTML = originalText;
         }
     });
 }
 
-// --- 100% COMPLETE FEATURES IMPLEMENTATIONS LOGIC ---
-setupSingleFileLogic('compress', async (file) => {
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
-    const newPdf = await PDFDocument.create();
-    const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-    copiedPages.forEach(p => newPdf.addPage(p));
-    return { bytes: await newPdf.save({ useObjectStreams: true }), filename: 'Amazing_Compressed.pdf', type: 'application/pdf' };
-});
+function setupMultipleFileLogic(id, actionCallback) {
+    const dropZone = document.getElementById(`${id}-drop-zone`);
+    const input = document.getElementById(`${id}-file-input`);
+    const listContainer = document.getElementById(`${id}-file-list`);
+    const controls = document.getElementById(`${id}-controls`);
+    const btn = document.getElementById(`btn-${id}-action`);
+    let currentFiles = [];
+
+    if (!dropZone || !input || !btn) return;
+
+    dropZone.addEventListener('click', () => input.click());
+    
+    function renderList() {
+        listContainer.innerHTML = '';
+        currentFiles.forEach((f, i) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style = fileItemStyle;
+            itemDiv.innerHTML = `<div class="text-container"><b class="text-ellipsis">${f.name}</b></div><button class="remove-btn" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
+            listContainer.appendChild(itemDiv);
+        });
+
+        listContainer.querySelectorAll('.remove-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                currentFiles.splice(idx, 1);
+                renderList();
+            });
+        });
+
+        if(currentFiles.length > 0) {
+            controls.style.display = 'block';
+            dropZone.style.display = 'none';
+            if(!document.getElementById(`add-more-${id}`)) {
+               const addMoreBtn = document.createElement('button');
+               addMoreBtn.id = `add-more-${id}`;
+               addMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Add More PDFs';
+               addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer; font-weight:600;`;
+               addMoreBtn.addEventListener('click', () => input.click());
+               listContainer.appendChild(addMoreBtn);
+            }
+        } else {
+            controls.style.display = 'none';
+            dropZone.style.display = 'block';
+        }
+    }
+
+    input.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
+        currentFiles = [...currentFiles, ...files];
+        renderList();
+        input.value = ''; 
+    });
+
+    btn.addEventListener('click', async () => {
+        if (!currentFiles.length) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        try {
+            const result = await actionCallback(currentFiles);
+            currentFiles = []; renderList(); 
+            await processAndDownload(result.bytes, result.filename, result.type);
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (error) {
+            handleError(error);
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    });
+}
+
+// --- FEATURES IMPLEMENTATIONS LOGIC ---
 
 setupSingleFileLogic('split', async (file) => {
     const pagesToExtract = parseRange(document.getElementById('split-ranges').value);
@@ -264,27 +419,27 @@ setupSingleFileLogic('split', async (file) => {
     const newPdf = await PDFDocument.create();
     const copiedPages = await newPdf.copyPages(sourcePdf, pagesToExtract);
     copiedPages.forEach(p => newPdf.addPage(p));
-    return { bytes: await newPdf.save(), filename: 'Amazing_Split.pdf', type: 'application/pdf' };
+    return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Split.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('delete', async (file) => {
     const pagesToDelete = parseRange(document.getElementById('delete-ranges').value);
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     pagesToDelete.sort((a, b) => b - a).forEach(i => { if (i >= 0 && i < pdfDoc.getPageCount()) pdfDoc.removePage(i); });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Deleted.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Deleted.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('rotate', async (file) => {
     const angle = parseInt(document.getElementById('rotate-angle').value);
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     pdfDoc.getPages().forEach(p => p.setRotation(degrees(p.getRotation().angle + angle)));
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Rotated.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Rotated.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('flatten', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     const form = pdfDoc.getForm(); if(form) form.flatten();
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Flattened.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Flattened.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('crop', async (file) => {
@@ -294,7 +449,7 @@ setupSingleFileLogic('crop', async (file) => {
         const { x, y, width, height } = page.getCropBox() || page.getMediaBox();
         page.setCropBox(x + margin, y + margin, width - (margin * 2), height - (margin * 2));
     });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Cropped.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Cropped.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('metadata', async (file) => {
@@ -302,12 +457,12 @@ setupSingleFileLogic('metadata', async (file) => {
     const author = document.getElementById('meta-author').value;
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     if(title) pdfDoc.setTitle(title); if(author) pdfDoc.setAuthor(author);
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Metadata.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Metadata.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('repair', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Repaired.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Repaired.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('sign', async (file) => {
@@ -317,44 +472,7 @@ setupSingleFileLogic('sign', async (file) => {
     const font = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
     const page = pdfDoc.getPages()[0];
     page.drawText(`Signed by: ${name}`, { x: page.getSize().width - 200, y: 50, size: 18, font, color: rgb(0, 0, 0.8) });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Signed.pdf', type: 'application/pdf' };
-});
-
-// --- UPDATED PROTECT LOGIC (VERCEL FULL URL API) ---
-setupSingleFileLogic('protect', async (file) => {
-    const password = document.getElementById('protect-password').value;
-    if (!password) throw new Error("Password required");
-    
-    if (!navigator.onLine) {
-        throw new Error("You must be online to use the Secure Cloud Protect feature.");
-    }
-
-    const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('password', password);
-
-    const response = await fetch(VERCEL_API_URL, {
-        method: 'POST',
-        body: formData
-    });
-
-    if (!response.ok) {
-        throw new Error("Server error while protecting file. Please try again.");
-    }
-
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    
-    return { bytes: bytes, filename: 'Amazing_Protected.pdf', type: 'application/pdf' };
-});
-
-setupSingleFileLogic('unlock', async (file) => {
-    const password = document.getElementById('unlock-password').value;
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Unlocked.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Signed.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('addtext', async (file) => {
@@ -363,20 +481,20 @@ setupSingleFileLogic('addtext', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     pdfDoc.getPages()[pageIdx].drawText(text, { x: 50, y: 50, size: 14, font, color: rgb(0,0,0) });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_TextAdded.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_TextAdded.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('addblank', async (file) => {
     const pos = document.getElementById('addblank-position').value;
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     if (pos === 'start') pdfDoc.insertPage(0); else pdfDoc.addPage();
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_BlankPage.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_BlankPage.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('resizepdf', async (file) => {
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
     pdfDoc.getPages().forEach(page => page.setSize(595.28, 841.89));
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Resized.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Resized.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('reorder', async (file) => {
@@ -385,7 +503,7 @@ setupSingleFileLogic('reorder', async (file) => {
     const newPdf = await PDFDocument.create();
     const copied = await newPdf.copyPages(srcDoc, indices);
     copied.forEach(p => newPdf.addPage(p));
-    return { bytes: await newPdf.save(), filename: 'Amazing_Reordered.pdf', type: 'application/pdf' };
+    return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Reordered.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('addmargins', async (file) => {
@@ -396,13 +514,13 @@ setupSingleFileLogic('addmargins', async (file) => {
         page.setSize(width + (margin * 2), height + (margin * 2));
         page.translateContent(margin, margin);
     });
-    return { bytes: await doc.save(), filename: 'Amazing_Margined.pdf', type: 'application/pdf' };
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Margined.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('removeannots', async (file) => {
     const doc = await PDFDocument.load(await file.arrayBuffer());
     doc.getPages().forEach(page => { if(page.node.Annots) page.node.delete(PDFName.of('Annots')); });
-    return { bytes: await doc.save(), filename: 'Amazing_Cleaned.pdf', type: 'application/pdf' };
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Cleaned.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('watermark', async (file) => {
@@ -413,7 +531,7 @@ setupSingleFileLogic('watermark', async (file) => {
         const { width, height } = page.getSize();
         page.drawText(text, { x: width/2 - (font.widthOfTextAtSize(text,60)/2), y: height/2, size: 60, font, color: rgb(0.75,0.75,0.75), opacity: 0.5, rotate: degrees(45) });
     });
-    return { bytes: await doc.save(), filename: 'Amazing_Watermark.pdf', type: 'application/pdf' };
+    return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Watermark.pdf`, type: 'application/pdf' };
 });
 
 setupSingleFileLogic('splitevenodd', async (file) => {
@@ -424,7 +542,7 @@ setupSingleFileLogic('splitevenodd', async (file) => {
     const zip = new JSZip();
     if(oddIdx.length) { const oP = await oddDoc.copyPages(srcDoc, oddIdx); oP.forEach(p => oddDoc.addPage(p)); zip.file("Odd_Pages.pdf", await oddDoc.save()); }
     if(evenIdx.length) { const eP = await evenDoc.copyPages(srcDoc, evenIdx); eP.forEach(p => evenDoc.addPage(p)); zip.file("Even_Pages.pdf", await evenDoc.save()); }
-    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: 'Amazing_EvenOdd.zip', type: 'application/zip' };
+    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_EvenOdd.zip`, type: 'application/zip' };
 });
 
 setupSingleFileLogic('pdftojpg', async (file) => {
@@ -438,7 +556,7 @@ setupSingleFileLogic('pdftojpg', async (file) => {
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
         zip.file(`Page_${i}.jpg`, canvas.toDataURL('image/jpeg', 0.9).split(',')[1], {base64: true});
     }
-    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: 'Amazing_Images.zip', type: 'application/zip' };
+    return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_Images.zip`, type: 'application/zip' };
 });
 
 setupSingleFileLogic('extract', async (file) => {
@@ -449,10 +567,9 @@ setupSingleFileLogic('extract', async (file) => {
         const textContent = await page.getTextContent();
         fullText += `--- Page ${i} ---\n${textContent.items.map(item => item.str).join(" ")}\n\n`;
     }
-    return { bytes: new TextEncoder().encode(fullText), filename: 'Amazing_Extracted.txt', type: 'text/plain' };
+    return { bytes: new TextEncoder().encode(fullText), filename: `${getBaseName(file.name)}_Extracted.txt`, type: 'text/plain' };
 });
 
-// Recovered Feature Logic Block 1: Page Numbers
 setupSingleFileLogic('pagenumbers', async (file) => {
     const position = document.getElementById('pagenumbers-position').value;
     const format = document.getElementById('pagenumbers-format').value;
@@ -478,10 +595,9 @@ setupSingleFileLogic('pagenumbers', async (file) => {
 
         page.drawText(text, { x, y, size: 12, font: helveticaFont, color: rgb(0,0,0) });
     });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_Numbered.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Numbered.pdf`, type: 'application/pdf' };
 });
 
-// Recovered Feature Logic Block 2: Image Watermark
 setupSingleFileLogic('imagewatermark', async (file) => {
     const imgInput = document.getElementById('imagewatermark-overlay-input');
     if (!imgInput.files.length) throw new Error("Please select an image file first.");
@@ -494,40 +610,164 @@ setupSingleFileLogic('imagewatermark', async (file) => {
         const { width, height } = page.getSize();
         page.drawImage(pdfImg, { x: width / 2 - dims.width / 2, y: height / 2 - dims.height / 2, width: dims.width, height: dims.height, opacity: 0.4 });
     });
-    return { bytes: await pdfDoc.save(), filename: 'Amazing_ImageWatermark.pdf', type: 'application/pdf' };
+    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_ImgWatermark.pdf`, type: 'application/pdf' };
+});
+
+// MULTIPLE FILES BATCH IMPLEMENTATIONS
+setupMultipleFileLogic('compress', async (files) => {
+    if (files.length === 1) {
+        const file = files[0];
+        const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
+        const newPdf = await PDFDocument.create();
+        const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        copiedPages.forEach(p => newPdf.addPage(p));
+        return { bytes: await newPdf.save({ useObjectStreams: true }), filename: `${getBaseName(file.name)}_Compressed.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
+            const newPdf = await PDFDocument.create();
+            const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach(p => newPdf.addPage(p));
+            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await newPdf.save({ useObjectStreams: true }));
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Compressed.zip`, type: 'application/zip' };
+    }
+});
+
+// FIXED UNLOCK LOGIC (SMART CLOUD FALLBACK FOR AES)
+setupMultipleFileLogic('unlock', async (files) => {
+    const password = document.getElementById('unlock-password').value;
+    if (!password) {
+        throw new Error("Please enter a password to unlock the file.");
+    }
+
+    const unlockSingleFile = async (file, pwd) => {
+        try {
+            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password: pwd });
+            return await pdfDoc.save();
+        } catch (err) {
+            if (!navigator.onLine) {
+                throw new Error("This PDF uses advanced encryption. Please turn on your internet to unlock it via Cloud.");
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('password', pwd);
+            const response = await fetch("https://amazing-pdf-tool.vercel.app/api/unlock", { method: 'POST', body: formData });
+            if (!response.ok) {
+                throw new Error("Unlock Failed ❌ Incorrect password or server error.");
+            }
+            return new Uint8Array(await (await response.blob()).arrayBuffer());
+        }
+    };
+
+    if (files.length === 1) {
+        const bytes = await unlockSingleFile(files[0], password);
+        return { bytes, filename: `${getBaseName(files[0].name)}_Unlocked.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        let successCount = 0;
+        for (const file of files) {
+            try {
+                const bytes = await unlockSingleFile(file, password);
+                zip.file(`${getBaseName(file.name)}_Unlocked.pdf`, bytes);
+                successCount++;
+            } catch (e) { 
+                console.warn(`Failed to unlock ${file.name}`); 
+            }
+        }
+        if (successCount === 0) {
+            throw new Error("Failed to unlock any files. Please check if the password is correct.");
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Unlocked.zip`, type: 'application/zip' };
+    }
+});
+
+setupMultipleFileLogic('protect', async (files) => {
+    const password = document.getElementById('protect-password').value;
+    if (!password) throw new Error("Password required");
+    if (!navigator.onLine) throw new Error("You must be online to use the Secure Cloud Protect feature.");
+
+    const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
+    
+    if (files.length === 1) {
+        const formData = new FormData();
+        formData.append('file', files[0]);
+        formData.append('password', password);
+        const response = await fetch(VERCEL_API_URL, { method: 'POST', body: formData });
+        if (!response.ok) throw new Error("Server error while protecting file.");
+        const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
+        return { bytes, filename: `${getBaseName(files[0].name)}_Protected.pdf`, type: 'application/pdf' };
+    } else {
+        const zip = new JSZip();
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('password', password);
+            const response = await fetch(VERCEL_API_URL, { method: 'POST', body: formData });
+            if (response.ok) {
+                const bytes = new Uint8Array(await (await response.blob()).arrayBuffer());
+                zip.file(`${getBaseName(file.name)}_Protected.pdf`, bytes);
+            }
+        }
+        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(files[0].name)}_Batch_Protected.zip`, type: 'application/zip' };
+    }
 });
 
 // --- MANUAL HANDLERS FOR CUSTOM ENGINE TOOLS ---
 if (ui.htmltopdf) {
-    document.getElementById('btn-htmltopdf-action').addEventListener('click', async () => {
+    document.getElementById('btn-htmltopdf-action')?.addEventListener('click', async () => {
         const htmlContent = document.getElementById('html-input').value;
-        if (!htmlContent) return alert("Please enter HTML code.");
+        if (!htmlContent) {
+            showCustomAlert("Please enter HTML code first.");
+            return;
+        }
         const btn = document.getElementById('btn-htmltopdf-action');
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
         try {
             const blob = await html2pdf().set({ margin: 1, jsPDF: { format: 'letter' } }).from(htmlContent).output('blob');
             const bytes = new Uint8Array(await blob.arrayBuffer());
             document.getElementById('html-input').value = '';
-            await processAndDownload(bytes, 'Amazing_Converted.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-        } catch(e) { alert("Error converting."); }
+            await processAndDownload(bytes, 'HTML_Converted.pdf', 'application/pdf');
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch(e) { handleError(e); }
         finally { btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; }
     });
 }
 
+// SECURE MERGE LIST FUNCTION
 let mergeFiles = [];
 if (ui.merge) {
     const mergeInput = document.getElementById('merge-file-input');
-    document.getElementById('merge-drop-zone').addEventListener('click', () => mergeInput.click());
-    mergeInput.addEventListener('change', (e) => { mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; renderMergeList(); });
+    document.getElementById('merge-drop-zone')?.addEventListener('click', () => mergeInput.click());
+    
     function renderMergeList() {
-        const list = document.getElementById('merge-file-list'); list.innerHTML = '';
-        mergeFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeMerge(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
+        const list = document.getElementById('merge-file-list'); 
+        list.innerHTML = '';
+        mergeFiles.forEach((f, i) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style = fileItemStyle;
+            itemDiv.innerHTML = `<div class="text-container"><b class="text-ellipsis">${f.name}</b></div><button class="remove-merge" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
+            list.appendChild(itemDiv);
+        });
+
+        list.querySelectorAll('.remove-merge').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                mergeFiles.splice(idx, 1);
+                renderMergeList();
+            });
+        });
         document.getElementById('btn-merge-action').style.display = mergeFiles.length > 1 ? 'block' : 'none';
     }
-    window.removeMerge = (i) => { mergeFiles.splice(i, 1); renderMergeList(); };
+
+    mergeInput?.addEventListener('change', (e) => { 
+        mergeFiles = [...mergeFiles, ...Array.from(e.target.files).filter(f => f.type === 'application/pdf')]; 
+        renderMergeList(); 
+        mergeInput.value = '';
+    });
     
-    document.getElementById('btn-merge-action').addEventListener('click', async () => {
+    document.getElementById('btn-merge-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-merge-action'); btn.innerHTML = 'Processing...';
         try {
             const mergedPdf = await PDFDocument.create();
@@ -537,27 +777,48 @@ if (ui.merge) {
                 copiedPages.forEach(p => mergedPdf.addPage(p));
             }
             const bytes = await mergedPdf.save();
+            const outputName = mergeFiles.length > 0 ? `${getBaseName(mergeFiles[0].name)}_Merged.pdf` : 'Amazing_Merged.pdf';
             mergeFiles = []; renderMergeList();
-            await processAndDownload(bytes, 'Amazing_Merged.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-        } catch (e) { alert("Error merging"); }
+            await processAndDownload(bytes, outputName, 'application/pdf');
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (e) { handleError(e); }
         finally { btn.innerHTML = 'Merge Files Now'; }
     });
 }
 
+// SECURE JPG TO PDF LIST FUNCTION
 let imageFiles = [];
 if (ui.jpgtopdf) {
     const imgInput = document.getElementById('jpgtopdf-file-input');
-    document.getElementById('jpgtopdf-drop-zone').addEventListener('click', () => imgInput.click());
-    imgInput.addEventListener('change', (e) => { imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); });
+    document.getElementById('jpgtopdf-drop-zone')?.addEventListener('click', () => imgInput.click());
+    
     function renderImgList() {
-        const list = document.getElementById('jpgtopdf-file-list'); list.innerHTML = '';
-        imageFiles.forEach((f, i) => list.innerHTML += `<div style="${fileItemStyle}"><div><b>${f.name}</b></div><button onclick="removeImg(${i})" style="background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">X</button></div>`);
+        const list = document.getElementById('jpgtopdf-file-list'); 
+        list.innerHTML = '';
+        imageFiles.forEach((f, i) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style = fileItemStyle;
+            itemDiv.innerHTML = `<div class="text-container"><b class="text-ellipsis">${f.name}</b></div><button class="remove-img" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
+            list.appendChild(itemDiv);
+        });
+
+        list.querySelectorAll('.remove-img').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                imageFiles.splice(idx, 1);
+                renderImgList();
+            });
+        });
         document.getElementById('btn-jpgtopdf-action').style.display = imageFiles.length > 0 ? 'block' : 'none';
     }
-    window.removeImg = (i) => { imageFiles.splice(i, 1); renderImgList(); };
+
+    imgInput?.addEventListener('change', (e) => { 
+        imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; 
+        renderImgList(); 
+        imgInput.value = '';
+    });
     
-    document.getElementById('btn-jpgtopdf-action').addEventListener('click', async () => {
+    document.getElementById('btn-jpgtopdf-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-jpgtopdf-action'); btn.innerHTML = 'Converting...';
         try {
             const pdfDoc = await PDFDocument.create();
@@ -568,10 +829,25 @@ if (ui.jpgtopdf) {
                 page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
             }
             const bytes = await pdfDoc.save();
+            const outputName = imageFiles.length > 0 ? `${getBaseName(imageFiles[0].name)}_Images.pdf` : 'Amazing_Images.pdf';
             imageFiles = []; renderImgList();
-            await processAndDownload(bytes, 'Amazing_Images.pdf', 'application/pdf');
-            await AdManager.showInterstitial();
-        } catch (e) { alert("Error converting"); }
+            await processAndDownload(bytes, outputName, 'application/pdf');
+            if(typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
+        } catch (e) { handleError(e); }
         finally { btn.innerHTML = 'Convert to PDF'; }
     });
+}
+
+// --- SEARCH FILTERING LOGIC ---
+document.getElementById('mobile-search')?.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    document.querySelectorAll('.tool-card').forEach(card => {
+        const title = card.querySelector('h3').innerText.toLowerCase();
+        card.style.display = title.includes(searchTerm) ? 'block' : 'none';
+    });
+});
+
+// --- LOAD ADMOB BANNER AT BOTTOM ---
+if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner === 'function') {
+    AdManager.showBanner();
 }
