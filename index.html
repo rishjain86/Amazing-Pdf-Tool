@@ -181,7 +181,7 @@
 
         .info-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border); margin-bottom: 20px; line-height: 1.6; }
 
-        /* NEW: BACK BUTTON STYLING */
+        /* BACK BUTTON STYLING */
         .back-btn {
             display: inline-flex;
             align-items: center;
@@ -203,6 +203,25 @@
             transform: translateX(-3px);
         }
 
+        /* SEO SECTION STYLING */
+        .seo-section {
+            margin-top: 50px; 
+            padding: 30px; 
+            background-color: var(--surface-color); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 12px; 
+            line-height: 1.8;
+            text-align: left;
+        }
+
+        .seo-section h2, .seo-section h3 {
+            color: var(--text-main);
+        }
+
+        .seo-section p, .seo-section ul {
+            color: var(--text-secondary);
+        }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .mobile-header { display: flex; }
@@ -217,13 +236,18 @@
             .tool-icon { font-size: 1.5rem; margin-bottom: 10px; }
             .tool-card h3 { font-size: 0.9rem; margin-bottom: 5px; }
             .tool-card p { font-size: 0.75rem; }
+            
+            .seo-section { padding: 20px; margin-top: 30px; }
+            .seo-section h2 { font-size: 1.3rem; }
+            .seo-section h3 { font-size: 1.1rem; }
+            .seo-section p, .seo-section ul { font-size: 0.85rem; }
         }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <!-- Added onclick and cursor pointer to Desktop Logo -->
+        <!-- Clickable Desktop Logo -->
         <div class="brand-logo" onclick="switchView('dashboard')" style="cursor: pointer;">
             <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             <span>Amazing PDF</span>
@@ -256,7 +280,7 @@
     <div class="main-wrapper">
         
         <div class="mobile-header">
-            <!-- Added onclick and cursor pointer to Mobile Logo -->
+            <!-- Clickable Mobile Logo -->
             <div class="brand-logo" onclick="switchView('dashboard')" style="padding: 0; border: none; cursor: pointer;">
                 <img src="assets/icon.png?v=5" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             </div>
@@ -425,6 +449,24 @@
                     <p>App usage guidelines.</p>
                 </div>
             </div>
+
+            <!-- SEO Content Section for AdSense (NEWLY ADDED) -->
+            <div class="seo-section">
+                <h2 style="font-size: 1.8rem; margin-bottom: 20px;">Welcome to Amazing PDF - Your Ultimate Document Tool</h2>
+                <p style="margin-bottom: 20px;">Managing digital documents shouldn't be complicated. <strong>Amazing PDF</strong> is a fast, reliable, and 100% free online PDF utility designed to help you handle your files effortlessly. Whether you need to merge, split, compress, or convert documents, our intuitive web application provides professional-grade tools directly in your browser without any software installation.</p>
+                
+                <h3 style="font-size: 1.4rem; margin-bottom: 15px;">Why Choose Amazing PDF?</h3>
+                <ul style="margin-left: 20px; margin-bottom: 25px;">
+                    <li style="margin-bottom: 10px;"><strong>Lightning Fast Processing:</strong> Built with modern web technologies to ensure your documents are ready in seconds.</li>
+                    <li style="margin-bottom: 10px;"><strong>User-Friendly Interface:</strong> A clean, minimalist design that makes PDF management accessible to everyone, from students to working professionals.</li>
+                    <li style="margin-bottom: 10px;"><strong>Privacy First:</strong> We respect your data. Your files are processed securely and are never permanently stored on our servers. Your privacy is our top priority.</li>
+                    <li style="margin-bottom: 10px;"><strong>Completely Free:</strong> No hidden charges, no premium subscriptions, and no annoying watermarks on your final documents.</li>
+                </ul>
+
+                <h3 style="font-size: 1.4rem; margin-bottom: 15px;">How to Use Our Tools</h3>
+                <p>Getting started is incredibly easy. Simply select the specific tool you need from our dashboard, upload your PDF file, and let our system do the heavy lifting. Once processed, your optimized file will be immediately available for download in your <em>My History</em> section.</p>
+            </div>
+
         </div>
 
         <div id="view-history" class="view-section">
