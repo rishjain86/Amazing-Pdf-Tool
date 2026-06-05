@@ -151,6 +151,7 @@
             cursor: pointer;
             transition: 0.3s;
             text-align: left;
+            height: 100%;
         }
 
         .tool-card:hover {
@@ -203,7 +204,7 @@
             transform: translateX(-3px);
         }
 
-        /* SEO SECTION STYLING - UPDATED FOR FULL WIDTH */
+        /* SEO SECTION STYLING - FULL WIDTH */
         .seo-section {
             margin-top: 50px; 
             padding: 40px 10px; 
@@ -271,9 +272,10 @@
         <div class="nav-btn" onclick="switchView('sign')"><i class="fas fa-signature"></i> Sign PDF</div>
 
         <div class="menu-label">About & Legal</div>
-        <div class="nav-btn" onclick="switchView('contact')"><i class="fas fa-envelope"></i> Contact Us</div>
-        <div class="nav-btn" onclick="switchView('privacy')"><i class="fas fa-user-shield"></i> Privacy Policy</div>
-        <div class="nav-btn" onclick="switchView('terms')"><i class="fas fa-file-contract"></i> Terms & Cond.</div>
+        <a href="about.html" class="nav-btn" style="text-decoration: none;"><i class="fas fa-info-circle"></i> About Us</a>
+        <a href="contact.html" class="nav-btn" style="text-decoration: none;"><i class="fas fa-envelope"></i> Contact Us</a>
+        <a href="privacy.html" class="nav-btn" style="text-decoration: none;"><i class="fas fa-user-shield"></i> Privacy Policy</a>
+        <a href="terms.html" class="nav-btn" style="text-decoration: none;"><i class="fas fa-file-contract"></i> Terms & Cond.</a>
     </div>
 
     <div class="main-wrapper">
@@ -431,21 +433,34 @@
                     <p>Remove annotations.</p>
                 </div>
                 
-                <div class="tool-card" onclick="switchView('contact')">
-                    <i class="fas fa-envelope tool-icon" style="color: #10b981;"></i>
-                    <h3>Contact Us</h3>
-                    <p>Get in touch for support.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('privacy')">
-                    <i class="fas fa-user-shield tool-icon" style="color: #f59e0b;"></i>
-                    <h3>Privacy Policy</h3>
-                    <p>How we protect your data.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('terms')">
-                    <i class="fas fa-file-contract tool-icon" style="color: #64748b;"></i>
-                    <h3>Terms & Cond.</h3>
-                    <p>App usage guidelines.</p>
-                </div>
+                <a href="about.html" style="text-decoration: none; color: inherit;">
+                    <div class="tool-card">
+                        <i class="fas fa-info-circle tool-icon" style="color: #3b82f6;"></i>
+                        <h3>About Us</h3>
+                        <p>Learn more about us.</p>
+                    </div>
+                </a>
+                <a href="contact.html" style="text-decoration: none; color: inherit;">
+                    <div class="tool-card">
+                        <i class="fas fa-envelope tool-icon" style="color: #10b981;"></i>
+                        <h3>Contact Us</h3>
+                        <p>Get in touch for support.</p>
+                    </div>
+                </a>
+                <a href="privacy.html" style="text-decoration: none; color: inherit;">
+                    <div class="tool-card">
+                        <i class="fas fa-user-shield tool-icon" style="color: #f59e0b;"></i>
+                        <h3>Privacy Policy</h3>
+                        <p>How we protect your data.</p>
+                    </div>
+                </a>
+                <a href="terms.html" style="text-decoration: none; color: inherit;">
+                    <div class="tool-card">
+                        <i class="fas fa-file-contract tool-icon" style="color: #64748b;"></i>
+                        <h3>Terms & Cond.</h3>
+                        <p>App usage guidelines.</p>
+                    </div>
+                </a>
             </div>
 
             <div class="seo-section">
@@ -471,39 +486,6 @@
             <h2><i class="fas fa-history"></i> My Download History</h2>
             <p style="color: var(--text-secondary); margin-bottom: 20px;">Your processed files are saved locally.</p>
             <div id="history-list"></div>
-        </div>
-
-        <div id="view-contact" class="view-section">
-            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
-            <h2 style="margin-bottom: 20px;"><i class="fas fa-envelope"></i> Contact Us</h2>
-            <div class="info-card">
-                <h3>We'd love to hear from you!</h3><br>
-                <p>If you have any questions, feedback, or face any issues while using Amazing PDF Tool, feel free to reach out to our support team.</p><br>
-                <p><strong>Email:</strong> amazingdeals121@gmail.com</p> 
-            </div>
-        </div>
-
-        <div id="view-privacy" class="view-section">
-            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
-            <h2 style="margin-bottom: 20px;"><i class="fas fa-user-shield"></i> Privacy Policy</h2>
-            <div class="info-card" style="font-size: 0.9rem;">
-                <p><strong>Last Updated: May 2026</strong></p><br>
-                <p>Your privacy is important to us. Amazing PDF Tool processes most files locally on your device ensuring maximum security. For features requiring advanced processing (like AES encryption), files are securely transmitted to our cloud servers and are immediately deleted after processing.</p><br>
-                <p>We do not store, share, or sell your personal documents. We use third-party services like Google AdMob which may collect non-personal data to serve relevant ads.</p>
-            </div>
-        </div>
-
-        <div id="view-terms" class="view-section">
-            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
-            <h2 style="margin-bottom: 20px;"><i class="fas fa-file-contract"></i> Terms & Conditions</h2>
-            <div class="info-card" style="font-size: 0.9rem;">
-                <p>By using Amazing PDF Tool, you agree to these terms:</p><br>
-                <ul style="margin-left: 20px;">
-                    <li>You will not use this app for illegal activities.</li>
-                    <li>The app is provided "as is" without warranties of any kind.</li>
-                    <li>We reserve the right to modify or terminate services at any time.</li>
-                </ul>
-            </div>
         </div>
 
         <div id="view-merge" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="merge-ui-container"></div></div>
