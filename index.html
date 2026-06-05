@@ -82,6 +82,25 @@
             border-left: 3px solid var(--accent);
         }
 
+        /* NEW DOWNLOAD BUTTON STYLING */
+        .download-btn {
+            margin: 15px;
+            background: linear-gradient(45deg, #10b981, #3b82f6);
+            color: white !important;
+            border-radius: 8px;
+            justify-content: center;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            transition: 0.3s;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4) !important;
+            background-color: transparent; /* Override default hover */
+            border-left: none;
+        }
+
         .menu-label {
             padding: 20px 20px 10px;
             font-size: 0.8rem;
@@ -98,7 +117,7 @@
             flex-direction: column;
             height: 100vh;
             overflow-y: auto;
-            padding-bottom: 60px; /* AdMob Space */
+            padding-bottom: 60px;
         }
 
         .mobile-header {
@@ -242,6 +261,7 @@
             .seo-section h2 { font-size: 1.3rem; }
             .seo-section h3 { font-size: 1.1rem; }
             .seo-section p, .seo-section ul { font-size: 0.85rem; }
+            .download-btn { margin: 10px 15px; font-size: 0.9rem; padding: 10px; }
         }
     </style>
 </head>
@@ -252,6 +272,10 @@
             <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             <span>Amazing PDF</span>
         </div>
+
+        <a href="assets/AmazingPDF.apk" download class="nav-btn download-btn">
+            <i class="fab fa-android" style="font-size: 1.2rem;"></i> Download App
+        </a>
 
         <div class="nav-btn active" onclick="switchView('dashboard')">
             <i class="fas fa-home"></i> Dashboard
