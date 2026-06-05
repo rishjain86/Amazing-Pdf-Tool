@@ -2,70 +2,169 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - Amazing PDF Tool</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Privacy Policy - Amazing PDF</title>
+    
+    <link rel="icon" type="image/png" href="assets/icon.png?v=5">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --accent: #3b82f6;
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f0f2f5;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow-y: auto;
         }
-        .container {
-            background-color: #ffffff;
-            padding: 40px;
+
+        /* --- SIMPLE HEADER --- */
+        .simple-header {
+            width: 100%;
+            padding: 20px 30px;
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .brand-logo span {
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: linear-gradient(to right, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            transition: 0.3s;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: translateX(-3px);
+        }
+
+        /* --- PAGE CONTENT --- */
+        .page-container {
+            max-width: 900px;
+            margin: 100px auto 40px; /* Space for fixed header */
+            padding: 30px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--glass-border);
             border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            line-height: 1.8;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        h1 { color: #0f172a; margin-bottom: 10px; font-size: 2.2rem; }
-        h2 { color: #3b82f6; margin-top: 30px; margin-bottom: 15px; font-size: 1.4rem; }
-        p { margin-bottom: 15px; color: #4b5563; font-size: 1rem; }
-        ul { margin-bottom: 15px; color: #4b5563; padding-left: 20px; }
-        li { margin-bottom: 10px; }
-        .date { color: #6b7280; font-style: italic; margin-bottom: 30px; }
-        a { color: #3b82f6; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        
-        @media (max-width: 600px) {
-            .container { padding: 25px; }
-            h1 { font-size: 1.8rem; }
-            body { padding: 20px 10px; }
+
+        .page-container h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 10px;
+        }
+
+        .page-container h2 {
+            font-size: 1.3rem;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: var(--text-main);
+        }
+
+        .page-container p, .page-container ul {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        .page-container ul {
+            margin-left: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .page-container {
+                margin: 90px 15px 30px;
+                padding: 20px;
+            }
+            .page-container h1 { font-size: 1.5rem; }
+            .simple-header { padding: 15px 20px; }
+            .brand-logo span { font-size: 1.1rem; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
+
+    <header class="simple-header">
+        <a href="index.html" class="brand-logo">
+            <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;" alt="Logo">
+            <span>Amazing PDF</span>
+        </a>
+        <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Tool</a>
+    </header>
+
+    <div class="page-container">
         <h1>Privacy Policy</h1>
-        <p class="date">Last Updated: May 29, 2026</p>
+        <p><strong>Last Updated: June 2026</strong></p>
 
-        <p>Welcome to <strong>Amazing PDF Tool</strong>. Your privacy and the security of your documents are our top priorities. This Privacy Policy explains how we handle your data when you use our application.</p>
+        <p>At <strong>Amazing PDF</strong> (accessible from amazingpdf.in), one of our main priorities is the privacy of our visitors. This Privacy Policy document contains types of information that is collected and recorded by Amazing PDF and how we use it.</p>
 
-        <h2>1. Document Processing & Security</h2>
-        <p>We understand that PDF documents often contain sensitive information. Here is exactly how we process your files:</p>
-        <ul>
-            <li><strong>Local Processing:</strong> The majority of our tools (such as Merge, Split, Compress, Rotate, Add Watermark, etc.) process your files completely offline and locally on your device. These files are <strong>never uploaded</strong> to our servers.</li>
-            <li><strong>Cloud Processing:</strong> Advanced security features, such as <strong>Protect PDF (Encryption)</strong> and <strong>Unlock PDF (Decryption)</strong>, require secure server-side processing to bypass complex AES restrictions. When you use these specific tools, your file is temporarily transmitted to our secure cloud backend.</li>
-            <li><strong>Strict Deletion Policy:</strong> Any file uploaded to our cloud servers for processing is <strong>deleted immediately</strong> after the task is completed. We do not store, view, retain, or share your documents under any circumstances.</li>
-        </ul>
+        <h2>1. Local File Processing</h2>
+        <p>Your privacy and document security are our utmost priority. Amazing PDF is designed to process the vast majority of your files <strong>locally in your web browser</strong>. This means that your documents are not uploaded to our servers, keeping your sensitive data entirely on your device.</p>
 
-        <h2>2. Advertising & Analytics</h2>
-        <p>To keep the Amazing PDF Tool 100% free for everyone, we use third-party advertising services:</p>
-        <ul>
-            <li><strong>Google AdMob:</strong> We use Google AdMob to display advertisements within the app. AdMob may collect and use non-personally identifiable information (such as device type, IP address, and mobile advertising IDs) to provide relevant advertisements.</li>
-        </ul>
+        <h2>2. Log Files</h2>
+        <p>Amazing PDF follows a standard procedure of using log files. These files log visitors when they visit websites. All hosting companies do this as part of hosting services' analytics. The information collected by log files includes internet protocol (IP) addresses, browser type, Internet Service Provider (ISP), date and time stamp, referring/exit pages, and possibly the number of clicks. These are not linked to any information that is personally identifiable.</p>
 
-        <h2>3. Personal Information</h2>
-        <p>We do not require you to create an account, and we do not collect personal information (like your name, phone number, or address) to use the core features of the app. If you contact us for support, we will only use your email address to respond to your specific inquiry.</p>
+        <h2>3. Google DoubleClick DART Cookie</h2>
+        <p>Google is one of a third-party vendor on our site. It also uses cookies, known as DART cookies, to serve ads to our site visitors based upon their visit to our site and other sites on the internet. However, visitors may choose to decline the use of DART cookies by visiting the Google ad and content network Privacy Policy at the following URL: <a href="https://policies.google.com/technologies/ads" style="color: var(--accent);">https://policies.google.com/technologies/ads</a></p>
 
-        <h2>4. Changes to This Policy</h2>
-        <p>We may update this Privacy Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. Any changes will be updated on this page.</p>
+        <h2>4. Third-Party Ad Networks</h2>
+        <p>Third-party ad servers or ad networks uses technologies like cookies, JavaScript, or Web Beacons that are used in their respective advertisements and links that appear on Amazing PDF, which are sent directly to users' browser. They automatically receive your IP address when this occurs. These technologies are used to measure the effectiveness of their advertising campaigns and/or to personalize the advertising content that you see on websites that you visit.</p>
 
-        <h2>5. Contact Us</h2>
-        <p>If you have any questions, concerns, or feedback regarding this Privacy Policy or how your data is handled, please feel free to contact us at:</p>
-        <p><strong>Email:</strong> <a href="mailto:amazingdeals121@gmail.com">amazingdeals121@gmail.com</a></p>
+        <h2>5. Consent</h2>
+        <p>By using our website, you hereby consent to our Privacy Policy and agree to its Terms and Conditions.</p>
+
+        <h2>6. Contact Us</h2>
+        <p>If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us at <strong>amazingdeals121@gmail.com</strong>.</p>
     </div>
+
 </body>
 </html>
