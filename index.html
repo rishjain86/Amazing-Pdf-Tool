@@ -181,6 +181,28 @@
 
         .info-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border); margin-bottom: 20px; line-height: 1.6; }
 
+        /* NEW: BACK BUTTON STYLING */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 25px;
+            font-weight: 500;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            transition: 0.3s;
+            width: fit-content;
+        }
+
+        .back-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: translateX(-3px);
+        }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .mobile-header { display: flex; }
@@ -201,7 +223,8 @@
 <body>
 
     <div class="sidebar">
-        <div class="brand-logo">
+        <!-- Added onclick and cursor pointer to Desktop Logo -->
+        <div class="brand-logo" onclick="switchView('dashboard')" style="cursor: pointer;">
             <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             <span>Amazing PDF</span>
         </div>
@@ -233,7 +256,8 @@
     <div class="main-wrapper">
         
         <div class="mobile-header">
-            <div class="brand-logo" style="padding: 0; border: none;">
+            <!-- Added onclick and cursor pointer to Mobile Logo -->
+            <div class="brand-logo" onclick="switchView('dashboard')" style="padding: 0; border: none; cursor: pointer;">
                 <img src="assets/icon.png?v=5" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
             </div>
             <input type="text" id="mobile-search" placeholder="Search tools..." style="width: 55%; padding: 10px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.85rem; padding-left: 15px; outline: none;">
@@ -404,12 +428,14 @@
         </div>
 
         <div id="view-history" class="view-section">
+            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
             <h2><i class="fas fa-history"></i> My Download History</h2>
             <p style="color: var(--text-secondary); margin-bottom: 20px;">Your processed files are saved locally.</p>
             <div id="history-list"></div>
         </div>
 
         <div id="view-contact" class="view-section">
+            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
             <h2 style="margin-bottom: 20px;"><i class="fas fa-envelope"></i> Contact Us</h2>
             <div class="info-card">
                 <h3>We'd love to hear from you!</h3><br>
@@ -419,6 +445,7 @@
         </div>
 
         <div id="view-privacy" class="view-section">
+            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
             <h2 style="margin-bottom: 20px;"><i class="fas fa-user-shield"></i> Privacy Policy</h2>
             <div class="info-card" style="font-size: 0.9rem;">
                 <p><strong>Last Updated: May 2026</strong></p><br>
@@ -428,6 +455,7 @@
         </div>
 
         <div id="view-terms" class="view-section">
+            <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
             <h2 style="margin-bottom: 20px;"><i class="fas fa-file-contract"></i> Terms & Conditions</h2>
             <div class="info-card" style="font-size: 0.9rem;">
                 <p>By using Amazing PDF Tool, you agree to these terms:</p><br>
@@ -439,32 +467,33 @@
             </div>
         </div>
 
-        <div id="view-merge" class="view-section"><div id="merge-ui-container"></div></div>
-        <div id="view-split" class="view-section"><div id="split-ui-container"></div></div>
-        <div id="view-compress" class="view-section"><div id="compress-ui-container"></div></div>
-        <div id="view-delete" class="view-section"><div id="delete-ui-container"></div></div>
-        <div id="view-rotate" class="view-section"><div id="rotate-ui-container"></div></div>
-        <div id="view-pdftojpg" class="view-section"><div id="pdftojpg-ui-container"></div></div>
-        <div id="view-jpgtopdf" class="view-section"><div id="jpgtopdf-ui-container"></div></div>
-        <div id="view-protect" class="view-section"><div id="protect-ui-container"></div></div>
-        <div id="view-unlock" class="view-section"><div id="unlock-ui-container"></div></div>
-        <div id="view-watermark" class="view-section"><div id="watermark-ui-container"></div></div>
-        <div id="view-sign" class="view-section"><div id="sign-ui-container"></div></div>
-        <div id="view-extract" class="view-section"><div id="extract-ui-container"></div></div>
-        <div id="view-flatten" class="view-section"><div id="flatten-ui-container"></div></div>
-        <div id="view-crop" class="view-section"><div id="crop-ui-container"></div></div>
-        <div id="view-metadata" class="view-section"><div id="metadata-ui-container"></div></div>
-        <div id="view-repair" class="view-section"><div id="repair-ui-container"></div></div>
-        <div id="view-reorder" class="view-section"><div id="reorder-ui-container"></div></div>
-        <div id="view-imagewatermark" class="view-section"><div id="imagewatermark-ui-container"></div></div>
-        <div id="view-htmltopdf" class="view-section"><div id="htmltopdf-ui-container"></div></div>
-        <div id="view-addtext" class="view-section"><div id="addtext-ui-container"></div></div>
-        <div id="view-addblank" class="view-section"><div id="addblank-ui-container"></div></div>
-        <div id="view-resizepdf" class="view-section"><div id="resizepdf-ui-container"></div></div>
-        <div id="view-splitevenodd" class="view-section"><div id="splitevenodd-ui-container"></div></div>
-        <div id="view-addmargins" class="view-section"><div id="addmargins-ui-container"></div></div>
-        <div id="view-removeannots" class="view-section"><div id="removeannots-ui-container"></div></div>
-        <div id="view-pagenumbers" class="view-section"><div id="pagenumbers-ui-container"></div></div>
+        <!-- Tool Containers with Back Button Pre-pended -->
+        <div id="view-merge" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="merge-ui-container"></div></div>
+        <div id="view-split" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="split-ui-container"></div></div>
+        <div id="view-compress" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="compress-ui-container"></div></div>
+        <div id="view-delete" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="delete-ui-container"></div></div>
+        <div id="view-rotate" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="rotate-ui-container"></div></div>
+        <div id="view-pdftojpg" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="pdftojpg-ui-container"></div></div>
+        <div id="view-jpgtopdf" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="jpgtopdf-ui-container"></div></div>
+        <div id="view-protect" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="protect-ui-container"></div></div>
+        <div id="view-unlock" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="unlock-ui-container"></div></div>
+        <div id="view-watermark" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="watermark-ui-container"></div></div>
+        <div id="view-sign" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="sign-ui-container"></div></div>
+        <div id="view-extract" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="extract-ui-container"></div></div>
+        <div id="view-flatten" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="flatten-ui-container"></div></div>
+        <div id="view-crop" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="crop-ui-container"></div></div>
+        <div id="view-metadata" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="metadata-ui-container"></div></div>
+        <div id="view-repair" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="repair-ui-container"></div></div>
+        <div id="view-reorder" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="reorder-ui-container"></div></div>
+        <div id="view-imagewatermark" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="imagewatermark-ui-container"></div></div>
+        <div id="view-htmltopdf" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="htmltopdf-ui-container"></div></div>
+        <div id="view-addtext" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="addtext-ui-container"></div></div>
+        <div id="view-addblank" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="addblank-ui-container"></div></div>
+        <div id="view-resizepdf" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="resizepdf-ui-container"></div></div>
+        <div id="view-splitevenodd" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="splitevenodd-ui-container"></div></div>
+        <div id="view-addmargins" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="addmargins-ui-container"></div></div>
+        <div id="view-removeannots" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="removeannots-ui-container"></div></div>
+        <div id="view-pagenumbers" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="pagenumbers-ui-container"></div></div>
 
     </div>
 
