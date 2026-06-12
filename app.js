@@ -1654,3 +1654,56 @@ document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
         }
     });
 });
+
+// ==========================================
+// APP VERSION UPDATE CHECKER
+// ==========================================
+async function checkForUpdates() {
+    try {
+        // Apni HTML file se current version nikalna
+        const currentVersion = parseFloat(document.querySelector('meta[name="app-version"]')?.content || "1.0");
+        
+        // Cache avoid karne ke liye time append kiya hai
+        const timestamp = new Date().getTime();
+        
+        // GitHub/Vercel se latest version file read karna
+        const response = await fetch(`version.json?t=${timestamp}`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const latestVersion = parseFloat(data.latest_version);
+        
+        // Agar server ka version app ke version se bada hai, toh update popup dikhao
+        if (latestVersion > currentVersion) {
+            showUpdatePopup(data.download_url, data.message);
+        }
+    } catch (error) {
+        console.log("Update check skipped (Offline mode or Error)");
+    }
+}
+
+function showUpdatePopup(downloadUrl, message) {
+    const overlay = document.createElement('div');
+    overlay.style = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(8px); padding: 20px;";
+    
+    const box = document.createElement('div');
+    box.style = "background: var(--surface-color); padding: 30px; border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 10px 40px rgba(16, 185, 129, 0.3); text-align: center; max-width: 350px; width: 100%; animation: fadeIn 0.5s ease;";
+    
+    box.innerHTML = `
+        <i class="fas fa-rocket" style="font-size: 3.5rem; color: #10b981; margin-bottom: 20px;"></i>
+        <h2 style="color: white; margin-bottom: 15px; font-size: 1.4rem;">Update Available!</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 25px; font-size: 0.95rem; line-height: 1.5;">${message}</p>
+        <button onclick="window.open('${downloadUrl}', '_blank')" style="background: linear-gradient(45deg, #10b981, #3b82f6); color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+            <i class="fas fa-download"></i> Download Update
+        </button>
+        <div style="margin-top: 15px;">
+            <span onclick="this.parentElement.parentElement.parentElement.remove()" style="color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">Maybe Later</span>
+        </div>
+    `;
+    
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+}
+
+// Jaise hi app load ho, update check run karo
+window.addEventListener('DOMContentLoaded', checkForUpdates);
