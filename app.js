@@ -1663,7 +1663,7 @@ async function checkForUpdates() {
         const currentVersion = parseFloat(document.querySelector('meta[name="app-version"]')?.content || "1.0");
         const timestamp = new Date().getTime();
         
-        const response = await fetch(`version.json?t=${timestamp}`);
+        const response = await fetch(`https://amazingpdf.in/version.json?t=${timestamp}`);
         if (!response.ok) return;
         
         const data = await response.json();
