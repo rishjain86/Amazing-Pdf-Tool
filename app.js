@@ -158,6 +158,7 @@ if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `
 if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><button onclick="document.getElementById('jpgtopdf-file-input').click()" style="padding: 10px 20px; background: #eab308; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: 600;">Browse Images</button><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-eye"></i> Preview & Convert</button>`;
 if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-eye"></i> Preview PDF</button></div>`;
 
+// HERE: Corrected the uppercase 'If' to lowercase 'if'
 if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt', `
     <div style="position: relative; width: 100%;">
         <input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle} padding-right: 45px;">
@@ -262,7 +263,7 @@ function bytesToBase64(bytes) {
     return window.btoa(binary);
 }
 
-// --- GLOBAL PREVIEW LOGIC (UPDATED WITH DISCLAIMER & DOWNLOAD FIX) ---
+// --- GLOBAL PREVIEW LOGIC ---
 let pendingDownloadData = null;
 
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
@@ -309,7 +310,6 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
                 pdfContainer.appendChild(moreTxt);
             }
             
-            // Disclaimer for Hyperlinks
             const noteTxt = document.createElement('div');
             noteTxt.style = "color: #f59e0b; font-size: 0.85rem; text-align: center; margin-top: 10px; padding: 0 15px;";
             noteTxt.innerHTML = '<i class="fas fa-info-circle"></i> <b>Note:</b> This is an image preview. Hyperlinks will only be clickable in the downloaded PDF.';
@@ -345,7 +345,6 @@ async function executeFinalDownload() {
             await Share.share({ title: filename, text: 'Processed via Amazing PDF', url: savedFile.uri });
         } catch (e) { showCustomAlert("Saved to Documents & History!"); }
     } else {
-        // ANDROID DOWNLOAD BUG FIX
         const blob = new Blob([bytes], { type });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -354,7 +353,6 @@ async function executeFinalDownload() {
         document.body.appendChild(a); 
         a.click(); 
         
-        // Extended delay to 120 seconds
         setTimeout(() => {
             document.body.removeChild(a); 
             URL.revokeObjectURL(url);
@@ -1635,4 +1633,24 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
 // ==========================================
 // HAMBURGER MENU LOGIC FOR MOBILE
 // ==========================================
-const mobileMenuBtn = document.getElementById('mobile-menu
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+const sidebar = document.querySelector('.sidebar');
+const mobileOverlay = document.getElementById('mobile-sidebar-overlay');
+
+function toggleSidebar() {
+    if(sidebar) sidebar.classList.toggle('mobile-active');
+    if(mobileOverlay) mobileOverlay.style.display = sidebar.classList.contains('mobile-active') ? 'block' : 'none';
+}
+
+mobileMenuBtn?.addEventListener('click', toggleSidebar);
+mobileOverlay?.addEventListener('click', toggleSidebar);
+
+// Auto-close sidebar when any menu item is clicked on mobile
+document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+            if(sidebar) sidebar.classList.remove('mobile-active');
+            if(mobileOverlay) mobileOverlay.style.display = 'none';
+        }
+    });
+});
