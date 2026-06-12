@@ -1656,33 +1656,32 @@ document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
 });
 
 // ==========================================
-// APP VERSION UPDATE CHECKER
+// APP VERSION UPDATE CHECKER (WITH DISMISS MEMORY)
 // ==========================================
 async function checkForUpdates() {
     try {
-        // Apni HTML file se current version nikalna
         const currentVersion = parseFloat(document.querySelector('meta[name="app-version"]')?.content || "1.0");
-        
-        // Cache avoid karne ke liye time append kiya hai
         const timestamp = new Date().getTime();
         
-        // GitHub/Vercel se latest version file read karna
         const response = await fetch(`version.json?t=${timestamp}`);
         if (!response.ok) return;
         
         const data = await response.json();
         const latestVersion = parseFloat(data.latest_version);
         
-        // Agar server ka version app ke version se bada hai, toh update popup dikhao
-        if (latestVersion > currentVersion) {
-            showUpdatePopup(data.download_url, data.message);
+        // Browser ki memory check karna ki kya user ne ye version pehle skip kiya hai
+        const skippedVersion = parseFloat(localStorage.getItem('skipped_update_version')) || 0;
+        
+        // Popup tabhi dikhega jab update naya ho aur user ne usko pehle skip na kiya ho
+        if (latestVersion > currentVersion && latestVersion > skippedVersion) {
+            showUpdatePopup(data.download_url, data.message, latestVersion);
         }
     } catch (error) {
         console.log("Update check skipped (Offline mode or Error)");
     }
 }
 
-function showUpdatePopup(downloadUrl, message) {
+function showUpdatePopup(downloadUrl, message, latestVersion) {
     const overlay = document.createElement('div');
     overlay.style = "position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(8px); padding: 20px;";
     
@@ -1697,7 +1696,8 @@ function showUpdatePopup(downloadUrl, message) {
             <i class="fas fa-download"></i> Download Update
         </button>
         <div style="margin-top: 15px;">
-            <span onclick="this.parentElement.parentElement.parentElement.remove()" style="color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">Maybe Later</span>
+            <!-- Yaha 'localStorage' add kiya hai taaki browser yaad rakhe -->
+            <span onclick="localStorage.setItem('skipped_update_version', '${latestVersion}'); this.parentElement.parentElement.parentElement.remove()" style="color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">Maybe Later</span>
         </div>
     `;
     
@@ -1705,5 +1705,4 @@ function showUpdatePopup(downloadUrl, message) {
     document.body.appendChild(overlay);
 }
 
-// Jaise hi app load ho, update check run karo
 window.addEventListener('DOMContentLoaded', checkForUpdates);
