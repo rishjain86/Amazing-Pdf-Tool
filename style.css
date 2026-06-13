@@ -389,7 +389,33 @@ body {
     .seo-section p, .seo-section ul { font-size: 0.85rem; }
     .download-btn { margin: 10px 15px; font-size: 0.9rem; padding: 10px; }
     
-    #edit-toolbar { flex-wrap: wrap; justify-content: space-between; }
-    .edit-toolbar-btn { flex: 1 1 22%; justify-content: center; margin-bottom: 5px; }
-    .tool-settings { width: 100%; justify-content: center; border-left: none !important; border-top: 1px solid var(--glass-border); padding-top: 10px; margin-top: 5px; }
+    /* PRO MOBILE TOOLBAR FIX (Scrollable) */
+    #edit-toolbar { 
+        flex-wrap: nowrap !important; 
+        overflow-x: auto !important; 
+        justify-content: flex-start !important; 
+        -webkit-overflow-scrolling: touch; 
+        padding-bottom: 8px !important; 
+        gap: 12px !important;
+    }
+    
+    /* Custom Scrollbar for Mobile Toolbar */
+    #edit-toolbar::-webkit-scrollbar { height: 4px; display: block; }
+    #edit-toolbar::-webkit-scrollbar-track { background: transparent; }
+    #edit-toolbar::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+    /* Prevent buttons and dropdowns from squishing */
+    .edit-toolbar-btn, #edit-apply-mode, .tool-settings, div[style*="border-left"] { 
+        flex-shrink: 0 !important; 
+        margin-bottom: 0 !important;
+    }
+    
+    /* Reset tool settings inline */
+    .tool-settings { 
+        width: auto !important; 
+        border-left: 1px solid var(--glass-border) !important; 
+        border-top: none !important; 
+        padding-top: 0 !important; 
+        margin-top: 0 !important; 
+    }
 }
