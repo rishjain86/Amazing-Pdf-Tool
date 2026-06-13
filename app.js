@@ -142,7 +142,6 @@ if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock
     </div>
 `);
 
-// Toggle Listeners for Passwords
 document.getElementById('toggle-protect-pwd')?.addEventListener('click', function() {
     const pwdInput = document.getElementById('protect-password');
     if (pwdInput.type === 'password') { pwdInput.type = 'text'; this.classList.replace('fa-eye', 'fa-eye-slash'); this.style.color = 'var(--accent)'; } 
@@ -300,7 +299,6 @@ function parseRange(rangeStr) {
     return [...new Set(pages)].sort((a, b) => a - b);
 }
 
-// SECURE FILE LOGIC BINDINGS
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`);
     const input = document.getElementById(`${id}-file-input`);
@@ -673,7 +671,7 @@ if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner 
 // ==========================================
 
 let editPdfDoc = null;
-let currentEditFile = null; 
+let currentEditFileBytes = null; // 🔥 CRITICAL FIX: Safe Memory Buffer
 let editOriginalFileName = "";
 let editPageNum = 1;
 
@@ -839,16 +837,15 @@ document.getElementById('edit-image-input')?.addEventListener('change', function
     }
 });
 
-// CRITICAL FIX: Direct File Input Listener for "Edit PDF" standalone button
 document.getElementById('edit-pdf-input')?.addEventListener('change', function(e) {
     if (e.target.files[0]) {
         openVisualWorkspace(e.target.files[0], 'edit');
-        e.target.value = ''; // Allow re-selecting same file
+        e.target.value = ''; 
     }
 });
 
 function openVisualWorkspace(file, mode) {
-    currentEditFile = file;
+    currentEditFileBytes = null; // 🔥 CRITICAL FIX RESET
     editOriginalFileName = file.name;
     currentVisualMode = mode;
     pageEdits = {};
@@ -900,6 +897,8 @@ function openVisualWorkspace(file, mode) {
     const fileReader = new FileReader();
     fileReader.onload = function() {
         const tempPdfBytes = new Uint8Array(this.result);
+        currentEditFileBytes = tempPdfBytes; // 🔥 CRITICAL FIX: Safe memory store
+        
         pdfjsLib.getDocument(tempPdfBytes).promise.then(pdf => {
             editPdfDoc = pdf; editPageNum = 1; document.getElementById('page-count').textContent = pdf.numPages;
             window.switchView('edit'); document.getElementById('edit-upload-section').style.display = 'none'; document.getElementById('edit-workspace').style.display = 'flex';
@@ -1143,12 +1142,13 @@ window.addEventListener('pointerup', (e) => {
 document.getElementById('prev-page')?.addEventListener('click', () => { if (editPageNum > 1) { editPageNum--; selectedEditIndex = -1; renderEditPage(editPageNum); } });
 document.getElementById('next-page')?.addEventListener('click', () => { if (editPageNum < editPdfDoc?.numPages) { editPageNum++; selectedEditIndex = -1; renderEditPage(editPageNum); } });
 
+// 🔥 CRITICAL FIX: Safe Save Button Logic using Memory Buffer
 document.getElementById('btn-edit-save')?.addEventListener('click', async () => {
-    if (!currentEditFile) return;
+    if (!currentEditFileBytes) return;
     const btn = document.getElementById('btn-edit-save'); const oldText = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     
     try {
-        const freshBuffer = await currentEditFile.arrayBuffer();
+        const freshBuffer = currentEditFileBytes.slice(0).buffer;
         if (freshBuffer.byteLength < 100) { showCustomAlert("File not fully loaded. Wait a moment."); btn.innerHTML = oldText; return; }
 
         const applyMode = document.getElementById('edit-apply-mode').value;
@@ -1312,7 +1312,6 @@ if (hamburgerBtn && sidebarOverlay) {
     sidebarOverlay.addEventListener('click', toggleSidebar); 
 }
 
-// Mobile me tool select karne ke baad menu auto-close karne ke liye
 document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('mobile-active')) {
