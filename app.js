@@ -1294,3 +1294,32 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
     } catch (error) { handleError(error); document.body.classList.remove('is-editing'); } 
     finally { btn.innerHTML = oldText; }
 });
+
+// ==========================================
+//    MOBILE HAMBURGER MENU LOGIC
+// ==========================================
+const hamburgerBtn = document.getElementById('hamburger-btn');
+const sidebar = document.querySelector('.sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+function toggleSidebar() {
+    if(sidebar) sidebar.classList.toggle('mobile-active');
+    if (sidebarOverlay) {
+        sidebarOverlay.style.display = sidebar.classList.contains('mobile-active') ? 'block' : 'none';
+    }
+}
+
+if (hamburgerBtn && sidebarOverlay) {
+    hamburgerBtn.addEventListener('click', toggleSidebar);
+    // Overlay par click karne se bhi menu band ho jayega
+    sidebarOverlay.addEventListener('click', toggleSidebar); 
+}
+
+// Mobile me koi option select karne ke baad menu apne aap band ho jaye
+document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-active')) {
+            toggleSidebar();
+        }
+    });
+});
