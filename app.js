@@ -129,7 +129,6 @@ if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `<div id="merge-drop-zone" 
 if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `<div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}"><i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i><h3>Drag & Drop Images</h3><button onclick="document.getElementById('jpgtopdf-file-input').click()" style="padding: 10px 20px; background: #eab308; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: 600;">Browse Images</button><input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;"></div><div id="jpgtopdf-file-list" style="${fileListStyle}"></div><button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>`;
 if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `<div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);"><label style="color: var(--text-secondary);">Paste your HTML Code here:</label><textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea><button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button></div>`;
 
-// ADDED: Eye Icon & Toggle Logic for Passwords
 if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt Files', `
     <div style="position: relative; width: 100%; margin-bottom: 15px;">
         <input type="password" id="protect-password" placeholder="Set Password for all files" style="width: 100%; padding: 12px; padding-right: 40px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; outline: none;">
@@ -143,7 +142,7 @@ if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock
     </div>
 `);
 
-// Attach Toggle Listeners
+// Toggle Listeners for Passwords
 document.getElementById('toggle-protect-pwd')?.addEventListener('click', function() {
     const pwdInput = document.getElementById('protect-password');
     if (pwdInput.type === 'password') { pwdInput.type = 'text'; this.classList.replace('fa-eye', 'fa-eye-slash'); this.style.color = 'var(--accent)'; } 
@@ -175,12 +174,10 @@ if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-
     <select id="extract-mode" style="${inputStyle}"><option value="full">Extract Full PDF Text</option><option value="visual">Select Text Area Visually</option></select>
 `);
 
-// NOW PURE VISUAL TOOLS
 if (ui.crop) ui.crop.innerHTML = generateSingleFileUI('crop', 'fa-crop', '#3b82f6', 'Crop PDF', '');
 if (ui.addmargins) ui.addmargins.innerHTML = generateSingleFileUI('addmargins', 'fa-border-all', '#3b82f6', 'Add Margins', '');
 if (ui.pagenumbers) ui.pagenumbers.innerHTML = generateSingleFileUI('pagenumbers', 'fa-sort-numeric-down', '#6366f1', 'Add Numbers', '', `<label style="color:var(--text-secondary); font-size:0.9rem;">Format:</label><select id="pagenumbers-format" style="${inputStyle}"><option value="1">1, 2, 3...</option><option value="Page 1">Page 1, Page 2...</option><option value="Page 1 of 10">Page 1 of 10...</option></select>`);
 
-// NEW UPGRADED VISUAL TOOLS
 if (ui.sign) ui.sign.innerHTML = generateSingleFileUI('sign', 'fa-signature', '#8b5cf6', 'Sign', '');
 if (ui.watermark) ui.watermark.innerHTML = generateSingleFileUI('watermark', 'fa-stamp', '#ec4899', 'Watermark', '');
 if (ui.addtext) ui.addtext.innerHTML = generateSingleFileUI('addtext', 'fa-font', '#6366f1', 'Add Text', '');
@@ -243,7 +240,6 @@ window.triggerHistoryDownload = async (id) => {
     if(item) await processAndDownload(item.data, item.filename, item.type, false);
 };
 
-// ADDED: Safe Memory Base64 Conversion using FileReader (Prevents Crash/Freezes)
 function bytesToBase64(bytes) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -252,7 +248,7 @@ function bytesToBase64(bytes) {
     });
 }
 
-// FIXED: Android WebView 0-Byte Bug (Uses Native Share & Data URIs instead of broken Blob URLs)
+// SAFE ANDROID DOWNLOAD LOGIC
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if(saveToDb) { try { await saveToHistory(bytes, filename, type); } catch(e) {} }
     
@@ -264,23 +260,17 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
         } catch (e) { showCustomAlert("Saved to Documents & History!"); }
     } else {
         const blob = new Blob([bytes], { type });
-        
-        // 1. Try Web Share API first (Works flawlessly on mobile browsers and supported WebViews)
         if (navigator.canShare) {
             const file = new File([blob], filename, { type });
             if (navigator.canShare({ files: [file] })) {
                 try {
                     await navigator.share({ files: [file], title: filename });
-                    return; // Share successful, exit
-                } catch (err) {} // User cancelled or failed, fallback to download
+                    return; 
+                } catch (err) {} 
             }
         }
-
-        // 2. Fallback checking for Android WebViews (to prevent 0 Byte files)
         const isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
-        
         if (isAndroidWebView) {
-            // Android DownloadManager blocks blob: URLs. Data URIs are safer.
             const reader = new FileReader();
             reader.onloadend = () => {
                 const a = document.createElement('a');
@@ -290,7 +280,6 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
             };
             reader.readAsDataURL(blob);
         } else {
-            // Standard Browsers (Chrome, Safari, PC)
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url; a.download = filename;
@@ -311,6 +300,7 @@ function parseRange(rangeStr) {
     return [...new Set(pages)].sort((a, b) => a - b);
 }
 
+// SECURE FILE LOGIC BINDINGS
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`);
     const input = document.getElementById(`${id}-file-input`);
@@ -679,7 +669,7 @@ document.getElementById('desktop-search')?.addEventListener('input', handleSearc
 if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner === 'function') AdManager.showBanner();
 
 // ==========================================
-//    UNIVERSAL PRO ENGINE
+//    UNIVERSAL PRO ENGINE (VISUAL WORKSPACE)
 // ==========================================
 
 let editPdfDoc = null;
@@ -846,6 +836,14 @@ document.getElementById('edit-image-input')?.addEventListener('change', function
             img.src = dataUrl;
         }
         reader.readAsDataURL(file);
+    }
+});
+
+// CRITICAL FIX: Direct File Input Listener for "Edit PDF" standalone button
+document.getElementById('edit-pdf-input')?.addEventListener('change', function(e) {
+    if (e.target.files[0]) {
+        openVisualWorkspace(e.target.files[0], 'edit');
+        e.target.value = ''; // Allow re-selecting same file
     }
 });
 
@@ -1311,14 +1309,13 @@ function toggleSidebar() {
 
 if (hamburgerBtn && sidebarOverlay) {
     hamburgerBtn.addEventListener('click', toggleSidebar);
-    // Overlay par click karne se bhi menu band ho jayega
     sidebarOverlay.addEventListener('click', toggleSidebar); 
 }
 
-// Mobile me koi option select karne ke baad menu apne aap band ho jaye
+// Mobile me tool select karne ke baad menu auto-close karne ke liye
 document.querySelectorAll('.sidebar .nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-active')) {
+        if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('mobile-active')) {
             toggleSidebar();
         }
     });
