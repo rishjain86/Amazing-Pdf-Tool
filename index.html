@@ -10,7 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- PDF.js Library for Rendering PDFs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -357,12 +356,20 @@
 
     <div class="main-wrapper">
         
+        <div id="sidebar-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 999; backdrop-filter: blur(2px);"></div>
+
         <div class="mobile-header">
-            <div class="brand-logo" onclick="switchView('dashboard')" style="padding: 0; border: none; cursor: pointer;">
-                <img src="assets/icon.png?v=5" style="width: 42px; height: 42px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+            <div id="hamburger-btn" style="cursor: pointer; color: white; font-size: 1.5rem;">
+                <i class="fas fa-bars"></i>
             </div>
-            <input type="text" id="mobile-search" placeholder="Search tools..." style="width: 55%; padding: 10px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.85rem; padding-left: 15px; outline: none;">
-            <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.4rem;">
+            
+            <div class="brand-logo" onclick="switchView('dashboard')" style="padding: 0; border: none; cursor: pointer;">
+                <img src="assets/icon.png?v=5" style="width: 36px; height: 36px; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
+            </div>
+            
+            <input type="text" id="mobile-search" placeholder="Search..." style="width: 45%; padding: 8px 15px; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--surface-color); color: white; font-size: 0.85rem; outline: none;">
+            
+            <div onclick="switchView('history')" style="cursor: pointer; color: var(--text-secondary); font-size: 1.3rem;">
                 <i class="fas fa-history"></i>
             </div>
         </div>
@@ -532,7 +539,6 @@
             <div id="history-list"></div>
         </div>
 
-        <!-- FULL-SCREEN EDIT PDF SECTION -->
         <div id="view-edit" class="view-section">
             <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
             
@@ -578,7 +584,6 @@
 
                     <div id="visual-tool-header" style="display:none; color: #f59e0b; font-weight: 600;">Draw a box on the PDF</div>
 
-                    <!-- NEW: APPLY MODE SELECTOR -->
                     <select id="edit-apply-mode" style="padding: 6px; border-radius: 6px; border: 1px solid var(--glass-border); background: #334155; color: white; outline: none; font-size: 0.9rem; cursor: pointer; margin-left: 10px;">
                         <option value="current">Current Page Only</option>
                         <option value="all">Apply to All Pages</option>
@@ -603,7 +608,6 @@
             </div>
         </div>
 
-        <!-- NEW ADVANCED TEXT MODAL (With Size and Improved BG Logic) -->
         <div id="custom-text-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.85); z-index: 100000; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
             <div style="background: var(--surface-color); padding: 25px; border-radius: 12px; border: 1px solid var(--glass-border); width: 350px; max-width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                 <h3 style="color: white; margin-bottom: 15px;" id="text-modal-title">Text Editor</h3>
@@ -651,7 +655,6 @@
             <i class="fas fa-trash-alt" style="font-size: 1.3rem;"></i> Drop here to delete
         </div>
 
-        <!-- Tool Containers -->
         <div id="view-merge" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="merge-ui-container"></div></div>
         <div id="view-split" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="split-ui-container"></div></div>
         <div id="view-compress" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="compress-ui-container"></div></div>
