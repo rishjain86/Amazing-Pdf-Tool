@@ -292,7 +292,6 @@ const handleScanInput = (e) => {
     reader.onload = function(event) {
         currentScanImage.src = event.target.result;
         currentScanImage.onload = () => {
-            // Photo aate hi seedha crop mode shuru karo
             startCropMode(); 
         };
     };
@@ -327,7 +326,9 @@ function startCropMode() {
         { x: offset, y: h - offset }
     ];
     
-    document.getElementById('crop-ui-placeholder').style.display = 'block';
+    const cropMsg = document.getElementById('crop-ui-placeholder');
+    if (cropMsg) cropMsg.style.display = 'block';
+    
     drawCropPolygon();
 }
 
@@ -364,7 +365,8 @@ function drawCropPolygon() {
     }
 }
 
-function getCropCursorPos(e) {
+function getScannerCropCursorPos(e) {
+    if (!cropCanvas) return { x: 0, y: 0 };
     const rect = cropCanvas.getBoundingClientRect();
     const scaleX = cropCanvas.width / rect.width;
     const scaleY = cropCanvas.height / rect.height;
@@ -375,7 +377,7 @@ function getCropCursorPos(e) {
 
 cropCanvas?.addEventListener('pointerdown', (e) => {
     if (!isCroppingMode) return;
-    const pos = getCropCursorPos(e);
+    const pos = getScannerCropCursorPos(e);
     const hitRadius = Math.max(50, cropCanvas.width * 0.08);
     for (let i = 0; i < 4; i++) {
         const dx = pos.x - cropPoints[i].x;
@@ -389,19 +391,23 @@ cropCanvas?.addEventListener('pointerdown', (e) => {
 
 window.addEventListener('pointermove', (e) => {
     if (!isCroppingMode || activeCropPoint === -1) return;
-    const pos = getCropCursorPos(e);
+    const pos = getScannerCropCursorPos(e);
     cropPoints[activeCropPoint].x = Math.max(0, Math.min(pos.x, cropCanvas.width));
     cropPoints[activeCropPoint].y = Math.max(0, Math.min(pos.y, cropCanvas.height));
     drawCropPolygon();
 });
 
-window.addEventListener('pointerup', () => { activeCropPoint = -1; });
+window.addEventListener('pointerup', () => { 
+    if (isCroppingMode) activeCropPoint = -1; 
+});
 
 btnApplyCrop?.addEventListener('click', () => {
     isCroppingMode = false;
     cropCanvas.style.display = 'none';
     btnApplyCrop.style.display = 'none';
-    document.getElementById('crop-ui-placeholder').style.display = 'none';
+    
+    const cropMsg = document.getElementById('crop-ui-placeholder');
+    if (cropMsg) cropMsg.style.display = 'none';
     
     // Simple Bounding Box Crop (Placeholder for advanced perspective transform)
     const minX = Math.min(...cropPoints.map(p => p.x));
@@ -483,7 +489,6 @@ document.getElementById('btn-scanner-close')?.addEventListener('click', () => {
     isCroppingMode = false;
 });
 
-// "Done" button maps to export for now
 document.getElementById('btn-scanner-done')?.addEventListener('click', () => {
     if(!isCroppingMode) document.getElementById('btn-scanner-export')?.click();
 });
@@ -509,7 +514,6 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
             else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.5)';
             tCtx.drawImage(tempImg, 0, 0);
             
-            // 85% Lossless Compression logic
             const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
             const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
             const dims = pdfImage.scale(1); 
@@ -666,7 +670,6 @@ setupSingleFileLogic('delete', async (file) => {
     return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Deleted.pdf`, type: 'application/pdf' };
 });
 
-// REORDER PAGES FILTER (Undefined node crash fix)
 setupSingleFileLogic('reorder', async (file) => {
     const rawInput = document.getElementById('reorder-input').value;
     const srcDoc = await PDFDocument.load(await file.arrayBuffer()); 
