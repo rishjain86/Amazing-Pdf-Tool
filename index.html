@@ -318,6 +318,8 @@
 </head>
 <body>
 
+    <input type="file" id="smart-scanner-input" accept="image/*" style="display: none;">
+
     <div class="sidebar">
         <div class="brand-logo" onclick="switchView('dashboard')" style="cursor: pointer;">
             <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;">
@@ -336,7 +338,7 @@
         </div>
 
         <div class="menu-label">AI Features</div>
-        <div class="nav-btn" onclick="if(window.openSmartScanner) window.openSmartScanner()" style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; color: white;">
+        <div class="nav-btn" onclick="document.getElementById('smart-scanner-input').click()" style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; color: white;">
             <i class="fas fa-camera" style="color: #10b981;"></i> Smart Scanner
         </div>
         
@@ -381,11 +383,11 @@
             </div>
             
             <div class="dashboard-grid">
-                <div class="tool-card" onclick="if(window.openSmartScanner) window.openSmartScanner()" style="border-color: #10b981; background: rgba(16, 185, 129, 0.05); position: relative; overflow: hidden;">
+                <div class="tool-card" onclick="document.getElementById('smart-scanner-input').click()" style="border-color: #10b981; background: rgba(16, 185, 129, 0.05); position: relative; overflow: hidden;">
                     <div style="position: absolute; top: 10px; right: 10px; background: #10b981; color: white; font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; font-weight: bold;">NEW</div>
                     <i class="fas fa-camera tool-icon" style="color: #10b981;"></i>
                     <h3>Smart Scanner</h3>
-                    <p>Auto-crop, enhance & scan.</p>
+                    <p>Auto-enhance, size compress & scan.</p>
                 </div>
 
                 <div class="tool-card" onclick="switchView('history')">
@@ -688,6 +690,6 @@
 
     </div>
 
-    <script type="module" src="app.js?v=21"></script>
+    <script type="module" src="app.js?v=22"></script>
 </body>
 </html>
