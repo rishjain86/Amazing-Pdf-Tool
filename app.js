@@ -263,22 +263,20 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
 }
 
 // =======================================================
-// SMART SCANNER - PHASE 1, 3, 4, 5 & 6 (WITH 4-POINT CROP)
+// SMART SCANNER - FINAL UX (NO AUTO-CROP, PREVIEW, FILTERS, ROTATE)
 // =======================================================
 let scannerPages = [];
 let currentScannerIndex = -1;
+let isCroppingMode = false;
+let cropPoints = [];
+let activeCropPoint = -1;
+
 const scannerModal = document.getElementById('scanner-source-modal');
 const scannerWorkspace = document.getElementById('scanner-workspace');
 const scanCanvas = document.getElementById('scanner-main-canvas');
 const scanCtx = scanCanvas ? scanCanvas.getContext('2d') : null;
 const cropCanvas = document.getElementById('scanner-crop-canvas');
 const cropCtx = cropCanvas ? cropCanvas.getContext('2d') : null;
-const btnApplyCrop = document.getElementById('btn-apply-crop');
-
-let currentScanImage = new Image();
-let cropPoints = [];
-let activeCropPoint = -1;
-let isCroppingMode = false;
 
 const handleScanInput = (e) => {
     const file = e.target.files[0];
@@ -290,10 +288,11 @@ const handleScanInput = (e) => {
     
     const reader = new FileReader();
     reader.onload = function(event) {
-        currentScanImage.src = event.target.result;
-        currentScanImage.onload = () => {
-            startCropMode(); 
-        };
+        // Init page data with default filter and 0 rotation
+        scannerPages.push({ original: event.target.result, filter: 'magic', rotation: 0 });
+        currentScannerIndex = scannerPages.length - 1;
+        renderScannerWorkspace();
+        renderScannerThumbnails();
     };
     reader.readAsDataURL(file);
     e.target.value = ""; 
@@ -302,45 +301,111 @@ const handleScanInput = (e) => {
 document.getElementById('hidden-camera-input')?.addEventListener('change', handleScanInput);
 document.getElementById('hidden-gallery-input')?.addEventListener('change', handleScanInput);
 
-// --- CROP MODE LOGIC ---
+// --- RENDER & ROTATION LOGIC ---
+function renderScannerWorkspace() {
+    if (currentScannerIndex === -1 || !scanCtx || isCroppingMode) return;
+    const pageData = scannerPages[currentScannerIndex];
+    
+    const counter = document.getElementById('scanner-page-counter');
+    if (counter) counter.innerText = `Page ${currentScannerIndex + 1}`;
+    
+    document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
+        btn.style.borderColor = btn.dataset.filter === pageData.filter ? '#10b981' : 'transparent';
+    });
+
+    const renderImg = new Image();
+    renderImg.onload = () => {
+        const angle = pageData.rotation || 0;
+        const isRotated = angle === 90 || angle === 270;
+        
+        scanCanvas.width = isRotated ? renderImg.height : renderImg.width;
+        scanCanvas.height = isRotated ? renderImg.width : renderImg.height;
+        
+        scanCtx.save();
+        scanCtx.translate(scanCanvas.width / 2, scanCanvas.height / 2);
+        scanCtx.rotate((angle * Math.PI) / 180);
+        scanCtx.translate(-renderImg.width / 2, -renderImg.height / 2);
+
+        // Soft Filters Settings
+        if (pageData.filter === 'lighten') scanCtx.filter = 'brightness(1.15) contrast(1.05)';
+        else if (pageData.filter === 'magic') scanCtx.filter = 'brightness(1.1) contrast(1.15) saturate(1.1)';
+        else if (pageData.filter === 'grayscale') scanCtx.filter = 'grayscale(100%)';
+        else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.8) brightness(1.1)';
+        else if (pageData.filter === 'eco') scanCtx.filter = 'sepia(0.3) brightness(0.9) contrast(0.9)';
+        else scanCtx.filter = 'none'; // original
+        
+        scanCtx.drawImage(renderImg, 0, 0);
+        scanCtx.restore();
+    };
+    renderImg.src = pageData.original;
+}
+
+// Rotation Triggers
+document.getElementById('btn-scanner-rotate-left')?.addEventListener('click', () => {
+    if(currentScannerIndex === -1 || isCroppingMode) return;
+    scannerPages[currentScannerIndex].rotation = (scannerPages[currentScannerIndex].rotation + 270) % 360;
+    renderScannerWorkspace();
+});
+document.getElementById('btn-scanner-rotate-right')?.addEventListener('click', () => {
+    if(currentScannerIndex === -1 || isCroppingMode) return;
+    scannerPages[currentScannerIndex].rotation = (scannerPages[currentScannerIndex].rotation + 90) % 360;
+    renderScannerWorkspace();
+});
+
+// --- MANUAL CROP LOGIC (Top Bar Controls) ---
+document.getElementById('btn-scanner-crop-trigger')?.addEventListener('click', () => {
+    if(currentScannerIndex === -1) return;
+    document.getElementById('scanner-default-top-bar').style.display = 'none';
+    document.getElementById('scanner-crop-top-bar').style.display = 'flex';
+    startCropMode();
+});
+
 function startCropMode() {
     isCroppingMode = true;
-    scanCanvas.width = currentScanImage.width;
-    scanCanvas.height = currentScanImage.height;
-    scanCtx.filter = 'none';
-    scanCtx.drawImage(currentScanImage, 0, 0);
+    
+    // We crop from the already rendered scanCanvas (which has rotation applied)
+    // To ensure clean crop, we remove the filter temporarily
+    const pageData = scannerPages[currentScannerIndex];
+    const tempImg = new Image();
+    tempImg.onload = () => {
+        const angle = pageData.rotation || 0;
+        const isRotated = angle === 90 || angle === 270;
+        scanCanvas.width = isRotated ? tempImg.height : tempImg.width;
+        scanCanvas.height = isRotated ? tempImg.width : tempImg.height;
+        
+        scanCtx.save();
+        scanCtx.translate(scanCanvas.width / 2, scanCanvas.height / 2);
+        scanCtx.rotate((angle * Math.PI) / 180);
+        scanCtx.translate(-tempImg.width / 2, -tempImg.height / 2);
+        scanCtx.filter = 'none'; // Clear filter for cropping
+        scanCtx.drawImage(tempImg, 0, 0);
+        scanCtx.restore();
 
-    cropCanvas.width = currentScanImage.width;
-    cropCanvas.height = currentScanImage.height;
-    cropCanvas.style.display = 'block';
-    btnApplyCrop.style.display = 'block';
+        cropCanvas.width = scanCanvas.width;
+        cropCanvas.height = scanCanvas.height;
+        cropCanvas.style.display = 'block';
 
-    const w = cropCanvas.width;
-    const h = cropCanvas.height;
-    const offset = Math.min(w, h) * 0.1;
-    
-    cropPoints = [
-        { x: offset, y: offset },
-        { x: w - offset, y: offset },
-        { x: w - offset, y: h - offset },
-        { x: offset, y: h - offset }
-    ];
-    
-    const cropMsg = document.getElementById('crop-ui-placeholder');
-    if (cropMsg) cropMsg.style.display = 'block';
-    
-    drawCropPolygon();
+        const w = cropCanvas.width;
+        const h = cropCanvas.height;
+        const offset = Math.min(w, h) * 0.1;
+        
+        cropPoints = [
+            { x: offset, y: offset },
+            { x: w - offset, y: offset },
+            { x: w - offset, y: h - offset },
+            { x: offset, y: h - offset }
+        ];
+        
+        drawCropPolygon();
+    };
+    tempImg.src = pageData.original;
 }
 
 function drawCropPolygon() {
     if (!cropCtx) return;
     cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-    
-    // Draw Dark Overlay
     cropCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-    
-    // Clear Inside
     cropCtx.globalCompositeOperation = 'destination-out';
     cropCtx.beginPath();
     cropCtx.moveTo(cropPoints[0].x, cropPoints[0].y);
@@ -348,13 +413,9 @@ function drawCropPolygon() {
     cropCtx.closePath();
     cropCtx.fill();
     cropCtx.globalCompositeOperation = 'source-over';
-
-    // Lines
     cropCtx.strokeStyle = '#10b981';
     cropCtx.lineWidth = Math.max(4, cropCanvas.width * 0.005);
     cropCtx.stroke();
-
-    // Corner Handles
     cropCtx.fillStyle = '#10b981';
     const radius = Math.max(20, cropCanvas.width * 0.03);
     for (let i = 0; i < 4; i++) {
@@ -401,15 +462,15 @@ window.addEventListener('pointerup', () => {
     if (isCroppingMode) activeCropPoint = -1; 
 });
 
-btnApplyCrop?.addEventListener('click', () => {
+document.getElementById('btn-cancel-crop')?.addEventListener('click', () => {
     isCroppingMode = false;
     cropCanvas.style.display = 'none';
-    btnApplyCrop.style.display = 'none';
-    
-    const cropMsg = document.getElementById('crop-ui-placeholder');
-    if (cropMsg) cropMsg.style.display = 'none';
-    
-    // Simple Bounding Box Crop (Placeholder for advanced perspective transform)
+    document.getElementById('scanner-crop-top-bar').style.display = 'none';
+    document.getElementById('scanner-default-top-bar').style.display = 'flex';
+    renderScannerWorkspace();
+});
+
+document.getElementById('btn-apply-crop')?.addEventListener('click', () => {
     const minX = Math.min(...cropPoints.map(p => p.x));
     const minY = Math.min(...cropPoints.map(p => p.y));
     const maxX = Math.max(...cropPoints.map(p => p.x));
@@ -422,39 +483,18 @@ btnApplyCrop?.addEventListener('click', () => {
     tempCanvas.width = cw; tempCanvas.height = ch;
     tempCanvas.getContext('2d').drawImage(scanCanvas, minX, minY, cw, ch, 0, 0, cw, ch);
     
-    const croppedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.9);
-    scannerPages.push({ original: croppedDataUrl, filter: 'magic' });
-    currentScannerIndex = scannerPages.length - 1;
+    // Save cropped data, reset rotation since it's baked in
+    scannerPages[currentScannerIndex].original = tempCanvas.toDataURL('image/jpeg', 0.9);
+    scannerPages[currentScannerIndex].rotation = 0; 
+    
+    isCroppingMode = false;
+    cropCanvas.style.display = 'none';
+    document.getElementById('scanner-crop-top-bar').style.display = 'none';
+    document.getElementById('scanner-default-top-bar').style.display = 'flex';
     
     renderScannerWorkspace();
     renderScannerThumbnails();
 });
-
-// --- FILTER & RENDER LOGIC ---
-function renderScannerWorkspace() {
-    if (currentScannerIndex === -1 || !scanCtx || isCroppingMode) return;
-    const pageData = scannerPages[currentScannerIndex];
-    
-    const counter = document.getElementById('scanner-page-counter');
-    if (counter) counter.innerText = `Page ${currentScannerIndex + 1}`;
-    
-    document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
-        btn.style.borderColor = btn.dataset.filter === pageData.filter ? '#10b981' : 'transparent';
-    });
-
-    const renderImg = new Image();
-    renderImg.onload = () => {
-        scanCanvas.width = renderImg.width;
-        scanCanvas.height = renderImg.height;
-        
-        if (pageData.filter === 'magic') scanCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
-        else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.5)';
-        else scanCtx.filter = 'none';
-        
-        scanCtx.drawImage(renderImg, 0, 0);
-    };
-    renderImg.src = pageData.original;
-}
 
 function renderScannerThumbnails() {
     const list = document.getElementById('scanner-page-list');
@@ -489,15 +529,62 @@ document.getElementById('btn-scanner-close')?.addEventListener('click', () => {
     isCroppingMode = false;
 });
 
-document.getElementById('btn-scanner-done')?.addEventListener('click', () => {
-    if(!isCroppingMode) document.getElementById('btn-scanner-export')?.click();
+// --- PDF PREVIEW & EXPORT ---
+document.getElementById('btn-scanner-preview')?.addEventListener('click', async () => {
+    if (scannerPages.length === 0 || isCroppingMode) return;
+    
+    const previewModal = document.getElementById('scanner-preview-modal');
+    const previewList = document.getElementById('scanner-preview-list');
+    if (!previewModal || !previewList) return;
+    
+    previewList.innerHTML = '<p style="color:white; margin-top: 20px;">Generating preview...</p>';
+    previewModal.style.display = 'flex';
+    
+    previewList.innerHTML = '';
+    for (let i = 0; i < scannerPages.length; i++) {
+        const page = scannerPages[i];
+        const tempImg = new Image();
+        tempImg.src = page.original;
+        await new Promise(res => tempImg.onload = res);
+        
+        const angle = page.rotation || 0;
+        const isRotated = angle === 90 || angle === 270;
+        const cw = isRotated ? tempImg.height : tempImg.width;
+        const ch = isRotated ? tempImg.width : tempImg.height;
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = cw; tempCanvas.height = ch;
+        const tCtx = tempCanvas.getContext('2d');
+        
+        tCtx.translate(cw / 2, ch / 2);
+        tCtx.rotate((angle * Math.PI) / 180);
+        tCtx.translate(-tempImg.width / 2, -tempImg.height / 2);
+
+        if (page.filter === 'lighten') tCtx.filter = 'brightness(1.15) contrast(1.05)';
+        else if (page.filter === 'magic') tCtx.filter = 'brightness(1.1) contrast(1.15) saturate(1.1)';
+        else if (page.filter === 'grayscale') tCtx.filter = 'grayscale(100%)';
+        else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.8) brightness(1.1)';
+        else if (page.filter === 'eco') tCtx.filter = 'sepia(0.3) brightness(0.9) contrast(0.9)';
+        else tCtx.filter = 'none';
+
+        tCtx.drawImage(tempImg, 0, 0);
+
+        const finalImg = document.createElement('img');
+        finalImg.src = tempCanvas.toDataURL('image/jpeg', 0.8);
+        finalImg.className = 'preview-img';
+        previewList.appendChild(finalImg);
+    }
+});
+
+document.getElementById('btn-preview-back')?.addEventListener('click', () => {
+    document.getElementById('scanner-preview-modal').style.display = 'none';
 });
 
 document.getElementById('btn-scanner-export')?.addEventListener('click', async () => {
-    if (scannerPages.length === 0 || isCroppingMode) return;
+    if (scannerPages.length === 0) return;
     const btn = document.getElementById('btn-scanner-export');
     const oldText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading PDF...';
     
     try {
         const pdfDoc = await PDFDocument.create();
@@ -506,14 +593,29 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
             tempImg.src = page.original;
             await new Promise(res => tempImg.onload = res);
             
+            const angle = page.rotation || 0;
+            const isRotated = angle === 90 || angle === 270;
+            const cw = isRotated ? tempImg.height : tempImg.width;
+            const ch = isRotated ? tempImg.width : tempImg.height;
+
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = tempImg.width; tempCanvas.height = tempImg.height;
+            tempCanvas.width = cw; tempCanvas.height = ch;
             const tCtx = tempCanvas.getContext('2d');
             
-            if (page.filter === 'magic') tCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
-            else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.5)';
+            tCtx.translate(cw / 2, ch / 2);
+            tCtx.rotate((angle * Math.PI) / 180);
+            tCtx.translate(-tempImg.width / 2, -tempImg.height / 2);
+
+            if (page.filter === 'lighten') tCtx.filter = 'brightness(1.15) contrast(1.05)';
+            else if (page.filter === 'magic') tCtx.filter = 'brightness(1.1) contrast(1.15) saturate(1.1)';
+            else if (page.filter === 'grayscale') tCtx.filter = 'grayscale(100%)';
+            else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.8) brightness(1.1)';
+            else if (page.filter === 'eco') tCtx.filter = 'sepia(0.3) brightness(0.9) contrast(0.9)';
+            else tCtx.filter = 'none';
+
             tCtx.drawImage(tempImg, 0, 0);
             
+            // 85% Lossless Compression logic
             const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
             const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
             const dims = pdfImage.scale(1); 
@@ -524,6 +626,7 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
         const bytes = await pdfDoc.save();
         await processAndDownload(bytes, `Scanned_Doc_${new Date().getTime()}.pdf`, 'application/pdf');
         
+        document.getElementById('scanner-preview-modal').style.display = 'none';
         if (scannerWorkspace) scannerWorkspace.style.display = 'none';
         document.body.classList.remove('is-editing');
         scannerPages = [];
@@ -531,8 +634,9 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
     finally { btn.innerHTML = oldText; }
 });
 
+
 // ==========================================================
-// TOOL UTILITIES (SPLIT, DELETE, ETC)
+// TOOL UTILITIES (SPLIT, DELETE, MERGE, COMPRESS ETC)
 // ==========================================================
 
 function parseRange(rangeStr) {
