@@ -684,24 +684,23 @@ const scannerModal = document.getElementById('scanner-source-modal');
 const scannerWorkspace = document.getElementById('scanner-workspace');
 const scanCanvas = document.getElementById('scanner-main-canvas');
 const scanCtx = scanCanvas ? scanCanvas.getContext('2d') : null;
-let currentScanImage = new Image();
 
+// FIX: Infinite Loop Hatane Ke Liye Local Image Approach
 const handleScanInput = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
     if (scannerModal) scannerModal.style.display = 'none';
     if (scannerWorkspace) scannerWorkspace.style.display = 'flex';
     document.body.classList.add('is-editing');
     
     const reader = new FileReader();
     reader.onload = function(event) {
-        currentScanImage.src = event.target.result;
-        currentScanImage.onload = () => {
-            scannerPages.push({ original: event.target.result, filter: 'magic' });
-            currentScannerIndex = scannerPages.length - 1;
-            renderScannerWorkspace();
-            renderScannerThumbnails();
-        };
+        // Bina kisi loop ke direct array mein push karein
+        scannerPages.push({ original: event.target.result, filter: 'magic' });
+        currentScannerIndex = scannerPages.length - 1;
+        renderScannerWorkspace();
+        renderScannerThumbnails();
     };
     reader.readAsDataURL(file);
     e.target.value = ""; 
@@ -713,22 +712,28 @@ document.getElementById('hidden-gallery-input')?.addEventListener('change', hand
 function renderScannerWorkspace() {
     if (currentScannerIndex === -1 || !scanCtx) return;
     const pageData = scannerPages[currentScannerIndex];
+    
     const counter = document.getElementById('scanner-page-counter');
     if (counter) counter.innerText = `Page ${currentScannerIndex + 1}`;
     
-    currentScanImage.src = pageData.original;
-    scanCanvas.width = currentScanImage.width;
-    scanCanvas.height = currentScanImage.height;
-    
+    // UI Filter Buttons update
     document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
         btn.style.borderColor = btn.dataset.filter === pageData.filter ? '#10b981' : 'transparent';
     });
 
-    if (pageData.filter === 'magic') scanCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
-    else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.5)';
-    else scanCtx.filter = 'none';
-    
-    scanCtx.drawImage(currentScanImage, 0, 0);
+    // FIX: Local Image object taaki purana onload bar-bar trigger na ho
+    const renderImg = new Image();
+    renderImg.onload = () => {
+        scanCanvas.width = renderImg.width;
+        scanCanvas.height = renderImg.height;
+        
+        if (pageData.filter === 'magic') scanCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
+        else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.5)';
+        else scanCtx.filter = 'none';
+        
+        scanCtx.drawImage(renderImg, 0, 0);
+    };
+    renderImg.src = pageData.original;
 }
 
 function renderScannerThumbnails() {
@@ -784,6 +789,7 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
             else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.5)';
             tCtx.drawImage(tempImg, 0, 0);
             
+            // 85% Lossless Compression logic
             const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
             const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
             const dims = pdfImage.scale(1); 
@@ -800,7 +806,6 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
     } catch (e) { handleError(e); }
     finally { btn.innerHTML = oldText; }
 });
-
 
 // ==========================================
 //    UNIVERSAL PRO ENGINE (Edit, Crop, Margin)
