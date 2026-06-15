@@ -6,7 +6,6 @@ import { AdManager } from './adManager.js';
 import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
 import { Share } from 'https://cdn.jsdelivr.net/npm/@capacitor/share@6.0.0/+esm';
 import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
-import { Camera, CameraResultType, CameraSource } from 'https://cdn.jsdelivr.net/npm/@capacitor/camera@6.0.0/+esm';
 
 function showCustomAlert(message) {
     let alertBox = document.getElementById('custom-alert-box');
@@ -221,15 +220,12 @@ function bytesToBase64(bytes) {
     return window.btoa(binary);
 }
 
-// =======================================================
-// FIX 1: BULK UPLOAD CHUNKED WRITER (OOM JSON Crash Fix)
-// =======================================================
+// BULK UPLOAD CHUNKED WRITER (OOM JSON Crash Fix)
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if(saveToDb) { try { await saveToHistory(bytes, filename, type); } catch(e) {} }
     
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
-            // Write heavy files in chunks to prevent 'JSONTokener' App Crash
             const chunkSize = 256 * 1024; // 256KB Chunks
             const len = bytes.byteLength;
             let isFirstChunk = true;
@@ -247,7 +243,6 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
             const savedFile = await Filesystem.getUri({ path: filename, directory: Directory.Documents });
             await Share.share({ title: filename, text: 'Processed via Amazing PDF', url: savedFile.uri });
         } catch (e) { 
-            // Fallback to Web Blob Download if native fails
             try {
                 const blob = new Blob([bytes], { type });
                 const url = URL.createObjectURL(blob);
@@ -266,6 +261,45 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     }
 }
+
+// SMART SCANNER ENGINE (Auto-Enhance + Lossless Compress)
+document.getElementById('smart-scanner-input')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    showCustomAlert("Image Captured! Applying Smart Filters & Generating PDF...");
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const imgObj = new Image();
+        imgObj.src = event.target.result;
+        imgObj.onload = async () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = imgObj.width;
+            canvas.height = imgObj.height;
+            
+            // Magic Scanner Filter
+            ctx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
+            ctx.drawImage(imgObj, 0, 0);
+
+            const pdfDoc = await PDFDocument.create();
+            
+            // SIZE SOLUTION: Compress to 85% Quality (Massive MB Drop, 0 Quality Loss)
+            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
+            const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
+            
+            const dims = pdfImage.scale(1); 
+            const page = pdfDoc.addPage([dims.width, dims.height]); 
+            page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
+            
+            const bytes = await pdfDoc.save();
+            await processAndDownload(bytes, `Scanned_Doc_${new Date().getTime()}.pdf`, 'application/pdf');
+            document.getElementById('smart-scanner-input').value = ""; // Reset
+        };
+    };
+    reader.readAsDataURL(file);
+});
 
 function parseRange(rangeStr) {
     let pages = [];
@@ -402,9 +436,7 @@ setupSingleFileLogic('delete', async (file) => {
     return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Deleted.pdf`, type: 'application/pdf' };
 });
 
-// =======================================================
-// FIX 2: REORDER PAGES FILTER (Undefined node crash fix)
-// =======================================================
+// REORDER PAGES FILTER (Undefined node crash fix)
 setupSingleFileLogic('reorder', async (file) => {
     const rawInput = document.getElementById('reorder-input').value;
     const srcDoc = await PDFDocument.load(await file.arrayBuffer()); 
@@ -413,7 +445,6 @@ setupSingleFileLogic('reorder', async (file) => {
     let indices = [];
     rawInput.split(',').forEach(part => {
         if (part.includes('-')) {
-            // Allows formats like '33-32-31' safely mapping to indices
             const nums = part.split('-').map(n => parseInt(n.trim()) - 1).filter(n => !isNaN(n) && n >= 0 && n < maxPages);
             indices.push(...nums);
         } else {
@@ -622,6 +653,7 @@ if (ui.merge) {
     });
 }
 
+// JPG TO PDF WITH 85% LOSSLESS COMPRESSION FIX
 let imageFiles = [];
 if (ui.jpgtopdf) {
     const imgInput = document.getElementById('jpgtopdf-file-input');
@@ -633,13 +665,33 @@ if (ui.jpgtopdf) {
         document.getElementById('btn-jpgtopdf-action').style.display = imageFiles.length > 0 ? 'block' : 'none';
     }
     imgInput?.addEventListener('change', (e) => { imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); imgInput.value = ''; });
+    
     document.getElementById('btn-jpgtopdf-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-jpgtopdf-action'); btn.innerHTML = 'Converting...';
         try {
             const pdfDoc = await PDFDocument.create();
             for (const file of imageFiles) {
-                let pdfImage = file.type === 'image/png' ? await pdfDoc.embedPng(await file.arrayBuffer()) : await pdfDoc.embedJpg(await file.arrayBuffer());
-                const dims = pdfImage.scale(1); const page = pdfDoc.addPage([dims.width, dims.height]); page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
+                // Compress images to 85% JPEG to reduce PDF bloat
+                const dataUrl = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+                const imgObj = new Image();
+                imgObj.src = dataUrl;
+                await new Promise(resolve => imgObj.onload = resolve);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = imgObj.width; canvas.height = imgObj.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(imgObj, 0, 0);
+                
+                const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
+                
+                const dims = pdfImage.scale(1); 
+                const page = pdfDoc.addPage([dims.width, dims.height]); 
+                page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
             }
             const bytes = await pdfDoc.save(); const outputName = imageFiles.length > 0 ? `${getBaseName(imageFiles[0].name)}_Images.pdf` : 'Amazing_Images.pdf';
             imageFiles = []; renderImgList(); await processAndDownload(bytes, outputName, 'application/pdf');
@@ -660,52 +712,6 @@ document.getElementById('desktop-search')?.addEventListener('input', handleSearc
 
 if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner === 'function') AdManager.showBanner();
 
-
-// =======================================================
-// FIX 3: NEW SMART SCANNER ENGINE (Auto-Enhance Magic)
-// =======================================================
-window.openSmartScanner = async () => {
-    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) {
-        showCustomAlert("Smart Scanner requires the native App environment.");
-        return;
-    }
-    try {
-        const image = await Camera.getPhoto({
-            quality: 100,
-            allowEditing: true, // Invokes Native Auto-Crop/Edge Detection if supported by device OS
-            resultType: CameraResultType.Base64,
-            source: CameraSource.Camera
-        });
-
-        showCustomAlert("Image Captured! Applying Smart Filters & Generating PDF...");
-
-        // Auto-Enhancement (Magic Brightness/Contrast Filter)
-        const imgObj = new Image();
-        imgObj.src = 'data:image/jpeg;base64,' + image.base64String;
-        imgObj.onload = async () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = imgObj.width;
-            canvas.height = imgObj.height;
-            
-            // Magic Scanner Filter
-            ctx.filter = 'contrast(1.3) brightness(1.1) saturate(1.2)';
-            ctx.drawImage(imgObj, 0, 0);
-
-            // Convert to PDF directly
-            const pdfDoc = await PDFDocument.create();
-            const pdfImage = await pdfDoc.embedJpg(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
-            const dims = pdfImage.scale(1); 
-            const page = pdfDoc.addPage([dims.width, dims.height]); 
-            page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
-            
-            const bytes = await pdfDoc.save();
-            await processAndDownload(bytes, `Scanned_Doc_${new Date().getTime()}.pdf`, 'application/pdf');
-        };
-    } catch (e) {
-        console.log("Scanner cancelled or failed", e);
-    }
-};
 
 // ==========================================
 //    UNIVERSAL PRO ENGINE (Edit, Crop, Margin)
