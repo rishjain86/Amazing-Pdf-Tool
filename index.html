@@ -563,6 +563,10 @@
                 <canvas id="scanner-main-canvas" style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute;"></canvas>
                 <canvas id="scanner-crop-canvas" style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute; z-index: 10; touch-action: none; display: none;"></canvas>
                 
+                <div id="crop-ui-placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.3); text-align: center; pointer-events: none; display: none;">
+                    <i class="fas fa-crop" style="font-size: 3rem; margin-bottom: 10px;"></i><br>4-Point Crop Active
+                </div>
+                
                 <button id="btn-apply-crop" style="display: none; position: absolute; bottom: 20px; right: 20px; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 8px; border: none; font-weight: bold; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer;">
                     <i class="fas fa-crop-alt"></i> Apply Crop
                 </button>
@@ -708,6 +712,6 @@
 
     </div>
 
-    <script type="module" src="app.js?v=26"></script>
+    <script type="module" src="app.js?v=27"></script>
 </body>
 </html>
