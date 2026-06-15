@@ -262,6 +262,275 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
     }
 }
 
+// =======================================================
+// SMART SCANNER - PHASE 1, 3, 4, 5 & 6 (WITH 4-POINT CROP)
+// =======================================================
+let scannerPages = [];
+let currentScannerIndex = -1;
+const scannerModal = document.getElementById('scanner-source-modal');
+const scannerWorkspace = document.getElementById('scanner-workspace');
+const scanCanvas = document.getElementById('scanner-main-canvas');
+const scanCtx = scanCanvas ? scanCanvas.getContext('2d') : null;
+const cropCanvas = document.getElementById('scanner-crop-canvas');
+const cropCtx = cropCanvas ? cropCanvas.getContext('2d') : null;
+const btnApplyCrop = document.getElementById('btn-apply-crop');
+
+let currentScanImage = new Image();
+let cropPoints = [];
+let activeCropPoint = -1;
+let isCroppingMode = false;
+
+const handleScanInput = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (scannerModal) scannerModal.style.display = 'none';
+    if (scannerWorkspace) scannerWorkspace.style.display = 'flex';
+    document.body.classList.add('is-editing');
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        currentScanImage.src = event.target.result;
+        currentScanImage.onload = () => {
+            // Photo aate hi seedha crop mode shuru karo
+            startCropMode(); 
+        };
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ""; 
+};
+
+document.getElementById('hidden-camera-input')?.addEventListener('change', handleScanInput);
+document.getElementById('hidden-gallery-input')?.addEventListener('change', handleScanInput);
+
+// --- CROP MODE LOGIC ---
+function startCropMode() {
+    isCroppingMode = true;
+    scanCanvas.width = currentScanImage.width;
+    scanCanvas.height = currentScanImage.height;
+    scanCtx.filter = 'none';
+    scanCtx.drawImage(currentScanImage, 0, 0);
+
+    cropCanvas.width = currentScanImage.width;
+    cropCanvas.height = currentScanImage.height;
+    cropCanvas.style.display = 'block';
+    btnApplyCrop.style.display = 'block';
+
+    const w = cropCanvas.width;
+    const h = cropCanvas.height;
+    const offset = Math.min(w, h) * 0.1;
+    
+    cropPoints = [
+        { x: offset, y: offset },
+        { x: w - offset, y: offset },
+        { x: w - offset, y: h - offset },
+        { x: offset, y: h - offset }
+    ];
+    
+    document.getElementById('crop-ui-placeholder').style.display = 'block';
+    drawCropPolygon();
+}
+
+function drawCropPolygon() {
+    if (!cropCtx) return;
+    cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    
+    // Draw Dark Overlay
+    cropCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+    
+    // Clear Inside
+    cropCtx.globalCompositeOperation = 'destination-out';
+    cropCtx.beginPath();
+    cropCtx.moveTo(cropPoints[0].x, cropPoints[0].y);
+    for (let i = 1; i < 4; i++) cropCtx.lineTo(cropPoints[i].x, cropPoints[i].y);
+    cropCtx.closePath();
+    cropCtx.fill();
+    cropCtx.globalCompositeOperation = 'source-over';
+
+    // Lines
+    cropCtx.strokeStyle = '#10b981';
+    cropCtx.lineWidth = Math.max(4, cropCanvas.width * 0.005);
+    cropCtx.stroke();
+
+    // Corner Handles
+    cropCtx.fillStyle = '#10b981';
+    const radius = Math.max(20, cropCanvas.width * 0.03);
+    for (let i = 0; i < 4; i++) {
+        cropCtx.beginPath();
+        cropCtx.arc(cropPoints[i].x, cropPoints[i].y, radius, 0, Math.PI * 2);
+        cropCtx.fill();
+        cropCtx.stroke();
+    }
+}
+
+function getCropCursorPos(e) {
+    const rect = cropCanvas.getBoundingClientRect();
+    const scaleX = cropCanvas.width / rect.width;
+    const scaleY = cropCanvas.height / rect.height;
+    let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+cropCanvas?.addEventListener('pointerdown', (e) => {
+    if (!isCroppingMode) return;
+    const pos = getCropCursorPos(e);
+    const hitRadius = Math.max(50, cropCanvas.width * 0.08);
+    for (let i = 0; i < 4; i++) {
+        const dx = pos.x - cropPoints[i].x;
+        const dy = pos.y - cropPoints[i].y;
+        if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
+            activeCropPoint = i;
+            break;
+        }
+    }
+});
+
+window.addEventListener('pointermove', (e) => {
+    if (!isCroppingMode || activeCropPoint === -1) return;
+    const pos = getCropCursorPos(e);
+    cropPoints[activeCropPoint].x = Math.max(0, Math.min(pos.x, cropCanvas.width));
+    cropPoints[activeCropPoint].y = Math.max(0, Math.min(pos.y, cropCanvas.height));
+    drawCropPolygon();
+});
+
+window.addEventListener('pointerup', () => { activeCropPoint = -1; });
+
+btnApplyCrop?.addEventListener('click', () => {
+    isCroppingMode = false;
+    cropCanvas.style.display = 'none';
+    btnApplyCrop.style.display = 'none';
+    document.getElementById('crop-ui-placeholder').style.display = 'none';
+    
+    // Simple Bounding Box Crop (Placeholder for advanced perspective transform)
+    const minX = Math.min(...cropPoints.map(p => p.x));
+    const minY = Math.min(...cropPoints.map(p => p.y));
+    const maxX = Math.max(...cropPoints.map(p => p.x));
+    const maxY = Math.max(...cropPoints.map(p => p.y));
+    
+    const cw = maxX - minX;
+    const ch = maxY - minY;
+    
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = cw; tempCanvas.height = ch;
+    tempCanvas.getContext('2d').drawImage(scanCanvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    
+    const croppedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.9);
+    scannerPages.push({ original: croppedDataUrl, filter: 'magic' });
+    currentScannerIndex = scannerPages.length - 1;
+    
+    renderScannerWorkspace();
+    renderScannerThumbnails();
+});
+
+// --- FILTER & RENDER LOGIC ---
+function renderScannerWorkspace() {
+    if (currentScannerIndex === -1 || !scanCtx || isCroppingMode) return;
+    const pageData = scannerPages[currentScannerIndex];
+    
+    const counter = document.getElementById('scanner-page-counter');
+    if (counter) counter.innerText = `Page ${currentScannerIndex + 1}`;
+    
+    document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
+        btn.style.borderColor = btn.dataset.filter === pageData.filter ? '#10b981' : 'transparent';
+    });
+
+    const renderImg = new Image();
+    renderImg.onload = () => {
+        scanCanvas.width = renderImg.width;
+        scanCanvas.height = renderImg.height;
+        
+        if (pageData.filter === 'magic') scanCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
+        else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.5)';
+        else scanCtx.filter = 'none';
+        
+        scanCtx.drawImage(renderImg, 0, 0);
+    };
+    renderImg.src = pageData.original;
+}
+
+function renderScannerThumbnails() {
+    const list = document.getElementById('scanner-page-list');
+    if (!list) return;
+    list.innerHTML = '';
+    scannerPages.forEach((page, index) => {
+        const img = document.createElement('img');
+        img.src = page.original;
+        img.className = `scanned-thumb ${index === currentScannerIndex ? 'active' : ''}`;
+        img.onclick = () => { 
+            if(isCroppingMode) return;
+            currentScannerIndex = index; 
+            renderScannerWorkspace(); 
+            renderScannerThumbnails(); 
+        };
+        list.appendChild(img);
+    });
+}
+
+document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        if (currentScannerIndex === -1 || isCroppingMode) return;
+        scannerPages[currentScannerIndex].filter = e.target.dataset.filter;
+        renderScannerWorkspace();
+    });
+});
+
+document.getElementById('btn-scanner-close')?.addEventListener('click', () => {
+    if (scannerWorkspace) scannerWorkspace.style.display = 'none';
+    document.body.classList.remove('is-editing');
+    scannerPages = []; 
+    isCroppingMode = false;
+});
+
+// "Done" button maps to export for now
+document.getElementById('btn-scanner-done')?.addEventListener('click', () => {
+    if(!isCroppingMode) document.getElementById('btn-scanner-export')?.click();
+});
+
+document.getElementById('btn-scanner-export')?.addEventListener('click', async () => {
+    if (scannerPages.length === 0 || isCroppingMode) return;
+    const btn = document.getElementById('btn-scanner-export');
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    
+    try {
+        const pdfDoc = await PDFDocument.create();
+        for (let page of scannerPages) {
+            const tempImg = new Image();
+            tempImg.src = page.original;
+            await new Promise(res => tempImg.onload = res);
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = tempImg.width; tempCanvas.height = tempImg.height;
+            const tCtx = tempCanvas.getContext('2d');
+            
+            if (page.filter === 'magic') tCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
+            else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.5)';
+            tCtx.drawImage(tempImg, 0, 0);
+            
+            // 85% Lossless Compression logic
+            const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
+            const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
+            const dims = pdfImage.scale(1); 
+            const pdfPage = pdfDoc.addPage([dims.width, dims.height]); 
+            pdfPage.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
+        }
+        
+        const bytes = await pdfDoc.save();
+        await processAndDownload(bytes, `Scanned_Doc_${new Date().getTime()}.pdf`, 'application/pdf');
+        
+        if (scannerWorkspace) scannerWorkspace.style.display = 'none';
+        document.body.classList.remove('is-editing');
+        scannerPages = [];
+    } catch (e) { handleError(e); }
+    finally { btn.innerHTML = oldText; }
+});
+
+// ==========================================================
+// TOOL UTILITIES (SPLIT, DELETE, ETC)
+// ==========================================================
+
 function parseRange(rangeStr) {
     let pages = [];
     rangeStr.split(',').forEach(part => {
@@ -674,138 +943,6 @@ document.getElementById('desktop-search')?.addEventListener('input', handleSearc
 
 if(typeof AdManager !== 'undefined' && AdManager && typeof AdManager.showBanner === 'function') AdManager.showBanner();
 
-
-// =======================================================
-// SMART SCANNER - PHASE 1, 4, 5 & 6 (ARCHITECTURE)
-// =======================================================
-let scannerPages = [];
-let currentScannerIndex = -1;
-const scannerModal = document.getElementById('scanner-source-modal');
-const scannerWorkspace = document.getElementById('scanner-workspace');
-const scanCanvas = document.getElementById('scanner-main-canvas');
-const scanCtx = scanCanvas ? scanCanvas.getContext('2d') : null;
-
-// FIX: Infinite Loop Hatane Ke Liye Local Image Approach
-const handleScanInput = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    if (scannerModal) scannerModal.style.display = 'none';
-    if (scannerWorkspace) scannerWorkspace.style.display = 'flex';
-    document.body.classList.add('is-editing');
-    
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        // Bina kisi loop ke direct array mein push karein
-        scannerPages.push({ original: event.target.result, filter: 'magic' });
-        currentScannerIndex = scannerPages.length - 1;
-        renderScannerWorkspace();
-        renderScannerThumbnails();
-    };
-    reader.readAsDataURL(file);
-    e.target.value = ""; 
-};
-
-document.getElementById('hidden-camera-input')?.addEventListener('change', handleScanInput);
-document.getElementById('hidden-gallery-input')?.addEventListener('change', handleScanInput);
-
-function renderScannerWorkspace() {
-    if (currentScannerIndex === -1 || !scanCtx) return;
-    const pageData = scannerPages[currentScannerIndex];
-    
-    const counter = document.getElementById('scanner-page-counter');
-    if (counter) counter.innerText = `Page ${currentScannerIndex + 1}`;
-    
-    // UI Filter Buttons update
-    document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
-        btn.style.borderColor = btn.dataset.filter === pageData.filter ? '#10b981' : 'transparent';
-    });
-
-    // FIX: Local Image object taaki purana onload bar-bar trigger na ho
-    const renderImg = new Image();
-    renderImg.onload = () => {
-        scanCanvas.width = renderImg.width;
-        scanCanvas.height = renderImg.height;
-        
-        if (pageData.filter === 'magic') scanCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
-        else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.5)';
-        else scanCtx.filter = 'none';
-        
-        scanCtx.drawImage(renderImg, 0, 0);
-    };
-    renderImg.src = pageData.original;
-}
-
-function renderScannerThumbnails() {
-    const list = document.getElementById('scanner-page-list');
-    if (!list) return;
-    list.innerHTML = '';
-    scannerPages.forEach((page, index) => {
-        const img = document.createElement('img');
-        img.src = page.original;
-        img.className = `scanned-thumb ${index === currentScannerIndex ? 'active' : ''}`;
-        img.onclick = () => { currentScannerIndex = index; renderScannerWorkspace(); renderScannerThumbnails(); };
-        list.appendChild(img);
-    });
-}
-
-document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        if (currentScannerIndex === -1) return;
-        scannerPages[currentScannerIndex].filter = e.target.dataset.filter;
-        renderScannerWorkspace();
-    });
-});
-
-document.getElementById('btn-scanner-close')?.addEventListener('click', () => {
-    if (scannerWorkspace) scannerWorkspace.style.display = 'none';
-    document.body.classList.remove('is-editing');
-    scannerPages = []; 
-});
-
-// "Done" button maps to export for now
-document.getElementById('btn-scanner-done')?.addEventListener('click', () => {
-    document.getElementById('btn-scanner-export')?.click();
-});
-
-document.getElementById('btn-scanner-export')?.addEventListener('click', async () => {
-    if (scannerPages.length === 0) return;
-    const btn = document.getElementById('btn-scanner-export');
-    const oldText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    
-    try {
-        const pdfDoc = await PDFDocument.create();
-        for (let page of scannerPages) {
-            const tempImg = new Image();
-            tempImg.src = page.original;
-            await new Promise(res => tempImg.onload = res);
-            
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = tempImg.width; tempCanvas.height = tempImg.height;
-            const tCtx = tempCanvas.getContext('2d');
-            
-            if (page.filter === 'magic') tCtx.filter = 'contrast(1.2) brightness(1.1) saturate(1.1)';
-            else if (page.filter === 'bw') tCtx.filter = 'grayscale(100%) contrast(1.5)';
-            tCtx.drawImage(tempImg, 0, 0);
-            
-            // 85% Lossless Compression logic
-            const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
-            const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
-            const dims = pdfImage.scale(1); 
-            const pdfPage = pdfDoc.addPage([dims.width, dims.height]); 
-            pdfPage.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
-        }
-        
-        const bytes = await pdfDoc.save();
-        await processAndDownload(bytes, `Scanned_Doc_${new Date().getTime()}.pdf`, 'application/pdf');
-        
-        if (scannerWorkspace) scannerWorkspace.style.display = 'none';
-        document.body.classList.remove('is-editing');
-        scannerPages = [];
-    } catch (e) { handleError(e); }
-    finally { btn.innerHTML = oldText; }
-});
 
 // ==========================================
 //    UNIVERSAL PRO ENGINE (Edit, Crop, Margin)
