@@ -560,7 +560,12 @@
             </div>
 
             <div id="scanner-canvas-container" style="flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #222;">
-                <canvas id="scanner-main-canvas" style="max-width: 100%; max-height: 100%; object-fit: contain;"></canvas>
+                <canvas id="scanner-main-canvas" style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute;"></canvas>
+                <canvas id="scanner-crop-canvas" style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute; z-index: 10; touch-action: none; display: none;"></canvas>
+                
+                <button id="btn-apply-crop" style="display: none; position: absolute; bottom: 20px; right: 20px; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 8px; border: none; font-weight: bold; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer;">
+                    <i class="fas fa-crop-alt"></i> Apply Crop
+                </button>
             </div>
 
             <div style="display: flex; justify-content: center; gap: 15px; padding: 15px; background: #111; overflow-x: auto;">
@@ -703,6 +708,6 @@
 
     </div>
 
-    <script type="module" src="app.js?v=25"></script>
+    <script type="module" src="app.js?v=26"></script>
 </body>
 </html>
