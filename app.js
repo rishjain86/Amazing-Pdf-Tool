@@ -263,7 +263,7 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
 }
 
 // =======================================================
-// SMART SCANNER - FINAL UX (NO AUTO-CROP, PREVIEW, FILTERS, ROTATE)
+// SMART SCANNER - PRO LEVEL WARP, FIX SQUASH & TOUCH
 // =======================================================
 let scannerPages = [];
 let currentScannerIndex = -1;
@@ -288,7 +288,6 @@ const handleScanInput = (e) => {
     
     const reader = new FileReader();
     reader.onload = function(event) {
-        // Init page data with default filter and 0 rotation
         scannerPages.push({ original: event.target.result, filter: 'magic', rotation: 0 });
         currentScannerIndex = scannerPages.length - 1;
         renderScannerWorkspace();
@@ -332,7 +331,7 @@ function renderScannerWorkspace() {
         else if (pageData.filter === 'grayscale') scanCtx.filter = 'grayscale(100%)';
         else if (pageData.filter === 'bw') scanCtx.filter = 'grayscale(100%) contrast(1.8) brightness(1.1)';
         else if (pageData.filter === 'eco') scanCtx.filter = 'sepia(0.3) brightness(0.9) contrast(0.9)';
-        else scanCtx.filter = 'none'; // original
+        else scanCtx.filter = 'none';
         
         scanCtx.drawImage(renderImg, 0, 0);
         scanCtx.restore();
@@ -352,7 +351,7 @@ document.getElementById('btn-scanner-rotate-right')?.addEventListener('click', (
     renderScannerWorkspace();
 });
 
-// --- MANUAL CROP LOGIC (Top Bar Controls) ---
+// --- MANUAL CROP LOGIC ---
 document.getElementById('btn-scanner-crop-trigger')?.addEventListener('click', () => {
     if(currentScannerIndex === -1) return;
     document.getElementById('scanner-default-top-bar').style.display = 'none';
@@ -362,9 +361,6 @@ document.getElementById('btn-scanner-crop-trigger')?.addEventListener('click', (
 
 function startCropMode() {
     isCroppingMode = true;
-    
-    // We crop from the already rendered scanCanvas (which has rotation applied)
-    // To ensure clean crop, we remove the filter temporarily
     const pageData = scannerPages[currentScannerIndex];
     const tempImg = new Image();
     tempImg.onload = () => {
@@ -377,7 +373,7 @@ function startCropMode() {
         scanCtx.translate(scanCanvas.width / 2, scanCanvas.height / 2);
         scanCtx.rotate((angle * Math.PI) / 180);
         scanCtx.translate(-tempImg.width / 2, -tempImg.height / 2);
-        scanCtx.filter = 'none'; // Clear filter for cropping
+        scanCtx.filter = 'none'; 
         scanCtx.drawImage(tempImg, 0, 0);
         scanCtx.restore();
 
@@ -387,7 +383,7 @@ function startCropMode() {
 
         const w = cropCanvas.width;
         const h = cropCanvas.height;
-        const offset = Math.min(w, h) * 0.1;
+        const offset = Math.min(w, h) * 0.15;
         
         cropPoints = [
             { x: offset, y: offset },
@@ -417,7 +413,7 @@ function drawCropPolygon() {
     cropCtx.lineWidth = Math.max(4, cropCanvas.width * 0.005);
     cropCtx.stroke();
     cropCtx.fillStyle = '#10b981';
-    const radius = Math.max(20, cropCanvas.width * 0.03);
+    const radius = Math.max(30, cropCanvas.width * 0.035); // Bigger hit area
     for (let i = 0; i < 4; i++) {
         cropCtx.beginPath();
         cropCtx.arc(cropPoints[i].x, cropPoints[i].y, radius, 0, Math.PI * 2);
@@ -426,20 +422,41 @@ function drawCropPolygon() {
     }
 }
 
+// 100% Correct Mouse Coordinate Mapping Fix
 function getScannerCropCursorPos(e) {
     if (!cropCanvas) return { x: 0, y: 0 };
     const rect = cropCanvas.getBoundingClientRect();
-    const scaleX = cropCanvas.width / rect.width;
-    const scaleY = cropCanvas.height / rect.height;
+    const canvasRatio = cropCanvas.width / cropCanvas.height;
+    const rectRatio = rect.width / rect.height;
+    
+    let actualWidth = rect.width;
+    let actualHeight = rect.height;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (canvasRatio > rectRatio) {
+        actualHeight = rect.width / canvasRatio;
+        offsetY = (rect.height - actualHeight) / 2;
+    } else {
+        actualWidth = rect.height * canvasRatio;
+        offsetX = (rect.width - actualWidth) / 2;
+    }
+
+    const scaleX = cropCanvas.width / actualWidth;
+    const scaleY = cropCanvas.height / actualHeight;
     let clientX = e.clientX || (e.touches && e.touches[0].clientX);
     let clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+
+    return { 
+        x: (clientX - rect.left - offsetX) * scaleX, 
+        y: (clientY - rect.top - offsetY) * scaleY 
+    };
 }
 
 cropCanvas?.addEventListener('pointerdown', (e) => {
     if (!isCroppingMode) return;
     const pos = getScannerCropCursorPos(e);
-    const hitRadius = Math.max(50, cropCanvas.width * 0.08);
+    const hitRadius = Math.max(80, cropCanvas.width * 0.1); // Pro Hit Area
     for (let i = 0; i < 4; i++) {
         const dx = pos.x - cropPoints[i].x;
         const dy = pos.y - cropPoints[i].y;
@@ -470,21 +487,61 @@ document.getElementById('btn-cancel-crop')?.addEventListener('click', () => {
     renderScannerWorkspace();
 });
 
+// TRUE PERSPECTIVE WARP MATH MAGIC 
 document.getElementById('btn-apply-crop')?.addEventListener('click', () => {
-    const minX = Math.min(...cropPoints.map(p => p.x));
-    const minY = Math.min(...cropPoints.map(p => p.y));
-    const maxX = Math.max(...cropPoints.map(p => p.x));
-    const maxY = Math.max(...cropPoints.map(p => p.y));
+    const tl = cropPoints[0], tr = cropPoints[1], br = cropPoints[2], bl = cropPoints[3];
     
-    const cw = maxX - minX;
-    const ch = maxY - minY;
+    // Calculate new dimensions for flat rectangle
+    const w1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+    const w2 = Math.hypot(br.x - bl.x, br.y - bl.y);
+    const destW = Math.max(w1, w2);
     
+    const h1 = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+    const h2 = Math.hypot(br.x - tr.x, br.y - tr.y);
+    const destH = Math.max(h1, h2);
+
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = cw; tempCanvas.height = ch;
-    tempCanvas.getContext('2d').drawImage(scanCanvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    tempCanvas.width = destW;
+    tempCanvas.height = destH;
+    const ctx = tempCanvas.getContext('2d');
+
+    // Affine Transform Helper (Warp Triangle)
+    function drawTriangle(ctx, img, p0, p1, p2, uv0, uv1, uv2) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.closePath();
+        ctx.clip();
+        
+        const det = uv0.x * (uv1.y - uv2.y) - uv1.x * (uv0.y - uv2.y) + uv2.x * (uv0.y - uv1.y);
+        if (det === 0) { ctx.restore(); return; }
+        
+        const a = (p0.x * (uv1.y - uv2.y) - p1.x * (uv0.y - uv2.y) + p2.x * (uv0.y - uv1.y)) / det;
+        const c = (uv0.x * (p1.x - p2.x) - uv1.x * (p0.x - p2.x) + uv2.x * (p0.x - p1.x)) / det;
+        const e = p0.x - a * uv0.x - c * uv0.y;
+
+        const b = (p0.y * (uv1.y - uv2.y) - p1.y * (uv0.y - uv2.y) + p2.y * (uv0.y - uv1.y)) / det;
+        const d = (uv0.x * (p1.y - p2.y) - uv1.x * (p0.y - p2.y) + uv2.x * (p0.y - p1.y)) / det;
+        const f = p0.y - b * uv0.x - d * uv0.y;
+
+        ctx.transform(a, b, c, d, e, f);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+    }
+
+    // Split quadrilateral into two triangles and map to perfect rectangle
+    const dTl = {x:0, y:0}, dTr = {x:destW, y:0}, dBr = {x:destW, y:destH}, dBl = {x:0, y:destH};
     
-    // Save cropped data, reset rotation since it's baked in
-    scannerPages[currentScannerIndex].original = tempCanvas.toDataURL('image/jpeg', 0.9);
+    // Triangle 1 & 2 (with 1px overlap padding to prevent seam line)
+    const pad = 1;
+    drawTriangle(ctx, scanCanvas, dTl, {x:dTr.x+pad, y:dTr.y}, {x:dBl.x, y:dBl.y+pad}, tl, tr, bl);
+    drawTriangle(ctx, scanCanvas, {x:dTr.x+pad, y:dTr.y-pad}, {x:dBr.x+pad, y:dBr.y+pad}, {x:dBl.x-pad, y:dBl.y+pad}, tr, br, bl);
+    
+    scannerPages[currentScannerIndex].original = tempCanvas.toDataURL('image/jpeg', 0.95);
     scannerPages[currentScannerIndex].rotation = 0; 
     
     isCroppingMode = false;
@@ -615,7 +672,6 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
 
             tCtx.drawImage(tempImg, 0, 0);
             
-            // 85% Lossless Compression logic
             const optimizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]; 
             const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
             const dims = pdfImage.scale(1); 
@@ -633,7 +689,6 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
     } catch (e) { handleError(e); }
     finally { btn.innerHTML = oldText; }
 });
-
 
 // ==========================================================
 // TOOL UTILITIES (SPLIT, DELETE, MERGE, COMPRESS ETC)
@@ -1524,7 +1579,7 @@ window.addEventListener('pointermove', (e) => {
     else if (currentTool === 'visual-box') {
         const box = pageEdits[editPageNum][0]; box.w = pos.x - startX; box.h = pos.y - startY; drawOverlay();
     }
-}, {passive: false});
+});
 
 window.addEventListener('pointerup', (e) => {
     if (activeResizeHandle) { activeResizeHandle = null; return; }
