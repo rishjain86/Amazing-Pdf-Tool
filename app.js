@@ -2019,20 +2019,23 @@ function openVisualWorkspace(file, mode) {
             const containerWidth = cont ? cont.clientWidth : window.innerWidth;
             const padding = window.innerWidth > 768 ? 60 : 20;
             
-            pdf.getPage(1).then(page => {
-                 const baseViewport = page.getViewport({ scale: 1 });
-                 let calculatedScale = (containerWidth - padding) / baseViewport.width;
-                 editScale = Math.min(calculatedScale, 3.0); 
-                 renderEditPage(editPageNum);
-            });
-            
-        }).catch(error => { 
-            showCustomAlert("Error loading PDF."); 
-            document.body.classList.remove('is-editing'); 
-        });
-    };
-    fileReader.readAsArrayBuffer(file);
-}
+            // Dhoondhein: pdf.getPage(1).then(page => { ... })
+// Isko replace kar dein is logic se:
+
+pdf.getPage(1).then(page => {
+    const baseViewport = page.getViewport({ scale: 1 });
+    const containerWidth = cont ? cont.clientWidth - padding : window.innerWidth - padding;
+    const containerHeight = cont ? cont.clientHeight - 150 : window.innerHeight - 150; // 150px toolbar/footer ke liye
+    
+    // Width aur Height dono ka ratio nikal rahe hain taaki screen se bahar na jaye
+    const scaleW = containerWidth / baseViewport.width;
+    const scaleH = containerHeight / baseViewport.height;
+    
+    // Dono mein se jo chhota hoga, wo select hoga (Fit to Screen)
+    editScale = Math.min(scaleW, scaleH, 1.5); 
+    
+    renderEditPage(editPageNum);
+});
 
 // Rotation Buttons Events
 document.getElementById('btn-rotate-left')?.addEventListener('click', () => { 
