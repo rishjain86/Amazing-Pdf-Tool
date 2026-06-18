@@ -2019,10 +2019,7 @@ function openVisualWorkspace(file, mode) {
             const containerWidth = cont ? cont.clientWidth : window.innerWidth;
             const padding = window.innerWidth > 768 ? 60 : 20;
             
-            // Dhoondhein: pdf.getPage(1).then(page => { ... })
-// Isko replace kar dein is logic se:
-
-pdf.getPage(1).then(page => {
+            pdf.getPage(1).then(page => {
     const baseViewport = page.getViewport({ scale: 1 });
     const containerWidth = cont ? cont.clientWidth - padding : window.innerWidth - padding;
     const containerHeight = cont ? cont.clientHeight - 150 : window.innerHeight - 150; // 150px toolbar/footer ke liye
