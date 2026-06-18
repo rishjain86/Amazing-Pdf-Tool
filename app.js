@@ -2008,32 +2008,31 @@ function openVisualWorkspace(file, mode) {
             if(countObj) countObj.textContent = pdf.numPages;
             
             // Fix for all blank screens: Make sure edit workspace is flex
-window.switchView('edit'); 
-const upl = document.getElementById('edit-upload-section'); 
-if(upl) upl.style.display = 'none'; 
-
-const wrk = document.getElementById('edit-workspace'); 
-if(wrk) wrk.style.display = 'flex';
-
-const cont = document.querySelector('.canvas-container'); 
-const padding = window.innerWidth > 768 ? 60 : 20;
-
-pdf.getPage(1).then(page => {
-    const baseViewport = page.getViewport({ scale: 1 });
-    
-    // Yahan humne purana containerWidth variable hi use kiya hai, naya declaration nahi hai
-    const cWidth = cont ? cont.clientWidth - padding : window.innerWidth - padding;
-    const cHeight = cont ? cont.clientHeight - 150 : window.innerHeight - 150;
-    
-    // Width aur Height dono ka ratio nikal rahe hain
-    const scaleW = cWidth / baseViewport.width;
-    const scaleH = cHeight / baseViewport.height;
-    
-    // Dono mein se jo chhota hoga, wo select hoga (Fit to Screen)
-    editScale = Math.min(scaleW, scaleH, 1.5); 
-    
-    renderEditPage(editPageNum);
-});
+            window.switchView('edit'); 
+            const upl = document.getElementById('edit-upload-section'); 
+            if(upl) upl.style.display = 'none'; 
+            
+            const wrk = document.getElementById('edit-workspace'); 
+            if(wrk) wrk.style.display = 'flex';
+            
+            const cont = document.querySelector('.canvas-container'); 
+            const containerWidth = cont ? cont.clientWidth : window.innerWidth;
+            const padding = window.innerWidth > 768 ? 60 : 20;
+            
+            pdf.getPage(1).then(page => {
+                 const baseViewport = page.getViewport({ scale: 1 });
+                 let calculatedScale = (containerWidth - padding) / baseViewport.width;
+                 editScale = Math.min(calculatedScale, 1.5); 
+                 renderEditPage(editPageNum);
+            });
+            
+        }).catch(error => { 
+            showCustomAlert("Error loading PDF."); 
+            document.body.classList.remove('is-editing'); 
+        });
+    };
+    fileReader.readAsArrayBuffer(file);
+}
 
 // Rotation Buttons Events
 document.getElementById('btn-rotate-left')?.addEventListener('click', () => { 
