@@ -2022,7 +2022,7 @@ function openVisualWorkspace(file, mode) {
             pdf.getPage(1).then(page => {
                  const baseViewport = page.getViewport({ scale: 1 });
                  let calculatedScale = (containerWidth - padding) / baseViewport.width;
-                 editScale = Math.min(calculatedScale, 1.5); 
+                 editScale = Math.min(calculatedScale, 3.0); 
                  renderEditPage(editPageNum);
             });
             
