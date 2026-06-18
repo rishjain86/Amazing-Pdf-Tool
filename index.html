@@ -10,11 +10,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- PDF.js Library for Rendering PDFs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     </script>
 
+    <!-- html2pdf Library for HTML to PDF feature -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
@@ -265,12 +267,15 @@
             gap: 6px;
             transition: 0.2s;
             font-size: 0.9rem;
+            background: transparent;
+            color: white;
         }
         
         .edit-tool-active {
             box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4);
             transform: translateY(-2px);
             background: var(--accent) !important;
+            color: white !important;
         }
 
         .desktop-search-container { display: block; }
@@ -317,6 +322,7 @@
 </head>
 <body>
 
+    <!-- HIDDEN INPUTS FOR SMART SCANNER -->
     <input type="file" id="hidden-camera-input" accept="image/*" capture="environment" style="display: none;">
     <input type="file" id="hidden-gallery-input" accept="image/*" style="display: none;">
 
@@ -383,6 +389,7 @@
             </div>
             
             <div class="dashboard-grid">
+                <!-- SMART SCANNER TOOL CARD -->
                 <div class="tool-card" onclick="document.getElementById('scanner-source-modal').style.display='flex'" style="border-color: #10b981; background: rgba(16, 185, 129, 0.05); position: relative; overflow: hidden;">
                     <div style="position: absolute; top: 10px; right: 10px; background: #10b981; color: white; font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; font-weight: bold;">NEW</div>
                     <i class="fas fa-camera tool-icon" style="color: #10b981;"></i>
@@ -538,6 +545,7 @@
             </div>
         </div>
 
+        <!-- Tool Containers Logic (Will be populated by app.js) -->
         <div id="view-history" class="view-section">
             <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
             <h2><i class="fas fa-history"></i> My Download History</h2>
@@ -545,76 +553,7 @@
             <div id="history-list"></div>
         </div>
 
-        <div id="scanner-source-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: rgba(0,0,0,0.7); z-index: 100001; align-items: flex-end;">
-            <div style="background: var(--surface-color); width: 100%; max-width: 500px; margin: 0 auto; padding: 20px; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s ease-out; padding-bottom: max(20px, env(safe-area-inset-bottom));">
-                <h3 style="color: white; margin-bottom: 20px; text-align: center;">Scan Document</h3>
-                <div style="display: flex; gap: 15px;">
-                    <button onclick="document.getElementById('hidden-camera-input').click()" style="flex: 1; padding: 20px 10px; background: #3b82f6; color: white; border: none; border-radius: 12px; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer;">
-                        <i class="fas fa-camera" style="font-size: 2rem;"></i>
-                        <span style="font-size: 1rem; font-weight: 500;">Camera</span>
-                    </button>
-                    <button onclick="document.getElementById('hidden-gallery-input').click()" style="flex: 1; padding: 20px 10px; background: #8b5cf6; color: white; border: none; border-radius: 12px; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer;">
-                        <i class="fas fa-images" style="font-size: 2rem;"></i>
-                        <span style="font-size: 1rem; font-weight: 500;">Gallery</span>
-                    </button>
-                </div>
-                <button onclick="document.getElementById('scanner-source-modal').style.display='none'" style="width: 100%; padding: 15px; background: transparent; color: var(--text-secondary); border: none; margin-top: 15px; font-size: 1rem; cursor: pointer;">Cancel</button>
-            </div>
-        </div>
-
-        <div id="scanner-workspace" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: #000; z-index: 100000; flex-direction: column;">
-            
-            <div id="scanner-default-top-bar" style="display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: #111; color: white; border-bottom: 1px solid #333;">
-                <button id="btn-scanner-close" style="background: transparent; color: white; border: none; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
-                <div style="display: flex; gap: 15px;">
-                    <button id="btn-scanner-rotate-left" class="scanner-top-btn"><i class="fas fa-undo"></i></button>
-                    <button id="btn-scanner-crop-trigger" class="scanner-top-btn"><i class="fas fa-crop-alt"></i></button>
-                    <button id="btn-scanner-rotate-right" class="scanner-top-btn"><i class="fas fa-redo"></i></button>
-                </div>
-                <span style="font-weight: 600;" id="scanner-page-counter">Page 1</span>
-            </div>
-
-            <div id="scanner-crop-top-bar" style="display: none; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: #111; color: white; border-bottom: 1px solid #333;">
-                <button id="btn-cancel-crop" style="background: transparent; color: var(--text-secondary); border: none; font-size: 1rem; font-weight: 500; cursor: pointer;">Cancel</button>
-                <span style="font-weight: 600;">Crop Image</span>
-                <button id="btn-apply-crop" style="background: transparent; color: #10b981; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer;">Done</button>
-            </div>
-
-            <div id="scanner-canvas-container" style="flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #222;">
-                <canvas id="scanner-main-canvas" style="max-width: 100%; max-height: 100%; width: auto; height: auto; position: absolute;"></canvas>
-                <canvas id="scanner-crop-canvas" style="max-width: 100%; max-height: 100%; width: auto; height: auto; position: absolute; z-index: 10; touch-action: none; display: none;"></canvas>
-            </div>
-
-            <div class="no-scrollbar" style="display: flex; justify-content: flex-start; gap: 10px; padding: 15px; background: #111; overflow-x: auto; white-space: nowrap;">
-                <button class="scanner-filter-btn" data-filter="original" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Original</button>
-                <button class="scanner-filter-btn" data-filter="lighten" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Lighten</button>
-                <button class="scanner-filter-btn active" data-filter="magic" style="background: #333; color: white; border: 2px solid #10b981; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Magic Color</button>
-                <button class="scanner-filter-btn" data-filter="grayscale" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Grayscale</button>
-                <button class="scanner-filter-btn" data-filter="bw" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">B&W</button>
-                <button class="scanner-filter-btn" data-filter="eco" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Eco</button>
-            </div>
-
-            <div class="no-scrollbar ad-safe-area" style="display: flex; align-items: center; padding: 15px; background: #0f172a; border-top: 1px solid #333; gap: 15px; overflow-x: auto;">
-                <div id="scanner-page-list" style="display: flex; gap: 10px; flex: 1; min-height: 80px; align-items: center;"></div>
-                <button id="btn-scanner-add" onclick="document.getElementById('scanner-source-modal').style.display='flex'" style="background: rgba(255,255,255,0.1); color: white; border: 1px dashed #aaa; width: 60px; height: 80px; border-radius: 8px; flex-shrink: 0; cursor: pointer;"><i class="fas fa-plus"></i></button>
-                <button id="btn-scanner-preview" style="background: #3b82f6; color: white; border: none; padding: 0 20px; height: 80px; border-radius: 8px; font-weight: bold; flex-shrink: 0; cursor: pointer;"><i class="fas fa-eye"></i> Preview PDF</button>
-            </div>
-        </div>
-
-        <div id="scanner-preview-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: var(--bg-color); z-index: 100005; flex-direction: column;">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: var(--surface-color); border-bottom: 1px solid var(--glass-border);">
-                <button id="btn-preview-back" style="background: transparent; color: white; border: none; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap;"><i class="fas fa-arrow-left"></i> Back</button>
-                <span style="font-weight: 600; color: white; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px;">Document Preview</span>
-                <div style="width: 60px; flex-shrink: 0;"></div>
-            </div>
-            
-            <div id="scanner-preview-list" style="flex: 1; min-height: 0; overflow-y: auto; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; background: #cbd5e1;"></div>
-
-            <div class="ad-safe-area" style="padding: 20px; background: var(--surface-color); border-top: 1px solid var(--glass-border);">
-                <button id="btn-scanner-export" style="background: #10b981; color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; font-size: 1.1rem; cursor: pointer;"><i class="fas fa-download"></i> Save & Download PDF</button>
-            </div>
-        </div>
-
+        <div id="view-edit" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="edit-ui-container"></div></div>
         <div id="view-merge" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="merge-ui-container"></div></div>
         <div id="view-split" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="split-ui-container"></div></div>
         <div id="view-compress" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="compress-ui-container"></div></div>
@@ -644,6 +583,221 @@
 
     </div>
 
-    <script type="module" src="app.js?v=35"></script>
+    <!-- ========================================== -->
+    <!-- SMART SCANNER UI MODALS AND WORKSPACE      -->
+    <!-- ========================================== -->
+
+    <div id="scanner-source-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: rgba(0,0,0,0.7); z-index: 100001; align-items: flex-end;">
+        <div style="background: var(--surface-color); width: 100%; max-width: 500px; margin: 0 auto; padding: 20px; border-top-left-radius: 20px; border-top-right-radius: 20px; animation: slideUp 0.3s ease-out; padding-bottom: max(20px, env(safe-area-inset-bottom));">
+            <h3 style="color: white; margin-bottom: 20px; text-align: center;">Scan Document</h3>
+            <div style="display: flex; gap: 15px;">
+                <button onclick="document.getElementById('hidden-camera-input').click()" style="flex: 1; padding: 20px 10px; background: #3b82f6; color: white; border: none; border-radius: 12px; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer;">
+                    <i class="fas fa-camera" style="font-size: 2rem;"></i>
+                    <span style="font-size: 1rem; font-weight: 500;">Camera</span>
+                </button>
+                <button onclick="document.getElementById('hidden-gallery-input').click()" style="flex: 1; padding: 20px 10px; background: #8b5cf6; color: white; border: none; border-radius: 12px; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer;">
+                    <i class="fas fa-images" style="font-size: 2rem;"></i>
+                    <span style="font-size: 1rem; font-weight: 500;">Gallery</span>
+                </button>
+            </div>
+            <button onclick="document.getElementById('scanner-source-modal').style.display='none'" style="width: 100%; padding: 15px; background: transparent; color: var(--text-secondary); border: none; margin-top: 15px; font-size: 1rem; cursor: pointer;">Cancel</button>
+        </div>
+    </div>
+
+    <div id="scanner-workspace" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: #000; z-index: 100000; flex-direction: column;">
+        
+        <div id="scanner-default-top-bar" style="display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: #111; color: white; border-bottom: 1px solid #333;">
+            <button id="btn-scanner-close" style="background: transparent; color: white; border: none; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
+            <div style="display: flex; gap: 15px;">
+                <button id="btn-scanner-rotate-left" class="scanner-top-btn"><i class="fas fa-undo"></i></button>
+                <button id="btn-scanner-crop-trigger" class="scanner-top-btn"><i class="fas fa-crop-alt"></i></button>
+                <button id="btn-scanner-rotate-right" class="scanner-top-btn"><i class="fas fa-redo"></i></button>
+            </div>
+            <span style="font-weight: 600;" id="scanner-page-counter">Page 1</span>
+        </div>
+
+        <div id="scanner-crop-top-bar" style="display: none; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: #111; color: white; border-bottom: 1px solid #333;">
+            <button id="btn-cancel-crop" style="background: transparent; color: var(--text-secondary); border: none; font-size: 1rem; font-weight: 500; cursor: pointer;">Cancel</button>
+            <span style="font-weight: 600;">Crop Image</span>
+            <button id="btn-apply-crop" style="background: transparent; color: #10b981; border: none; font-size: 1.1rem; font-weight: bold; cursor: pointer;">Done</button>
+        </div>
+
+        <!-- Canvas Area for Scanner -->
+        <div id="scanner-canvas-container" style="flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #222;">
+            <canvas id="scanner-main-canvas" style="max-width: 100%; max-height: 100%; width: auto; height: auto; position: absolute;"></canvas>
+            <canvas id="scanner-crop-canvas" style="max-width: 100%; max-height: 100%; width: auto; height: auto; position: absolute; z-index: 10; touch-action: none; display: none;"></canvas>
+        </div>
+
+        <!-- Filters -->
+        <div class="no-scrollbar" style="display: flex; justify-content: flex-start; gap: 10px; padding: 15px; background: #111; overflow-x: auto; white-space: nowrap;">
+            <button class="scanner-filter-btn" data-filter="original" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Original</button>
+            <button class="scanner-filter-btn" data-filter="lighten" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Lighten</button>
+            <button class="scanner-filter-btn active" data-filter="magic" style="background: #333; color: white; border: 2px solid #10b981; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Magic Color</button>
+            <button class="scanner-filter-btn" data-filter="grayscale" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Grayscale</button>
+            <button class="scanner-filter-btn" data-filter="bw" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">B&W</button>
+            <button class="scanner-filter-btn" data-filter="eco" style="background: #333; color: white; border: 2px solid transparent; padding: 8px 15px; border-radius: 20px; cursor: pointer; flex-shrink: 0;">Eco</button>
+        </div>
+
+        <div class="no-scrollbar ad-safe-area" style="display: flex; align-items: center; padding: 15px; background: #0f172a; border-top: 1px solid #333; gap: 15px; overflow-x: auto;">
+            <div id="scanner-page-list" style="display: flex; gap: 10px; flex: 1; min-height: 80px; align-items: center;"></div>
+            <button id="btn-scanner-add" onclick="document.getElementById('scanner-source-modal').style.display='flex'" style="background: rgba(255,255,255,0.1); color: white; border: 1px dashed #aaa; width: 60px; height: 80px; border-radius: 8px; flex-shrink: 0; cursor: pointer;"><i class="fas fa-plus"></i></button>
+            <button id="btn-scanner-preview" style="background: #3b82f6; color: white; border: none; padding: 0 20px; height: 80px; border-radius: 8px; font-weight: bold; flex-shrink: 0; cursor: pointer;"><i class="fas fa-eye"></i> Preview PDF</button>
+        </div>
+    </div>
+
+    <!-- SCANNER PREVIEW MODAL -->
+    <div id="scanner-preview-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: var(--bg-color); z-index: 100005; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: var(--surface-color); border-bottom: 1px solid var(--glass-border);">
+            <button id="btn-preview-back" style="background: transparent; color: white; border: none; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap;"><i class="fas fa-arrow-left"></i> Back</button>
+            <span style="font-weight: 600; color: white; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px;">Document Preview</span>
+            <div style="width: 60px; flex-shrink: 0;"></div>
+        </div>
+        
+        <div id="scanner-preview-list" style="flex: 1; min-height: 0; overflow-y: auto; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; background: #cbd5e1;"></div>
+
+        <div class="ad-safe-area" style="padding: 20px; background: var(--surface-color); border-top: 1px solid var(--glass-border);">
+            <button id="btn-scanner-export" style="background: #10b981; color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; font-size: 1.1rem; cursor: pointer;"><i class="fas fa-download"></i> Save & Download PDF</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- UNIVERSAL PRO VISUAL EDITOR WORKSPACE      -->
+    <!-- (Root cause of the Blank Screen Bug Fixed) -->
+    <!-- ========================================== -->
+
+    <div id="edit-workspace" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: var(--bg-color); z-index: 100000; flex-direction: column;">
+        
+        <!-- Top Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px; background: var(--surface-color); border-bottom: 1px solid var(--glass-border);">
+            <button id="btn-close-editor" style="background: transparent; color: white; border: none; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px;"><i class="fas fa-times"></i> Cancel</button>
+            <span id="workspace-title" style="font-weight: 600; font-size: 1.1rem;"><i class="fas fa-edit"></i> Visual Editor</span>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select id="edit-apply-mode" style="background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--glass-border); padding: 8px; border-radius: 6px; outline: none;">
+                    <option value="current">Current Page</option>
+                    <option value="all">All Pages</option>
+                </select>
+                <button id="btn-edit-save" style="background: #10b981; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer;"><i class="fas fa-check"></i> Save</button>
+            </div>
+        </div>
+
+        <div id="visual-tool-header" style="display: none; text-align: center; padding: 10px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; font-size: 0.9rem; font-weight: 500;">
+            <!-- Instructional text will be injected here -->
+        </div>
+
+        <!-- Dynamic Toolbar (Text, Rotate, Watermark) -->
+        <div id="edit-toolbar" style="display: flex; gap: 10px; padding: 15px 20px; background: #1e293b; border-bottom: 1px solid var(--glass-border); flex-wrap: wrap; align-items: center; justify-content: center;">
+            
+            <!-- Standard Edit Tools -->
+            <button id="btn-edit-text" class="edit-toolbar-btn"><i class="fas fa-font"></i> Text</button>
+            <button id="btn-edit-draw" class="edit-toolbar-btn"><i class="fas fa-pen"></i> Draw</button>
+            <button id="btn-edit-whiteout" class="edit-toolbar-btn"><i class="fas fa-eraser"></i> Whiteout</button>
+            
+            <!-- Image / Watermark Upload -->
+            <button id="btn-edit-image" class="edit-toolbar-btn"><i class="fas fa-image"></i> Image</button>
+            <input type="file" id="edit-image-input" accept="image/png, image/jpeg" style="display: none;">
+            
+            <!-- Rotate Tools -->
+            <button id="btn-rotate-left" class="edit-toolbar-btn" style="display: none;"><i class="fas fa-undo"></i> Left</button>
+            <button id="btn-rotate-right" class="edit-toolbar-btn" style="display: none;"><i class="fas fa-redo"></i> Right</button>
+
+            <!-- Flatten Button -->
+            <button id="btn-flatten-apply" class="edit-toolbar-btn" style="display: none; background: #f59e0b; color: white;"><i class="fas fa-layer-group"></i> Flatten Content</button>
+
+            <!-- Standard Settings (Color, Size) -->
+            <div class="tool-settings" style="display: flex; gap: 10px; align-items: center; border-left: 1px solid var(--glass-border); padding-left: 15px;">
+                <input type="color" id="edit-color-picker" value="#000000" style="width: 30px; height: 30px; border: none; cursor: pointer; border-radius: 4px; padding: 0; outline: none;">
+                <input type="range" id="edit-size-picker" min="1" max="100" value="20" style="width: 80px;">
+            </div>
+
+            <!-- Image Watermark Advanced Settings (New) -->
+            <div id="watermark-settings" style="display: none; gap: 10px; align-items: center; border-left: 1px solid var(--glass-border); padding-left: 15px;">
+                <label style="font-size: 0.8rem; color: #94a3b8;">Opacity:</label>
+                <input type="range" id="watermark-opacity" min="0.1" max="1" step="0.1" value="0.5" style="width: 80px;">
+            </div>
+
+            <!-- Clear Canvas -->
+            <button id="btn-edit-clear" class="edit-toolbar-btn" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; margin-left: auto;"><i class="fas fa-trash-alt"></i> Clear</button>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="canvas-container" style="flex: 1; overflow: auto; background: #cbd5e1; position: relative; display: flex; flex-direction: column; align-items: center; padding: 20px;">
+            <div style="position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <canvas id="pdf-render-canvas" style="display: block;"></canvas>
+                <canvas id="pdf-overlay-canvas" style="position: absolute; top: 0; left: 0; touch-action: none; cursor: crosshair;"></canvas>
+            </div>
+            
+            <!-- Trash Zone for Drag/Drop Delete -->
+            <div id="drag-trash-zone" style="display: none; position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(239, 68, 68, 0.9); color: white; padding: 15px 30px; border-radius: 30px; align-items: center; justify-content: center; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-weight: bold; transition: 0.2s;">
+                <i class="fas fa-trash-alt" style="margin-right: 10px;"></i> Drag here to delete
+            </div>
+        </div>
+
+        <!-- Bottom Pagination & Zoom -->
+        <div class="ad-safe-area" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--surface-color); border-top: 1px solid var(--glass-border);">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button id="prev-page" style="background: transparent; color: white; border: 1px solid var(--glass-border); padding: 5px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-chevron-left"></i></button>
+                <span style="font-size: 0.9rem;">Page <span id="page-num">1</span> of <span id="page-count">--</span></span>
+                <button id="next-page" style="background: transparent; color: white; border: 1px solid var(--glass-border); padding: 5px 12px; border-radius: 6px; cursor: pointer;"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-zoom-out" style="background: transparent; color: white; border: none; font-size: 1.1rem; cursor: pointer;"><i class="fas fa-search-minus"></i></button>
+                <button id="btn-zoom-fit" style="background: transparent; color: white; border: none; font-size: 1.1rem; cursor: pointer;"><i class="fas fa-expand"></i></button>
+                <button id="btn-zoom-in" style="background: transparent; color: white; border: none; font-size: 1.1rem; cursor: pointer;"><i class="fas fa-search-plus"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- CUSTOM TEXT MODAL (Also fixed from blank screen issue) -->
+    <!-- ========================================== -->
+    
+    <div id="custom-text-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: rgba(0,0,0,0.8); z-index: 100005; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+        <div style="background: var(--surface-color); width: 90%; max-width: 400px; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h3 id="text-modal-title" style="color: white; margin-bottom: 15px;">Add Text</h3>
+            <textarea id="custom-text-input" rows="3" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; outline: none; resize: none; margin-bottom: 15px; font-size: 1rem;"></textarea>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="display: flex; gap: 5px;">
+                    <button id="tm-bold" class="edit-toolbar-btn" style="padding: 5px 10px; background: rgba(255,255,255,0.1);"><i class="fas fa-bold"></i></button>
+                    <button id="tm-italic" class="edit-toolbar-btn" style="padding: 5px 10px; background: rgba(255,255,255,0.1);"><i class="fas fa-italic"></i></button>
+                    <button id="tm-underline" class="edit-toolbar-btn" style="padding: 5px 10px; background: rgba(255,255,255,0.1);"><i class="fas fa-underline"></i></button>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="tm-align-left" class="edit-toolbar-btn" style="padding: 5px 10px; background: rgba(255,255,255,0.1);"><i class="fas fa-align-left"></i></button>
+                    <button id="tm-align-center" class="edit-toolbar-btn" style="padding: 5px 10px; background: rgba(255,255,255,0.1);"><i class="fas fa-align-center"></i></button>
+                    <button id="tm-align-right" class="edit-toolbar-btn" style="padding: 5px 10px; background: rgba(255,255,255,0.1);"><i class="fas fa-align-right"></i></button>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">Color</label>
+                    <input type="color" id="tm-color" value="#000000" style="width: 40px; height: 40px; border: none; border-radius: 8px; cursor: pointer; outline: none;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">Bg Color</label>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <input type="color" id="tm-bg-color" value="#ffffff" style="width: 40px; height: 40px; border: none; border-radius: 8px; cursor: pointer; outline: none;">
+                        <button id="tm-clear-bg" style="background: transparent; color: #ef4444; border: 1px solid var(--glass-border); padding: 5px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-times"></i> Clear</button>
+                    </div>
+                </div>
+                <div style="flex: 1;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">Size & Opacity</label>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <input type="number" id="tm-size" value="20" style="width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; outline: none;">
+                        <input type="range" id="tm-opacity" min="0.1" max="1" step="0.1" value="1" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-text-cancel" style="flex: 1; padding: 12px; background: transparent; color: white; border: 1px solid var(--glass-border); border-radius: 8px; cursor: pointer; font-weight: 600;">Cancel</button>
+                <button id="btn-text-save" style="flex: 1; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Apply Text</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- The magic logic for all UI handling and PDF Math -->
+    <script type="module" src="app.js?v=40"></script>
 </body>
 </html>
