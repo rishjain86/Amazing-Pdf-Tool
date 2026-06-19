@@ -12,6 +12,7 @@ import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 // ==========================================
 function showCustomAlert(message) {
     let alertBox = document.getElementById('custom-alert-box');
+    
     if (!alertBox) {
         alertBox = document.createElement('div');
         alertBox.id = 'custom-alert-box';
@@ -25,12 +26,14 @@ function showCustomAlert(message) {
             </div>
         `;
         document.body.appendChild(alertBox);
+        
         document.getElementById('custom-alert-btn').addEventListener('click', () => {
             alertBox.style.opacity = '0';
             alertBox.style.pointerEvents = 'none';
             alertBox.children[0].style.transform = 'translateY(20px)';
         });
     }
+    
     document.getElementById('custom-alert-msg').innerHTML = message;
     alertBox.style.pointerEvents = 'auto';
     alertBox.style.opacity = '1';
@@ -57,6 +60,7 @@ let lastBackPress = 0;
 if (window.Capacitor && window.Capacitor.isNativePlatform()) {
     App.addListener('backButton', () => {
         const activeView = document.querySelector('.view-section.active')?.id;
+        
         if (activeView && activeView !== 'view-dashboard') {
             window.switchView('dashboard');
         } else {
@@ -108,12 +112,14 @@ const STORE_NAME = 'files';
 function initDB() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, 1);
+        
         req.onupgradeneeded = (e) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
             }
         };
+        
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });
@@ -123,6 +129,7 @@ async function saveToHistory(bytes, filename, type) {
     const db = await initDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.objectStore(STORE_NAME).add({ filename, type, data: bytes, date: new Date().getTime() });
+    
     return new Promise(resolve => tx.oncomplete = resolve);
 }
 
@@ -130,6 +137,7 @@ window.getHistory = async () => {
     const db = await initDB();
     const tx = db.transaction(STORE_NAME, 'readonly');
     const req = tx.objectStore(STORE_NAME).getAll();
+    
     return new Promise(resolve => {
         req.onsuccess = () => resolve(req.result.sort((a,b) => b.date - a.date));
     });
@@ -139,6 +147,7 @@ window.deleteHistory = async (id) => {
     const db = await initDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.objectStore(STORE_NAME).delete(id);
+    
     return new Promise(resolve => tx.oncomplete = resolve);
 };
 
@@ -183,6 +192,7 @@ window.removeHistoryItem = async (id) => {
 window.triggerHistoryDownload = async (id) => {
     const items = await window.getHistory();
     const item = items.find(i => i.id === id);
+    
     if(item) {
         await processAndDownload(item.data, item.filename, item.type, false);
     }
@@ -191,18 +201,22 @@ window.triggerHistoryDownload = async (id) => {
 function bytesToBase64(bytes) {
     let binary = ''; 
     const len = bytes.byteLength;
+    
     for (let i = 0; i < len; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
+    
     return window.btoa(binary);
 }
 
-// BULK UPLOAD CHUNKED WRITER (OOM JSON Crash Fix)
+// BULK UPLOAD CHUNKED WRITER
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
     if(saveToDb) { 
         try { 
             await saveToHistory(bytes, filename, type); 
-        } catch(e) {} 
+        } catch(e) {
+            console.error("History save error:", e);
+        } 
     }
     
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -231,6 +245,7 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
                 const blob = new Blob([bytes], { type }); 
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); 
+                
                 a.href = url; 
                 a.download = filename; 
                 document.body.appendChild(a); 
@@ -245,6 +260,7 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
         const blob = new Blob([bytes], { type }); 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); 
+        
         a.href = url; 
         a.download = filename; 
         document.body.appendChild(a); 
@@ -255,7 +271,7 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
 }
 
 // =======================================================
-// SMART SCANNER (FIXED: CROP SIZES & ORIGINAL FILE NAME)
+// SMART SCANNER
 // =======================================================
 let scannerPages = [];
 let currentScannerIndex = -1;
@@ -271,11 +287,10 @@ const scanCtx = scanCanvas ? scanCanvas.getContext('2d') : null;
 const cropCanvas = document.getElementById('scanner-crop-canvas');
 const cropCtx = cropCanvas ? cropCanvas.getContext('2d') : null;
 
-const handleScanInput = (e) => {
+window.handleScanInput = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Save original name for download
     scannerOriginalName = file.name.substring(0, file.name.lastIndexOf('.')) || "Scanned_Document";
     
     if (scannerModal) scannerModal.style.display = 'none';
@@ -293,15 +308,18 @@ const handleScanInput = (e) => {
     e.target.value = ""; 
 };
 
-document.getElementById('hidden-camera-input')?.addEventListener('change', handleScanInput);
-document.getElementById('hidden-gallery-input')?.addEventListener('change', handleScanInput);
+document.getElementById('hidden-camera-input')?.addEventListener('change', window.handleScanInput);
+document.getElementById('hidden-gallery-input')?.addEventListener('change', window.handleScanInput);
 
 function renderScannerWorkspace() {
     if (currentScannerIndex === -1 || !scanCtx || isCroppingMode) return;
     
     const pageData = scannerPages[currentScannerIndex];
     const counter = document.getElementById('scanner-page-counter');
-    if (counter) counter.innerText = `Page ${currentScannerIndex + 1}`;
+    
+    if (counter) {
+        counter.innerText = `Page ${currentScannerIndex + 1}`;
+    }
     
     document.querySelectorAll('.scanner-filter-btn').forEach(btn => { 
         btn.style.borderColor = btn.dataset.filter === pageData.filter ? '#10b981' : 'transparent'; 
@@ -416,7 +434,6 @@ function drawCropPolygon() {
     cropCtx.stroke();
     cropCtx.fillStyle = '#10b981';
     
-    // Smart Point Radius (Small for desktop, big for touch)
     const isMobile = window.innerWidth <= 768;
     const radius = isMobile ? Math.max(25, cropCanvas.width * 0.035) : Math.max(10, cropCanvas.width * 0.015);
     
@@ -498,7 +515,6 @@ document.getElementById('btn-cancel-crop')?.addEventListener('click', () => {
     renderScannerWorkspace(); 
 });
 
-// Warp Perspective Math
 document.getElementById('btn-apply-crop')?.addEventListener('click', () => {
     const tl = cropPoints[0], tr = cropPoints[1], br = cropPoints[2], bl = cropPoints[3];
     
@@ -589,7 +605,9 @@ document.querySelectorAll('.scanner-filter-btn').forEach(btn => {
 });
 
 document.getElementById('btn-scanner-close')?.addEventListener('click', () => { 
-    if (scannerWorkspace) scannerWorkspace.style.display = 'none'; 
+    if (scannerWorkspace) {
+        scannerWorkspace.style.display = 'none'; 
+    }
     document.body.classList.remove('is-editing'); 
     scannerPages = []; 
     isCroppingMode = false; 
@@ -646,7 +664,6 @@ document.getElementById('btn-preview-back')?.addEventListener('click', () => {
     document.getElementById('scanner-preview-modal').style.display = 'none'; 
 });
 
-// Scanner Export
 document.getElementById('btn-scanner-export')?.addEventListener('click', async () => {
     if (scannerPages.length === 0) return;
     
@@ -695,7 +712,9 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
         await processAndDownload(bytes, `${scannerOriginalName}_Scanned.pdf`, 'application/pdf');
         
         document.getElementById('scanner-preview-modal').style.display = 'none'; 
-        if (scannerWorkspace) scannerWorkspace.style.display = 'none'; 
+        if (scannerWorkspace) {
+            scannerWorkspace.style.display = 'none'; 
+        }
         document.body.classList.remove('is-editing'); 
         scannerPages = [];
         
@@ -719,13 +738,16 @@ const views = [
 ];
 
 const ui = {};
-views.forEach(v => ui[v] = document.getElementById(`${v}-ui-container`));
+views.forEach(v => {
+    ui[v] = document.getElementById(`${v}-ui-container`);
+});
 
 const dropZoneStyle = "border: 2px dashed var(--accent); border-radius: 16px; padding: 40px 20px; text-align: center; cursor: pointer; background: rgba(59, 130, 246, 0.05); transition: 0.3s; margin-bottom: 20px;";
 const btnStyle = "background: var(--accent); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 15px;";
 const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; margin-bottom: 15px;";
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border); gap: 10px;";
+
 const brandHeaderHtml = `
     <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
         <img src="assets/icon.png?v=5" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
@@ -792,49 +814,85 @@ if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-
 `);
 
 // Standard Tools
-if (ui.merge) ui.merge.innerHTML = brandHeaderHtml + `
-    <div id="merge-drop-zone" style="${dropZoneStyle}">
-        <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
-        <h3>Drag & Drop PDFs or ZIP</h3>
-        <button onclick="document.getElementById('merge-file-input').click()" style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: 600;">Browse Files</button>
-        <input type="file" id="merge-file-input" multiple accept="application/pdf, application/zip, .zip" style="display: none;">
-    </div>
-    <div id="merge-file-list" style="${fileListStyle}"></div>
-    <button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>
-`;
+if (ui.merge) {
+    ui.merge.innerHTML = brandHeaderHtml + `
+        <div id="merge-drop-zone" style="${dropZoneStyle}">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
+            <h3>Drag & Drop PDFs or ZIP</h3>
+            <button onclick="document.getElementById('merge-file-input').click()" style="padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: 600;">Browse Files</button>
+            <input type="file" id="merge-file-input" multiple accept="application/pdf, application/zip, .zip" style="display: none;">
+        </div>
+        <div id="merge-file-list" style="${fileListStyle}"></div>
+        <button id="btn-merge-action" style="${btnStyle}; display: none;"><i class="fas fa-object-group"></i> Merge Files Now</button>
+    `;
+}
 
-if (ui.jpgtopdf) ui.jpgtopdf.innerHTML = brandHeaderHtml + `
-    <div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}">
-        <i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i>
-        <h3>Drag & Drop Images</h3>
-        <button onclick="document.getElementById('jpgtopdf-file-input').click()" style="padding: 10px 20px; background: #eab308; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: 600;">Browse Images</button>
-        <input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;">
-    </div>
-    <div id="jpgtopdf-file-list" style="${fileListStyle}"></div>
-    <button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>
-`;
+if (ui.jpgtopdf) {
+    ui.jpgtopdf.innerHTML = brandHeaderHtml + `
+        <div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}">
+            <i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i>
+            <h3>Drag & Drop Images</h3>
+            <button onclick="document.getElementById('jpgtopdf-file-input').click()" style="padding: 10px 20px; background: #eab308; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: 600;">Browse Images</button>
+            <input type="file" id="jpgtopdf-file-input" multiple accept="image/*" style="display: none;">
+        </div>
+        <div id="jpgtopdf-file-list" style="${fileListStyle}"></div>
+        <button id="btn-jpgtopdf-action" style="${btnStyle.replace('var(--accent)', '#eab308')}; display: none;"><i class="fas fa-file-pdf"></i> Convert to PDF</button>
+    `;
+}
 
-if (ui.htmltopdf) ui.htmltopdf.innerHTML = brandHeaderHtml + `
-    <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
-        <label style="color: var(--text-secondary);">Paste your HTML Code here:</label>
-        <textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea>
-        <button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button>
-    </div>
-`;
+if (ui.htmltopdf) {
+    ui.htmltopdf.innerHTML = brandHeaderHtml + `
+        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
+            <label style="color: var(--text-secondary);">Paste your HTML Code here:</label>
+            <textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea>
+            <button id="btn-htmltopdf-action" style="${btnStyle.replace('var(--accent)', '#f97316')}"><i class="fas fa-code"></i> Convert to PDF</button>
+        </div>
+    `;
+}
 
-if (ui.protect) ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt', `
-    <div style="position: relative; width: 100%;">
-        <input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle} padding-right: 45px;">
-        <i class="fas fa-eye" onclick="let inp = document.getElementById('protect-password'); if(inp.type==='password'){inp.type='text';this.className='fas fa-eye-slash'}else{inp.type='password';this.className='fas fa-eye'}" style="position: absolute; right: 15px; top: 14px; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem; z-index: 10;"></i>
-    </div>
-`);
+if (ui.protect) {
+    ui.protect.innerHTML = generateMultipleFileUI('protect', 'fa-lock', '#8b5cf6', 'Protect', 'Encrypt', `
+        <div style="position: relative; width: 100%;">
+            <input type="password" id="protect-password" placeholder="Set Password for all files" style="${inputStyle} padding-right: 45px;" autocomplete="new-password">
+            <i class="fas fa-eye" onclick="let inp = document.getElementById('protect-password'); if(inp.type==='password'){inp.type='text';this.className='fas fa-eye-slash'}else{inp.type='password';this.className='fas fa-eye'}" style="position: absolute; right: 15px; top: 14px; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem; z-index: 10;"></i>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+            <input type="checkbox" id="protect-remember" style="width: 18px; height: 18px; cursor: pointer;">
+            <label for="protect-remember" style="color: var(--text-secondary); font-size: 0.9rem; cursor: pointer;">Remember password on this PC</label>
+        </div>
+    `);
+}
 
-if (ui.unlock) ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock', `
-    <div style="position: relative; width: 100%;">
-        <input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle} padding-right: 45px;">
-        <i class="fas fa-eye" onclick="let inp = document.getElementById('unlock-password'); if(inp.type==='password'){inp.type='text';this.className='fas fa-eye-slash'}else{inp.type='password';this.className='fas fa-eye'}" style="position: absolute; right: 15px; top: 14px; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem; z-index: 10;"></i>
-    </div>
-`);
+if (ui.unlock) {
+    ui.unlock.innerHTML = generateMultipleFileUI('unlock', 'fa-unlock', '#06b6d4', 'Unlock', 'Unlock', `
+        <div style="position: relative; width: 100%;">
+            <input type="password" id="unlock-password" placeholder="Current Password (applied to all)" style="${inputStyle} padding-right: 45px;" autocomplete="new-password">
+            <i class="fas fa-eye" onclick="let inp = document.getElementById('unlock-password'); if(inp.type==='password'){inp.type='text';this.className='fas fa-eye-slash'}else{inp.type='password';this.className='fas fa-eye'}" style="position: absolute; right: 15px; top: 14px; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem; z-index: 10;"></i>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+            <input type="checkbox" id="unlock-remember" style="width: 18px; height: 18px; cursor: pointer;">
+            <label for="unlock-remember" style="color: var(--text-secondary); font-size: 0.9rem; cursor: pointer;">Remember password on this PC</label>
+        </div>
+    `);
+}
+
+setTimeout(() => {
+    const savedProtectPass = localStorage.getItem('amazingpdf_protect_pass');
+    if (savedProtectPass) {
+        const pInput = document.getElementById('protect-password');
+        const pCheck = document.getElementById('protect-remember');
+        if (pInput) pInput.value = savedProtectPass;
+        if (pCheck) pCheck.checked = true;
+    }
+    
+    const savedUnlockPass = localStorage.getItem('amazingpdf_unlock_pass');
+    if (savedUnlockPass) {
+        const uInput = document.getElementById('unlock-password');
+        const uCheck = document.getElementById('unlock-remember');
+        if (uInput) uInput.value = savedUnlockPass;
+        if (uCheck) uCheck.checked = true;
+    }
+}, 500);
 
 if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Files', '', 'application/pdf, application/zip, .zip');
 
@@ -843,35 +901,43 @@ if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-al
 if (ui.reorder) ui.reorder.innerHTML = generateSingleFileUI('reorder', 'fa-sort-amount-up', '#8b5cf6', 'Reorder Pages', 'Apply New Order', `<input type="text" id="reorder-input" placeholder="e.g. 33-32-31, 3, 1, 2" style="${inputStyle}">`);
 if (ui.pdftojpg) ui.pdftojpg.innerHTML = generateSingleFileUI('pdftojpg', 'fa-file-archive', '#eab308', 'Convert to JPG', 'Download ZIP of Images');
 
-if (ui.metadata) ui.metadata.innerHTML = generateSingleFileUI('metadata', 'fa-info-circle', '#eab308', 'Edit Metadata', 'Update Metadata', `
-    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Update hidden document properties.</p>
-    <input type="text" id="meta-title" placeholder="New Document Title" style="${inputStyle}">
-    <input type="text" id="meta-author" placeholder="New Author Name" style="${inputStyle}">
-`);
+if (ui.metadata) {
+    ui.metadata.innerHTML = generateSingleFileUI('metadata', 'fa-info-circle', '#eab308', 'Edit Metadata', 'Update Metadata', `
+        <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Update hidden document properties.</p>
+        <input type="text" id="meta-title" placeholder="New Document Title" style="${inputStyle}">
+        <input type="text" id="meta-author" placeholder="New Author Name" style="${inputStyle}">
+    `);
+}
 
-if (ui.repair) ui.repair.innerHTML = generateSingleFileUI('repair', 'fa-tools', '#10b981', 'Repair PDF', 'Attempt Repair', `
-    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Rebuilds broken internal links & corrupted XRef tables.</p>
-`);
+if (ui.repair) {
+    ui.repair.innerHTML = generateSingleFileUI('repair', 'fa-tools', '#10b981', 'Repair PDF', 'Attempt Repair', `
+        <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Rebuilds broken internal links & corrupted XRef tables.</p>
+    `);
+}
 
-if (ui.addblank) ui.addblank.innerHTML = generateSingleFileUI('addblank', 'fa-file-medical', '#10b981', 'Insert Blank Pages', 'Insert & Download', `
-    <select id="addblank-position" style="${inputStyle}">
-        <option value="end">At the very end</option>
-        <option value="start">At the very beginning</option>
-        <option value="after">After specific page...</option>
-    </select>
-    <input type="number" id="addblank-after-num" placeholder="Page Number" style="${inputStyle} display:none;">
-    <label style="font-size:0.8rem; color:#94a3b8;">Number of Pages:</label>
-    <input type="number" id="addblank-count" value="1" min="1" style="${inputStyle}">
-`);
+if (ui.addblank) {
+    ui.addblank.innerHTML = generateSingleFileUI('addblank', 'fa-file-medical', '#10b981', 'Insert Blank Pages', 'Insert & Download', `
+        <select id="addblank-position" style="${inputStyle}">
+            <option value="end">At the very end</option>
+            <option value="start">At the very beginning</option>
+            <option value="after">After specific page...</option>
+        </select>
+        <input type="number" id="addblank-after-num" placeholder="Page Number" style="${inputStyle} display:none;">
+        <label style="font-size:0.8rem; color:#94a3b8;">Number of Pages:</label>
+        <input type="number" id="addblank-count" value="1" min="1" style="${inputStyle}">
+    `);
+}
 
-if (ui.resizepdf) ui.resizepdf.innerHTML = generateSingleFileUI('resizepdf', 'fa-expand-arrows-alt', '#14b8a6', 'Resize Pages', 'Scale Document', `
-    <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Proportionally scales content to fit new page size.</p>
-    <select id="resize-profile" style="${inputStyle}">
-        <option value="A4">A4 Profile</option>
-        <option value="Letter">Letter Profile</option>
-        <option value="Legal">Legal Profile</option>
-    </select>
-`);
+if (ui.resizepdf) {
+    ui.resizepdf.innerHTML = generateSingleFileUI('resizepdf', 'fa-expand-arrows-alt', '#14b8a6', 'Resize Pages', 'Scale Document', `
+        <p style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">Proportionally scales content to fit new page size.</p>
+        <select id="resize-profile" style="${inputStyle}">
+            <option value="A4">A4 Profile</option>
+            <option value="Letter">Letter Profile</option>
+            <option value="Legal">Legal Profile</option>
+        </select>
+    `);
+}
 
 if (ui.splitevenodd) ui.splitevenodd.innerHTML = generateSingleFileUI('splitevenodd', 'fa-columns', '#6366f1', 'Split Even/Odd', 'Split & Download ZIP');
 if (ui.removeannots) ui.removeannots.innerHTML = generateSingleFileUI('removeannots', 'fa-eraser', '#8b5cf6', 'Clean Annotations', 'Remove All');
@@ -889,7 +955,9 @@ function parseRange(rangeStr) {
     rangeStr.split(',').forEach(part => {
         if (part.includes('-')) { 
             const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1); 
-            for (let i = start; i <= end; i++) pages.push(i); 
+            for (let i = start; i <= end; i++) {
+                pages.push(i); 
+            }
         } else {
             pages.push(parseInt(part.trim()) - 1);
         }
@@ -928,7 +996,9 @@ function setupSingleFileLogic(id, actionCallback) {
     if (!dropZone || !input) return;
     
     dropZone.addEventListener('click', (e) => { 
-        if(e.target.tagName !== 'BUTTON') input.click(); 
+        if(e.target.tagName !== 'BUTTON') {
+            input.click(); 
+        }
     });
 
     input.addEventListener('change', (e) => {
@@ -1001,7 +1071,9 @@ function setupMultipleFileLogic(id, actionCallback) {
     if (!dropZone || !input || !btn) return;
     
     dropZone.addEventListener('click', (e) => { 
-        if(e.target.tagName !== 'BUTTON') input.click(); 
+        if(e.target.tagName !== 'BUTTON') {
+            input.click(); 
+        }
     });
     
     function renderList() {
@@ -1031,11 +1103,13 @@ function setupMultipleFileLogic(id, actionCallback) {
         if(currentFiles.length > 0) {
             controls.style.display = 'block'; 
             dropZone.style.display = 'none';
+            
             if(!document.getElementById(`add-more-${id}`)) {
                const addMoreBtn = document.createElement('button'); 
                addMoreBtn.id = `add-more-${id}`; 
                addMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Add More PDFs';
                addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer; font-weight:600;`;
+               
                addMoreBtn.addEventListener('click', () => input.click()); 
                listContainer.appendChild(addMoreBtn);
             }
@@ -1062,6 +1136,7 @@ function setupMultipleFileLogic(id, actionCallback) {
             const result = await actionCallback(currentFiles); 
             currentFiles = []; 
             renderList(); 
+            
             await processAndDownload(result.bytes, result.filename, result.type); 
             
             if(typeof AdManager !== 'undefined' && AdManager) {
@@ -1136,7 +1211,9 @@ setupSingleFileLogic('reorder', async (file) => {
             indices.push(...nums); 
         } else { 
             const n = parseInt(part.trim()) - 1; 
-            if (!isNaN(n) && n >= 0 && n < maxPages) indices.push(n); 
+            if (!isNaN(n) && n >= 0 && n < maxPages) {
+                indices.push(n); 
+            }
         }
     });
     
@@ -1212,7 +1289,6 @@ setupSingleFileLogic('removeannots', async (file) => {
     const doc = await PDFDocument.load(await file.arrayBuffer());
     
     doc.getPages().forEach(page => { 
-        // This removes ALL annotations, including Hyperlinks.
         if(page.node.Annots) {
             page.node.delete(PDFName.of('Annots')); 
         }
@@ -1264,6 +1340,7 @@ setupSingleFileLogic('pdftojpg', async (file) => {
         
         canvas.height = viewport.height; 
         canvas.width = viewport.width; 
+        
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
         
         zip.file(`Page_${i}.jpg`, canvas.toDataURL('image/jpeg', 0.9).split(',')[1], {base64: true});
@@ -1279,6 +1356,7 @@ setupSingleFileLogic('extract', async (file) => {
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i); 
         const textContent = await page.getTextContent();
+        
         fullText += `--- Page ${i} ---\n${textContent.items.map(item => item.str).join(" ")}\n\n`;
     }
     
@@ -1310,8 +1388,17 @@ setupMultipleFileLogic('compress', async (files) => {
 });
 
 setupMultipleFileLogic('unlock', async (files) => {
-    const password = document.getElementById('unlock-password').value; 
+    const passwordInput = document.getElementById('unlock-password');
+    const rememberCheck = document.getElementById('unlock-remember');
+    const password = passwordInput.value; 
+    
     if (!password) throw new Error("Please enter a password to unlock the file.");
+    
+    if (rememberCheck && rememberCheck.checked) {
+        localStorage.setItem('amazingpdf_unlock_pass', password);
+    } else {
+        localStorage.removeItem('amazingpdf_unlock_pass');
+    }
     
     const unlockSingleFile = async (file, pwd) => {
         try { 
@@ -1319,6 +1406,7 @@ setupMultipleFileLogic('unlock', async (files) => {
             return await pdfDoc.save(); 
         } catch (err) {
             if (!navigator.onLine) throw new Error("Please turn on internet to unlock via Cloud.");
+            
             const formData = new FormData(); 
             formData.append('file', file); 
             formData.append('password', pwd);
@@ -1351,9 +1439,18 @@ setupMultipleFileLogic('unlock', async (files) => {
 });
 
 setupMultipleFileLogic('protect', async (files) => {
-    const password = document.getElementById('protect-password').value; 
+    const passwordInput = document.getElementById('protect-password');
+    const rememberCheck = document.getElementById('protect-remember');
+    const password = passwordInput.value; 
+    
     if (!password) throw new Error("Password required"); 
     if (!navigator.onLine) throw new Error("Online required for Secure Cloud Protect.");
+    
+    if (rememberCheck && rememberCheck.checked) {
+        localStorage.setItem('amazingpdf_protect_pass', password);
+    } else {
+        localStorage.removeItem('amazingpdf_protect_pass');
+    }
     
     const VERCEL_API_URL = "https://amazing-pdf-tool.vercel.app/api/protect"; 
     
@@ -1598,7 +1695,7 @@ document.getElementById('mobile-search')?.addEventListener('input', handleSearch
 document.getElementById('desktop-search')?.addEventListener('input', handleSearch);
 
 // ==========================================
-// UNIVERSAL PRO VISUAL EDITOR (Fixed Blank screens & Previews)
+// UNIVERSAL PRO VISUAL EDITOR
 // ==========================================
 
 let editPdfDoc = null;
@@ -1631,7 +1728,7 @@ let originalEditState = null;
 let isHoveringTrash = false; 
 const trashZone = document.getElementById('drag-trash-zone');
 let pageEdits = {}; 
-let pageRotations = {}; // Fix for Rotate feature
+let pageRotations = {}; 
 
 document.getElementById('btn-zoom-in')?.addEventListener('click', () => { 
     editScale += 0.2; 
@@ -1645,16 +1742,22 @@ document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
 
 document.getElementById('btn-zoom-fit')?.addEventListener('click', () => {
     if (!editPdfDoc) return;
-    const containerWidth = document.querySelector('.canvas-container').clientWidth;
-    const padding = window.innerWidth > 768 ? 60 : 20;
-    
     editPdfDoc.getPage(editPageNum).then(page => {
         const baseViewport = page.getViewport({ scale: 1 });
-        editScale = (containerWidth - padding) / baseViewport.width;
+        
+        // Accurate screen size calculation (Sidebar + Toolbars minus karke)
+        const sidebarWidth = window.innerWidth > 768 ? 280 : 20;
+        const cWidth = window.innerWidth - sidebarWidth;
+        const cHeight = window.innerHeight - 200; 
+        
+        const scaleW = cWidth / baseViewport.width;
+        const scaleH = cHeight / baseViewport.height;
+        
+        // Jo sabse chhota scale hoga, wo PDF ko 100% fit kar dega
+        editScale = Math.min(scaleW, scaleH, 2.0);
         renderEditPage(editPageNum);
     });
 });
-
 let pendingTextAction = null; 
 let tmState = { bold: false, italic: false, underline: false, align: 'left', bgColor: 'transparent' };
 
@@ -1879,7 +1982,6 @@ document.getElementById('edit-image-input')?.addEventListener('change', function
     }
 });
 
-// Image Watermark Opacity Listener
 document.getElementById('watermark-opacity')?.addEventListener('input', (e) => {
     if(selectedEditIndex !== -1 && pageEdits[editPageNum][selectedEditIndex].type === 'image') {
         pageEdits[editPageNum][selectedEditIndex].opacity = parseFloat(e.target.value); 
@@ -1887,7 +1989,6 @@ document.getElementById('watermark-opacity')?.addEventListener('input', (e) => {
     }
 });
 
-// Fix for Blank Screens: Central Workspace Manager
 function openVisualWorkspace(file, mode) {
     currentEditFile = file; 
     editOriginalFileName = file.name; 
@@ -1906,13 +2007,11 @@ function openVisualWorkspace(file, mode) {
     const btnClear = document.getElementById('btn-edit-clear');
     const applyModeSelector = document.getElementById('edit-apply-mode');
     
-    // New Elements
     const btnRotLeft = document.getElementById('btn-rotate-left'); 
     const btnRotRight = document.getElementById('btn-rotate-right');
     const btnFlatten = document.getElementById('btn-flatten-apply'); 
     const watermarkSettings = document.getElementById('watermark-settings');
 
-    // Reset visibility
     if(headerHelp) headerHelp.style.display = 'none';
     if(btnRotLeft) btnRotLeft.style.display = 'none'; 
     if(btnRotRight) btnRotRight.style.display = 'none';
@@ -2007,7 +2106,6 @@ function openVisualWorkspace(file, mode) {
             const countObj = document.getElementById('page-count'); 
             if(countObj) countObj.textContent = pdf.numPages;
             
-            // Fix for all blank screens: Make sure edit workspace is flex
             window.switchView('edit'); 
             const upl = document.getElementById('edit-upload-section'); 
             if(upl) upl.style.display = 'none'; 
@@ -2016,13 +2114,21 @@ function openVisualWorkspace(file, mode) {
             if(wrk) wrk.style.display = 'flex';
             
             const cont = document.querySelector('.canvas-container'); 
-            const containerWidth = cont ? cont.clientWidth : window.innerWidth;
             const padding = window.innerWidth > 768 ? 60 : 20;
             
             pdf.getPage(1).then(page => {
                  const baseViewport = page.getViewport({ scale: 1 });
-                 let calculatedScale = (containerWidth - padding) / baseViewport.width;
-                 editScale = Math.min(calculatedScale, 1.5); 
+                 
+                 // Initial load par bhi same perfect "Fit to Page" math chalega
+                 const sidebarWidth = window.innerWidth > 768 ? 280 : 20;
+                 const cWidth = window.innerWidth - sidebarWidth;
+                 const cHeight = window.innerHeight - 200;
+                 
+                 const scaleW = cWidth / baseViewport.width;
+                 const scaleH = cHeight / baseViewport.height;
+                 
+                 editScale = Math.min(scaleW, scaleH, 2.0); 
+                 
                  renderEditPage(editPageNum);
             });
             
@@ -2034,7 +2140,6 @@ function openVisualWorkspace(file, mode) {
     fileReader.readAsArrayBuffer(file);
 }
 
-// Rotation Buttons Events
 document.getElementById('btn-rotate-left')?.addEventListener('click', () => { 
     pageRotations[editPageNum] = (pageRotations[editPageNum] || 0) - 90; 
     renderEditPage(editPageNum); 
@@ -2045,7 +2150,6 @@ document.getElementById('btn-rotate-right')?.addEventListener('click', () => {
     renderEditPage(editPageNum); 
 });
 
-// Flatten Direct apply
 document.getElementById('btn-flatten-apply')?.addEventListener('click', () => { 
     document.getElementById('btn-edit-save').click(); 
 });
@@ -2054,12 +2158,13 @@ document.getElementById('btn-close-editor')?.addEventListener('click', () => {
     document.body.classList.remove('is-editing');
     const wrk = document.getElementById('edit-workspace'); 
     if(wrk) wrk.style.display='none'; 
+    
     const upl = document.getElementById('edit-upload-section'); 
     if(upl) upl.style.display='block'; 
+    
     window.switchView('dashboard');
 });
 
-// Allow re-upload inside editor section (if implemented)
 document.getElementById('edit-pdf-input')?.addEventListener('change', function(e) { 
     if (e.target.files[0]) openVisualWorkspace(e.target.files[0], 'edit'); 
 });
