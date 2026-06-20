@@ -156,7 +156,7 @@
             height: 100vh;
             height: 100dvh;
             overflow-y: auto;
-            padding-bottom: calc(env(safe-area-inset-bottom) + 70px); 
+            padding-bottom: calc(env(safe-area-inset-bottom) + 120px) !important; /* FIXED: Increased padding for scroll area to show button above AdMob */
         }
 
         .mobile-header {
@@ -401,7 +401,10 @@
 
             .mobile-header { display: flex; }
             .desktop-search-container { display: none; }
-            .view-section { padding: 20px; }
+            
+            /* FIXED: Extra bottom padding for mobile tools to prevent AdMob overlap */
+            .view-section { padding: 20px; padding-bottom: 120px !important; }
+            
             .page-header h1 { font-size: 1.5rem; }
             .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
             .tool-card { padding: 15px 12px; }
@@ -450,7 +453,7 @@
             .canvas-container {
                 display: block !important;
                 text-align: center !important;
-                padding-bottom: 185px !important; /* Increased for AdMob space */
+                padding-bottom: 185px !important; /* FIXED: Increased for AdMob space */
             }
             
             .canvas-wrapper {
@@ -461,7 +464,7 @@
 
             .bottom-edit-toolbar {
                 position: fixed !important;
-                bottom: 65px !important; /* Lifted above AdMob banner */
+                bottom: 65px !important; /* FIXED: Lifted above AdMob banner */
                 left: 0 !important;
                 width: 100vw !important;
                 z-index: 9999 !important;
