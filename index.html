@@ -156,7 +156,15 @@
             height: 100vh;
             height: 100dvh;
             overflow-y: auto;
-            padding-bottom: calc(env(safe-area-inset-bottom) + 120px) !important; /* FIXED: Increased padding for scroll area to show button above AdMob */
+        }
+
+        /* FIXED: Phantom spacer that guarantees empty space at the end of the scroll for AdMob */
+        .main-wrapper::after {
+            content: "";
+            display: block;
+            min-height: 150px; /* Invisible space so the "Merge" button naturally stops above the ad */
+            width: 100%;
+            flex-shrink: 0;
         }
 
         .mobile-header {
@@ -402,8 +410,7 @@
             .mobile-header { display: flex; }
             .desktop-search-container { display: none; }
             
-            /* FIXED: Extra bottom padding for mobile tools to prevent AdMob overlap */
-            .view-section { padding: 20px; padding-bottom: 120px !important; }
+            .view-section { padding: 20px; } /* Removed buggy padding-bottom */
             
             .page-header h1 { font-size: 1.5rem; }
             .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -453,7 +460,7 @@
             .canvas-container {
                 display: block !important;
                 text-align: center !important;
-                padding-bottom: 185px !important; /* FIXED: Increased for AdMob space */
+                padding-bottom: 185px !important; /* Increased for AdMob space on Canvas */
             }
             
             .canvas-wrapper {
@@ -464,7 +471,7 @@
 
             .bottom-edit-toolbar {
                 position: fixed !important;
-                bottom: 65px !important; /* FIXED: Lifted above AdMob banner */
+                bottom: 65px !important; /* Lifted above AdMob banner */
                 left: 0 !important;
                 width: 100vw !important;
                 z-index: 9999 !important;
@@ -481,9 +488,6 @@
         <h2 style="font-family: 'Poppins', sans-serif; font-weight: 600;">No Internet Connection</h2>
         <p style="font-family: 'Poppins', sans-serif; font-size: 1rem; color: #94a3b8; margin-top: 10px; max-width: 80%;">Please turn on your Wi-Fi or Mobile Data to use Amazing PDF Tool.</p>
     </div>
-
-    <input type="file" id="hidden-camera-input" accept="image/*" capture="environment" style="display: none;">
-    <input type="file" id="hidden-gallery-input" accept="image/*" style="display: none;">
 
     <input type="file" id="hidden-camera-input" accept="image/*" capture="environment" style="display: none;">
     <input type="file" id="hidden-gallery-input" accept="image/*" style="display: none;">
