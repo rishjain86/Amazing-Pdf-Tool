@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NHLHPRHZSW"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NHLHPRHZSW"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -58,11 +57,6 @@
         body.is-editing {
             overflow: hidden !important;
             touch-action: none;
-        }
-
-        /* Ad Safe Area Fixes */
-        .ad-safe-area { 
-            padding-bottom: calc(max(15px, env(safe-area-inset-bottom)) + 70px) !important; 
         }
 
         /* Utility classes for clean scrollbars */
@@ -156,15 +150,6 @@
             height: 100vh;
             height: 100dvh;
             overflow-y: auto;
-        }
-
-        /* FIXED: Phantom spacer that guarantees empty space at the end of the scroll for AdMob */
-        .main-wrapper::after {
-            content: "";
-            display: block;
-            min-height: 150px; /* Invisible space so the "Merge" button naturally stops above the ad */
-            width: 100%;
-            flex-shrink: 0;
         }
 
         .mobile-header {
@@ -410,7 +395,11 @@
             .mobile-header { display: flex; }
             .desktop-search-container { display: none; }
             
-            .view-section { padding: 20px; } /* Removed buggy padding-bottom */
+            /* FIXED: Force Deep Padding so tool buttons stop above the AdMob banner */
+            .view-section { 
+                padding: 20px !important; 
+                padding-bottom: 120px !important; 
+            } 
             
             .page-header h1 { font-size: 1.5rem; }
             .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -420,12 +409,12 @@
             .tool-card p { font-size: 0.75rem; }
             .download-btn { margin: 10px 15px; font-size: 0.9rem; padding: 10px; }
             
-            /* MOBILE TOOLBAR FIX: 1 Line Horizontal Scroll */
+            /* FIXED MOBILE TOOLBAR: Made thicker and more premium */
             #edit-toolbar { 
                 flex-wrap: nowrap !important; 
                 overflow-x: auto !important; 
                 justify-content: flex-start !important; 
-                padding: 10px 15px !important; 
+                padding: 16px 15px !important; /* Increased vertical padding to make bar thicker */
                 scrollbar-width: none; 
                 -ms-overflow-style: none; 
             }
@@ -434,8 +423,9 @@
             .edit-toolbar-btn { 
                 flex: 0 0 auto !important; 
                 margin-bottom: 0 !important; 
-                padding: 6px 12px !important; 
-                font-size: 0.85rem !important; 
+                padding: 10px 16px !important; /* Made buttons larger and touch-friendly */
+                font-size: 0.95rem !important; /* Slightly bigger font */
+                font-weight: 600 !important; 
             }
             .tool-settings { 
                 width: auto !important; 
@@ -443,7 +433,7 @@
                 border-top: none !important; 
                 border-left: 1px solid var(--glass-border) !important; 
                 padding-top: 0 !important; 
-                padding-left: 10px !important; 
+                padding-left: 15px !important; 
                 margin-top: 0 !important; 
                 margin-left: 5px !important; 
             }
@@ -460,7 +450,7 @@
             .canvas-container {
                 display: block !important;
                 text-align: center !important;
-                padding-bottom: 185px !important; /* Increased for AdMob space on Canvas */
+                padding-bottom: 185px !important; 
             }
             
             .canvas-wrapper {
@@ -471,7 +461,7 @@
 
             .bottom-edit-toolbar {
                 position: fixed !important;
-                bottom: 65px !important; /* Lifted above AdMob banner */
+                bottom: 65px !important; 
                 left: 0 !important;
                 width: 100vw !important;
                 z-index: 9999 !important;
@@ -482,7 +472,6 @@
 </head>
 <body>
 
-    <!-- Offline Block Screen -->
     <div id="offline-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white;">
         <i class="fas fa-wifi" style="font-size: 4rem; color: #ef4444; margin-bottom: 20px;"></i>
         <h2 style="font-family: 'Poppins', sans-serif; font-weight: 600;">No Internet Connection</h2>
