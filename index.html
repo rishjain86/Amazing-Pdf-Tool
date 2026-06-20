@@ -950,5 +950,22 @@
     </script>
 
     <script type="module" src="app.js?v=112"></script>
+
+    <script>
+    // 1. Disable Right Click (Context Menu)
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+    // 2. Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U for PC Browsers
+    document.onkeydown = function(e) {
+        if (
+            e.keyCode === 123 || // Block F12
+            (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Block Ctrl+Shift+I
+            (e.ctrlKey && e.shiftKey && e.keyCode === 74) || // Block Ctrl+Shift+J
+            (e.ctrlKey && e.keyCode === 85) // Block Ctrl+U
+        ) {
+            return false;
+        }
+    };
+</script>
 </body>
 </html>
