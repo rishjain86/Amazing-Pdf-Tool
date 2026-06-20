@@ -44,8 +44,8 @@ jobs:
 
     - name: Update App Version Automatically
       run: |
-        sed -i 's/versionCode 1/versionCode 3/g' android/app/build.gradle
-        sed -i 's/versionName "1.0"/versionName "1.3"/g' android/app/build.gradle
+        sed -i 's/versionCode 1/versionCode 4/g' android/app/build.gradle
+        sed -i 's/versionName "1.0"/versionName "1.4"/g' android/app/build.gradle
 
     - name: Inject AdMob App ID Automatically
       run: |
