@@ -10,10 +10,9 @@ import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 // ==========================================
 // APP VERSION CHECKER
 // ==========================================
-const CURRENT_APP_VERSION = 1.4; // Ise 1.4 kar diya hai
+const CURRENT_APP_VERSION = 1.4;
 
 function checkForUpdates() {
-    // Direct amazingpdf.in ka URL use karein (Fast update ke liye)
     const versionUrl = 'https://amazingpdf.in/version.json?time=' + new Date().getTime();
     
     fetch(versionUrl)
@@ -22,11 +21,8 @@ function checkForUpdates() {
             const liveVersion = parseFloat(data.version);
             
             if (liveVersion > CURRENT_APP_VERSION) {
-                // Message bhi JSON se aayega
                 let userWantsToUpdate = confirm(data.message || "New update available! Please update the app to use new features.");
-                
                 if (userWantsToUpdate) {
-                    // Play store ki jagah direct JSON wala download link
                     window.location.href = data.download_url || "https://amazingpdf.in";
                 }
             }
@@ -739,7 +735,6 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
         
         const bytes = await pdfDoc.save();
 
-        // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
         if(typeof AdManager !== 'undefined' && AdManager) {
             await AdManager.showInterstitial();
         }
@@ -783,15 +778,7 @@ const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px 
 const fileListStyle = "display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;";
 const fileItemStyle = "display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border); gap: 10px;";
 
-const brandHeaderHtml = `
-    <div class="app-brand-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
-        <img src="assets/icon.png?v=5" style="width: 40px; height: 40px; object-fit: contain; border-radius: 8px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);">
-        <span style="font-size: 1.2rem; font-weight: 700; color: white; letter-spacing: 0.5px; background: linear-gradient(to right, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Amazing PDF Tool</span>
-    </div>
-`;
-
 const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "", acceptType = "application/pdf") => `
-    ${brandHeaderHtml}
     <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
         <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
         <h3>Select PDF to ${title}</h3>
@@ -806,7 +793,6 @@ const generateSingleFileUI = (id, icon, color, title, btnText, extraHtml = "", a
 `;
 
 const generateMultipleFileUI = (id, icon, color, title, btnText, extraHtml = "", acceptType = "application/pdf") => `
-    ${brandHeaderHtml}
     <div id="${id}-drop-zone" style="${dropZoneStyle.replace('var(--accent)', color)}">
         <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
         <h3>Drag & Drop PDFs to ${title}</h3>
@@ -850,7 +836,7 @@ if (ui.extract) ui.extract.innerHTML = generateSingleFileUI('extract', 'fa-file-
 
 // Standard Tools
 if (ui.merge) {
-    ui.merge.innerHTML = brandHeaderHtml + `
+    ui.merge.innerHTML = `
         <div id="merge-drop-zone" style="${dropZoneStyle}">
             <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--accent); margin-bottom: 15px;"></i>
             <h3>Drag & Drop PDFs or ZIP</h3>
@@ -863,7 +849,7 @@ if (ui.merge) {
 }
 
 if (ui.jpgtopdf) {
-    ui.jpgtopdf.innerHTML = brandHeaderHtml + `
+    ui.jpgtopdf.innerHTML = `
         <div id="jpgtopdf-drop-zone" style="${dropZoneStyle.replace('var(--accent)', '#eab308')}">
             <i class="fas fa-images" style="font-size: 3rem; color: #eab308; margin-bottom: 15px;"></i>
             <h3>Drag & Drop Images</h3>
@@ -876,7 +862,7 @@ if (ui.jpgtopdf) {
 }
 
 if (ui.htmltopdf) {
-    ui.htmltopdf.innerHTML = brandHeaderHtml + `
+    ui.htmltopdf.innerHTML = `
         <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border);">
             <label style="color: var(--text-secondary);">Paste your HTML Code here:</label>
             <textarea id="html-input" rows="10" style="${inputStyle}" placeholder="<h1>Hello</h1>"></textarea>
@@ -1082,7 +1068,6 @@ function setupSingleFileLogic(id, actionCallback) {
                 const result = await actionCallback(currentFile); 
                 document.getElementById(`reset-${id}`)?.click();
 
-                // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
                 if(typeof AdManager !== 'undefined' && AdManager) {
                     await AdManager.showInterstitial();
                 }
@@ -1175,7 +1160,6 @@ function setupMultipleFileLogic(id, actionCallback) {
             currentFiles = []; 
             renderList(); 
             
-            // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
             if(typeof AdManager !== 'undefined' && AdManager) {
                 await AdManager.showInterstitial();
             }
@@ -1547,7 +1531,6 @@ if (ui.htmltopdf) {
             document.getElementById('html-input').value = '';
             document.body.removeChild(iframe);
             
-            // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
             if(typeof AdManager !== 'undefined' && AdManager) {
                 await AdManager.showInterstitial();
             }
@@ -1626,7 +1609,6 @@ if (ui.merge) {
             mergeFiles = []; 
             renderMergeList(); 
             
-            // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
             if(typeof AdManager !== 'undefined' && AdManager) {
                 await AdManager.showInterstitial();
             }
@@ -1722,7 +1704,6 @@ if (ui.jpgtopdf) {
             imageFiles = []; 
             renderImgList(); 
             
-            // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
             if(typeof AdManager !== 'undefined' && AdManager) {
                 await AdManager.showInterstitial();
             }
@@ -1797,7 +1778,6 @@ document.getElementById('btn-zoom-fit')?.addEventListener('click', () => {
     editPdfDoc.getPage(editPageNum).then(page => {
         const baseViewport = page.getViewport({ scale: 1 });
         
-        // Accurate screen size calculation (Sidebar + Toolbars minus karke)
         const sidebarWidth = window.innerWidth > 768 ? 280 : 20;
         const cWidth = window.innerWidth - sidebarWidth;
         const cHeight = window.innerHeight - 200; 
@@ -1805,7 +1785,6 @@ document.getElementById('btn-zoom-fit')?.addEventListener('click', () => {
         const scaleW = cWidth / baseViewport.width;
         const scaleH = cHeight / baseViewport.height;
         
-        // Jo sabse chhota scale hoga, wo PDF ko 100% fit kar dega
         editScale = Math.min(scaleW, scaleH, 2.0);
         renderEditPage(editPageNum);
     });
@@ -2171,7 +2150,6 @@ function openVisualWorkspace(file, mode) {
             pdf.getPage(1).then(page => {
                  const baseViewport = page.getViewport({ scale: 1 });
                  
-                 // Initial load par bhi same perfect "Fit to Page" math chalega
                  const sidebarWidth = window.innerWidth > 768 ? 280 : 20;
                  const cWidth = window.innerWidth - sidebarWidth;
                  const cHeight = window.innerHeight - 200;
@@ -2684,7 +2662,6 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
         const applyModeObj = document.getElementById('edit-apply-mode'); 
         const applyMode = applyModeObj ? applyModeObj.value : 'current';
 
-        // AD FIX: Show Ad BEFORE processAndDownload triggers the Share popup
         if(typeof AdManager !== 'undefined' && AdManager) {
             await AdManager.showInterstitial();
         }
@@ -2964,20 +2941,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     toolbarButtons.forEach(button => {
         button.addEventListener('click', () => {
-            // Thoda timeout lagaya hai taaki pehle button "Active" ho jaye uske baad check ho
             setTimeout(() => {
                 const overlayCanvas = document.getElementById('pdf-overlay-canvas');
                 if (!overlayCanvas) return;
 
-                // Check karo ki kya user ne 'Draw' ya 'Whiteout' (Pen) select kiya hai
                 const isDrawActive = document.getElementById('btn-edit-draw').classList.contains('edit-tool-active');
                 const isWhiteoutActive = document.getElementById('btn-edit-whiteout').classList.contains('edit-tool-active');
                 
                 if (isDrawActive || isWhiteoutActive) {
-                    // Agar pen chalana hai toh Screen ka scroll block kardo (taaki ungli chalane se screen na hile)
                     overlayCanvas.style.touchAction = 'none';
                 } else {
-                    // Agar koi doosra tool hai ya tool hata diya gaya hai, toh scroll enable kardo (mobile default scroll)
                     overlayCanvas.style.touchAction = 'pan-x pan-y';
                 }
             }, 100); 
@@ -2987,16 +2960,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. PINCH TO ZOOM LOGIC (2 fingers zooming) ---
     const overlayCanvas = document.getElementById('pdf-overlay-canvas');
-    let initialPinchDistance = null; // Dono ungliyon ki shuruvaati doori
+    let initialPinchDistance = null;
 
     if (overlayCanvas) {
-        // Jab ungliyan screen par lagengi
         overlayCanvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
-                // Agar 2 ungli hain toh browser ka default behavior rok do taaki page ajeeb sa zoom na ho
                 e.preventDefault(); 
-                
-                // Dono ungliyon ke beech ki doori calculate karo
                 initialPinchDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
@@ -3004,40 +2973,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, { passive: false });
 
-        // Jab ungliyan screen par chalengi
         overlayCanvas.addEventListener('touchmove', (e) => {
-            // Check ki dono ungli touch kar rahi hain aur humne shuruvaati distance liya hua hai
             if (e.touches.length === 2 && initialPinchDistance !== null) {
                 e.preventDefault(); 
                 
-                // Current ungliyon ki doori calculate karo
                 const currentDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
                 );
 
-                // Check karo kitni doori tay ki
                 const distanceDifference = currentDistance - initialPinchDistance;
                 
-                // 40px ka gap rakha hai taaki halke se hilne par ekdum se bahut zyada zoom na ho jaye
                 if (Math.abs(distanceDifference) > 40) {
                     if (distanceDifference > 0) {
-                        // Ungliyan door jaa rahi hain = Zoom In
                         const zoomInButton = document.getElementById('btn-zoom-in');
                         if(zoomInButton) zoomInButton.click();
                     } else {
-                        // Ungliyan paas aa rahi hain = Zoom Out
                         const zoomOutButton = document.getElementById('btn-zoom-out');
                         if(zoomOutButton) zoomOutButton.click();
                     }
-                    
-                    // Dobara trigger karne ke liye purane distance ko naye wale se update kardo
                     initialPinchDistance = currentDistance; 
                 }
             }
         }, { passive: false });
 
-        // Jab koi ek ya dono ungli screen se hatayega toh calculation wapas zero (reset) kardo
         overlayCanvas.addEventListener('touchend', (e) => {
             if (e.touches.length < 2) {
                 initialPinchDistance = null;
@@ -3051,23 +3010,18 @@ function checkNetworkStatus() {
     const offlineScreen = document.getElementById('offline-screen');
     
     if (navigator.onLine) {
-        // Internet is ON - Hide the block screen
         offlineScreen.style.display = 'none';
         
-        // Auto-reload AdMob Banner when internet comes back
         if (typeof AdManager !== 'undefined' && typeof AdManager.showBanner === 'function') {
             console.log("Internet restored. Reloading AdMob Banner...");
             AdManager.showBanner();
         }
     } else {
-        // Internet is OFF - Show the block screen
         offlineScreen.style.display = 'flex';
     }
 }
 
-// Listen for real-time network changes
 window.addEventListener('online', checkNetworkStatus);
 window.addEventListener('offline', checkNetworkStatus);
 
-// Run the check automatically as soon as the app opens
 setTimeout(checkNetworkStatus, 1000);
