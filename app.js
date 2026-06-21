@@ -1384,24 +1384,44 @@ setupSingleFileLogic('extract', async (file) => {
 });
 
 setupMultipleFileLogic('compress', async (files) => {
-    if (files.length === 1) {
-        const pdfDoc = await PDFDocument.load(await files[0].arrayBuffer(), { updateMetadata: false }); 
+    
+    // Core engine jo page ko image banakar compress karega
+    const compressSingleFile = async (file) => {
+        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
         const newPdf = await PDFDocument.create();
-        
-        const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices()); 
-        copiedPages.forEach(p => newPdf.addPage(p));
-        
-        return { bytes: await newPdf.save({ useObjectStreams: true, compress: true }), filename: `${getBaseName(files[0].name)}_Compressed.pdf`, type: 'application/pdf' };
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            // Scale 1.25 matlab quality readable rahegi par file size chota ho jayega
+            const viewport = page.getViewport({ scale: 1.25 }); 
+
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+
+            await page.render({ canvasContext: ctx, viewport }).promise;
+
+            // ASLI MAGIC: JPEG format mein 70% (0.7) quality par compress karna
+            const imgData = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+            const pdfImage = await newPdf.embedJpg(imgData);
+
+            const newPage = newPdf.addPage([viewport.width, viewport.height]);
+            newPage.drawImage(pdfImage, {
+                x: 0, y: 0, width: viewport.width, height: viewport.height
+            });
+        }
+        return await newPdf.save();
+    };
+
+    if (files.length === 1) {
+        const bytes = await compressSingleFile(files[0]);
+        return { bytes, filename: `${getBaseName(files[0].name)}_Compressed.pdf`, type: 'application/pdf' };
     } else {
         const zip = new JSZip();
         for (const file of files) {
-            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false }); 
-            const newPdf = await PDFDocument.create();
-            
-            const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices()); 
-            copiedPages.forEach(p => newPdf.addPage(p));
-            
-            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await newPdf.save({ useObjectStreams: true, compress: true }));
+            const bytes = await compressSingleFile(file);
+            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, bytes);
         }
         return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `Batch_Compressed.zip`, type: 'application/zip' };
     }
