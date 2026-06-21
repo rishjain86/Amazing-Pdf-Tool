@@ -35,17 +35,24 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 📝 Auto-Update Versions Everywhere (The Magic)
+    - name: 📝 Auto-Update Versions Everywhere
       run: |
+        # 1. index.html updates
         sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" index.html
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
         sed -i "s/<span id=\"app-version-text\">.*<\/span>/<span id=\"app-version-text\">Version ${{ github.event.inputs.version_name }}<\/span>/g" index.html
+        
+        # 2. app.js update (Version string update)
+        sed -i "s/const VERSION = .*/const VERSION = '${{ github.event.inputs.version_name }}';/g" app.js
+        
+        # 3. version.json update
+        echo '{"version": "${{ github.event.inputs.version_name }}", "code": ${{ github.event.inputs.version_code }}}' > version.json
 
-    - name: 💾 Save Updated Version to GitHub Repo
+    - name: 💾 Save Updated Files to GitHub Repo
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add index.html
+        git add index.html app.js version.json
         git commit -m "🚀 Auto-bump version to ${{ github.event.inputs.version_name }}" || echo "No changes to commit"
         git push
 
@@ -58,6 +65,7 @@ jobs:
         cp *.html public/ || true
         cp *.js public/ || true
         cp *.css public/ || true
+        cp *.json public/ || true
         cp -r assets public/ || true
 
     - name: Create Android Project
