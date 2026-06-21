@@ -1,19 +1,13 @@
-const fs = require('fs');
 const admin = require('firebase-admin');
 
-// 1. Aapke index.html se naya version dhoondhega
-const html = fs.readFileSync('index.html', 'utf8');
-const match = html.match(/const\s+CURRENT_APP_VERSION\s*=\s*([0-9.]+);/);
+const latestVersion = parseFloat(process.env.NEW_VERSION);
+console.log(`🚀 New version detected from Action: ${latestVersion}`);
 
-if (!match) {
-    console.error("❌ Error: index.html mein CURRENT_APP_VERSION nahi mila!");
+if (!latestVersion) {
+    console.error("❌ Error: Version input missing!");
     process.exit(1);
 }
 
-const latestVersion = parseFloat(match[1]);
-console.log(`🚀 Naya version detect hua: ${latestVersion}`);
-
-// 2. Firebase Database se connect karega
 const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -21,7 +15,6 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// 3. Database ko automatically update kar dega
 db.collection('amazingpdf_settings').doc('app_config').set({
     latest_version: latestVersion
 }, { merge: true })
@@ -30,6 +23,6 @@ db.collection('amazingpdf_settings').doc('app_config').set({
     process.exit(0);
 })
 .catch((error) => {
-    console.error("❌ Firebase update fail ho gaya:", error);
+    console.error("❌ Firebase update failed:", error);
     process.exit(1);
 });
