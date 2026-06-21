@@ -21,6 +21,8 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -37,6 +39,15 @@ jobs:
       run: |
         sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" index.html
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
+        sed -i "s/<span id=\"app-version-text\">.*<\/span>/<span id=\"app-version-text\">Version ${{ github.event.inputs.version_name }}<\/span>/g" index.html
+
+    - name: 💾 Save Updated Version to GitHub Repo
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add index.html
+        git commit -m "🚀 Auto-bump version to ${{ github.event.inputs.version_name }}" || echo "No changes to commit"
+        git push
 
     - name: Install Dependencies
       run: npm install
