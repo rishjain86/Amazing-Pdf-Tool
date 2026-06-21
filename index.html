@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NHLHPRHZSW"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NHLHPRHZSW"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -473,7 +472,6 @@
 </head>
 <body>
 
-    <!-- Offline Block Screen -->
     <div id="offline-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white;">
         <i class="fas fa-wifi" style="font-size: 4rem; color: #ef4444; margin-bottom: 20px;"></i>
         <h2 style="font-family: 'Poppins', sans-serif; font-weight: 600;">No Internet Connection</h2>
@@ -929,14 +927,12 @@
         </div>
     </div>
 
-    <!-- UPDATE MODAL (Makkahan Fixes Here!) -->
     <div id="update-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; padding: 20px; box-sizing: border-box; backdrop-filter: blur(5px);">
         <div style="font-size: 5rem; margin-bottom: 20px; filter: drop-shadow(0px 10px 15px rgba(16, 185, 129, 0.4));">🚀</div>
         <h2 style="font-size: 2rem; margin-bottom: 10px; font-family: 'Poppins', sans-serif;">Update Required!</h2>
         <p style="margin-bottom: 30px; color: var(--text-secondary); font-size: 1.1rem; max-width: 300px; font-family: 'Poppins', sans-serif;">A new version of Amazing PDF Tool is available. Please update the app to continue using it securely.</p>
         
-        <!-- YAHAN FIX KIYA HAI: Direct APK Download Link lagaya hai -->
-        <button onclick="window.location.href='https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk'" style="background: linear-gradient(45deg, #10b981, #3b82f6); color: white; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); font-family: 'Poppins', sans-serif; transition: 0.3s;">Update App Now</button>
+        <button onclick="window.open('https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk', '_blank')" style="background: linear-gradient(45deg, #10b981, #3b82f6); color: white; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); font-family: 'Poppins', sans-serif; transition: 0.3s;">Update App Now</button>
     </div>
 
     <script>
@@ -970,17 +966,16 @@
     // 2. Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U for PC Browsers
     document.onkeydown = function(e) {
         if (
-            e.keyCode === 123 || 
-            (e.ctrlKey && e.shiftKey && e.keyCode === 73) || 
-            (e.ctrlKey && e.shiftKey && e.keyCode === 74) || 
-            (e.ctrlKey && e.keyCode === 85) 
+            e.keyCode === 123 || // Block F12
+            (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Block Ctrl+Shift+I
+            (e.ctrlKey && e.shiftKey && e.keyCode === 74) || // Block Ctrl+Shift+J
+            (e.ctrlKey && e.keyCode === 85) // Block Ctrl+U
         ) {
             return false;
         }
     };
     </script>
 
-    <!-- FIREBASE AND VERSION UPDATE LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
@@ -998,16 +993,10 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Version variable for auto-update via sed
         const CURRENT_APP_VERSION = 1.7;
 
         async function checkAppVersion() {
-            // YAHAN FIX KIYA HAI: Direct URL check karega ki website amazingpdf.in par toh nahi hai
-            // Isse 100% guarantee ho jayegi ki website par kabhi pop-up nahi aayega!
-            if (window.location.hostname.includes("amazingpdf.in") || window.location.hostname.includes("github.io")) {
-                console.log("Live website detected - update check skipped.");
-                return; 
-            }
-
             try {
                 const docRef = doc(db, "amazingpdf_settings", "app_config");
                 const docSnap = await getDoc(docRef);
@@ -1016,6 +1005,19 @@
                     const data = docSnap.data();
                     const latestVersionFromDB = parseFloat(data.latest_version);
                     
+                    const versionTextElement = document.getElementById('app-version-text');
+                    if(versionTextElement) {
+                        versionTextElement.innerText = "Version " + latestVersionFromDB;
+                    }
+
+                    const hostname = window.location.hostname;
+                    const isWebsite = hostname.includes("amazingpdf.in") || hostname.includes("vercel.app") || hostname.includes("github.io");
+
+                    if (isWebsite) {
+                        console.log("Website detected. Update modal blocked.");
+                        return; 
+                    }
+
                     if (latestVersionFromDB > CURRENT_APP_VERSION) {
                         document.getElementById('update-modal').style.display = 'flex';
                     }
@@ -1027,6 +1029,5 @@
 
         setTimeout(checkAppVersion, 2000);
     </script>
-
 </body>
 </html>
