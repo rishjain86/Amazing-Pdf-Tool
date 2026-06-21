@@ -4,19 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'New Version Name (e.g., 1.6)'
+        description: 'New Version Name (e.g., 1.7)'
         required: true
-        default: '1.6'
+        default: '1.7'
       version_code:
-        description: 'New Version Code (e.g., 6)'
+        description: 'New Version Code (e.g., 7)'
         required: true
-        default: '6'
+        default: '7'
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Important: Permission to auto-create release
+      contents: write 
 
     steps:
     - name: Checkout Code
@@ -35,11 +35,9 @@ jobs:
 
     - name: 📝 Auto-Update Versions Everywhere (The Magic)
       run: |
-        # 1. Update app.js version
         sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" app.js
-        
-        # 2. Update index.html script tag (Cache Buster)
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
+        sed -i "s/<span id=\"app-version-text\">.*<\/span>/<span id=\"app-version-text\">Version ${{ github.event.inputs.version_name }}<\/span>/g" index.html
 
     - name: Install Dependencies
       run: npm install
@@ -92,15 +90,15 @@ jobs:
         APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools -name apksigner | sort -r | head -n 1)
         
         $ZIPALIGN -v -p 4 $APK_PATH app-release-aligned.apk
-        $APKSIGNER sign --ks amazingpdf.jks --ks-pass pass:amazing123 --ks-key-alias amazingpdf --out Amazing_PDF_Store_Ready.apk app-release-aligned.apk
+        $APKSIGNER sign --ks amazingpdf.jks --ks-pass pass:amazing123 --ks-key-alias amazingpdf --out AmazingPDF.apk app-release-aligned.apk
 
     - name: 📦 Auto-Publish GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ github.event.inputs.version_name }}
         name: Amazing PDF v${{ github.event.inputs.version_name }}
-        files: Amazing_PDF_Store_Ready.apk
-        body: "🚀 Auto-generated release for Amazing PDF version ${{ github.event.inputs.version_name }}. Enjoy the new updates!"
+        files: AmazingPDF.apk
+        body: "🚀 Auto-generated release for Amazing PDF version ${{ github.event.inputs.version_name }}."
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
