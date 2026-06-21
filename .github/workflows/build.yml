@@ -45,8 +45,8 @@ jobs:
         # 2. app.js update
         sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" app.js
         
-        # 3. version.json update
-        echo '{"version": "${{ github.event.inputs.version_name }}", "code": ${{ github.event.inputs.version_code }}}' > version.json
+        # 3. version.json update with "latest" link
+        echo '{"version": "${{ github.event.inputs.version_name }}", "code": ${{ github.event.inputs.version_code }}, "download_url": "https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk"}' > version.json
 
     - name: 💾 Save Updated Files to GitHub Repo
       run: |
