@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NHLHPRHZSW"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NHLHPRHZSW"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -473,7 +472,6 @@
 </head>
 <body>
 
-    <!-- Offline Block Screen -->
     <div id="offline-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white;">
         <i class="fas fa-wifi" style="font-size: 4rem; color: #ef4444; margin-bottom: 20px;"></i>
         <h2 style="font-family: 'Poppins', sans-serif; font-weight: 600;">No Internet Connection</h2>
@@ -929,6 +927,13 @@
         </div>
     </div>
 
+    <div id="update-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 999999; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; padding: 20px; box-sizing: border-box; backdrop-filter: blur(5px);">
+        <div style="font-size: 5rem; margin-bottom: 20px; filter: drop-shadow(0px 10px 15px rgba(16, 185, 129, 0.4));">🚀</div>
+        <h2 style="font-size: 2rem; margin-bottom: 10px; font-family: 'Poppins', sans-serif;">Update Required!</h2>
+        <p style="margin-bottom: 30px; color: var(--text-secondary); font-size: 1.1rem; max-width: 300px; font-family: 'Poppins', sans-serif;">A new version of Amazing PDF Tool is available. Please update the app to continue using it securely.</p>
+        <button onclick="window.open('https://github.com/rishjain86/Amazing-Pdf-Tool/releases', '_blank')" style="background: linear-gradient(45deg, #10b981, #3b82f6); color: white; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); font-family: 'Poppins', sans-serif; transition: 0.3s;">Update App Now</button>
+    </div>
+
     <script>
         function toggleMenu() {
             const sidebar = document.querySelector('.sidebar');
@@ -968,6 +973,52 @@
             return false;
         }
     };
-</script>
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        // 1. Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyByFZl5tFoRh3MasrISCpMTDeYutQitV1I",
+            authDomain: "amazing-pdf-tool.firebaseapp.com",
+            projectId: "amazing-pdf-tool",
+            storageBucket: "amazing-pdf-tool.firebasestorage.app",
+            messagingSenderId: "608437496158",
+            appId: "1:608437496158:web:06e0f4bc83dbfceb93c7cf",
+            measurementId: "G-CW6WGXDCSS"
+        };
+
+        // 2. Init
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 3. Current Version Code
+        const CURRENT_APP_VERSION = 1.7;
+
+        // 4. Verification Check
+        async function checkAppVersion() {
+            try {
+                const docRef = doc(db, "amazingpdf_settings", "app_config");
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const latestVersionFromDB = parseFloat(data.latest_version);
+                    
+                    if (latestVersionFromDB > CURRENT_APP_VERSION) {
+                        document.getElementById('update-modal').style.display = 'flex';
+                    }
+                }
+            } catch(error) {
+                console.error("Version fetch error:", error);
+            }
+        }
+
+        // Wait 2 seconds before checking to allow UI to load smoothly
+        setTimeout(checkAppVersion, 2000);
+    </script>
+
 </body>
 </html>
