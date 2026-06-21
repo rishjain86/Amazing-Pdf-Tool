@@ -1382,19 +1382,36 @@ setupSingleFileLogic('extract', async (file) => {
     
     return { bytes: new TextEncoder().encode(fullText), filename: `${getBaseName(file.name)}_Extracted.txt`, type: 'text/plain' };
 });
-
 setupMultipleFileLogic('compress', async (files) => {
     
-    // Core engine jo page ko image banakar compress karega
+    // Smart Hybrid Engine
     const compressSingleFile = async (file) => {
+        const originalSize = file.size;
+        const THRESHOLD = 1.5 * 1024 * 1024; // 1.5 MB
+        
+        // 1. STANDARD METHOD (For small text-based files)
+        if (originalSize < THRESHOLD) { 
+            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false }); 
+            const newPdf = await PDFDocument.create();
+            const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices()); 
+            copiedPages.forEach(p => newPdf.addPage(p));
+            
+            let standardBytes = await newPdf.save({ useObjectStreams: true, compress: true });
+            
+            // Agar standard method se size badh gaya, toh original return karo
+            if (standardBytes.length >= originalSize) {
+                return new Uint8Array(await file.arrayBuffer()); 
+            }
+            return standardBytes;
+        }
+
+        // 2. EXTREME CANVAS METHOD (For large image-heavy files)
         const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
         const newPdf = await PDFDocument.create();
 
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
-            // Scale 1.25 matlab quality readable rahegi par file size chota ho jayega
             const viewport = page.getViewport({ scale: 1.25 }); 
-
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -1402,16 +1419,20 @@ setupMultipleFileLogic('compress', async (files) => {
 
             await page.render({ canvasContext: ctx, viewport }).promise;
 
-            // ASLI MAGIC: JPEG format mein 70% (0.7) quality par compress karna
             const imgData = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
             const pdfImage = await newPdf.embedJpg(imgData);
 
             const newPage = newPdf.addPage([viewport.width, viewport.height]);
-            newPage.drawImage(pdfImage, {
-                x: 0, y: 0, width: viewport.width, height: viewport.height
-            });
+            newPage.drawImage(pdfImage, { x: 0, y: 0, width: viewport.width, height: viewport.height });
         }
-        return await newPdf.save();
+        
+        let extremeBytes = await newPdf.save();
+        
+        // Safety Check: Agar heavy hone ke bawajood size badh jaye, toh original wapas do
+        if (extremeBytes.length >= originalSize) {
+            return new Uint8Array(await file.arrayBuffer());
+        }
+        return extremeBytes;
     };
 
     if (files.length === 1) {
