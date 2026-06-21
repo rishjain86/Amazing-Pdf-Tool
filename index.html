@@ -998,7 +998,13 @@
         const CURRENT_APP_VERSION = 1.7;
 
         // 4. Verification Check
-        async function checkAppVersion() {
+                async function checkAppVersion() {
+            // 🛑 NAYA LOGIC: Agar ye website (browser) hai, toh check mat karo!
+            if (!window.Capacitor) {
+                console.log("Website par chal raha hai - Update check skipped.");
+                return; // Yahin se code rok do
+            }
+
             try {
                 const docRef = doc(db, "amazingpdf_settings", "app_config");
                 const docSnap = await getDoc(docRef);
@@ -1014,7 +1020,7 @@
             } catch(error) {
                 console.error("Version fetch error:", error);
             }
-        }
+                }
 
         // Wait 2 seconds before checking to allow UI to load smoothly
         setTimeout(checkAppVersion, 2000);
