@@ -42,8 +42,8 @@ jobs:
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
         sed -i "s/<span id=\"app-version-text\">.*<\/span>/<span id=\"app-version-text\">Version ${{ github.event.inputs.version_name }}<\/span>/g" index.html
         
-        # 2. app.js update (Version string update)
-        sed -i "s/const VERSION = .*/const VERSION = '${{ github.event.inputs.version_name }}';/g" app.js
+        # 2. app.js update
+        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" app.js
         
         # 3. version.json update
         echo '{"version": "${{ github.event.inputs.version_name }}", "code": ${{ github.event.inputs.version_code }}}' > version.json
