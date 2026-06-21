@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'New Version Name (e.g., 1.7)'
+        description: 'New Version Name (e.g., 1.8)'
         required: true
-        default: '1.7'
+        default: '1.8'
       version_code:
-        description: 'New Version Code (e.g., 7)'
+        description: 'New Version Code (e.g., 8)'
         required: true
-        default: '7'
+        default: '8'
 
 jobs:
   build-and-release:
@@ -35,9 +35,8 @@ jobs:
 
     - name: 📝 Auto-Update Versions Everywhere (The Magic)
       run: |
-        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" app.js
+        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" index.html
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
-        sed -i "s/<span id=\"app-version-text\">.*<\/span>/<span id=\"app-version-text\">Version ${{ github.event.inputs.version_name }}<\/span>/g" index.html
 
     - name: Install Dependencies
       run: npm install
@@ -101,4 +100,11 @@ jobs:
         body: "🚀 Auto-generated release for Amazing PDF version ${{ github.event.inputs.version_name }}."
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
+
+    - name: 🔥 Update Firebase Database Automatically
+      env:
+        FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        NEW_VERSION: ${{ github.event.inputs.version_name }}
+      run: |
+        npm install firebase-admin
+        node update_firebase.js
