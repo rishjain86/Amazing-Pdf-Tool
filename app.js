@@ -685,10 +685,6 @@ document.getElementById('btn-scanner-preview')?.addEventListener('click', async 
     }
 });
 
-document.getElementById('btn-preview-back')?.addEventListener('click', () => { 
-    document.getElementById('scanner-preview-modal').style.display = 'none'; 
-});
-
 document.getElementById('btn-scanner-export')?.addEventListener('click', async () => {
     if (scannerPages.length === 0) return;
     
@@ -1395,7 +1391,7 @@ setupMultipleFileLogic('compress', async (files) => {
         const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices()); 
         copiedPages.forEach(p => newPdf.addPage(p));
         
-        return { bytes: await newPdf.save({ useObjectStreams: true }), filename: `${getBaseName(files[0].name)}_Compressed.pdf`, type: 'application/pdf' };
+        return { bytes: await newPdf.save({ useObjectStreams: true, compress: true }), filename: `${getBaseName(files[0].name)}_Compressed.pdf`, type: 'application/pdf' };
     } else {
         const zip = new JSZip();
         for (const file of files) {
@@ -1405,7 +1401,7 @@ setupMultipleFileLogic('compress', async (files) => {
             const copiedPages = await newPdf.copyPages(pdfDoc, pdfDoc.getPageIndices()); 
             copiedPages.forEach(p => newPdf.addPage(p));
             
-            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await newPdf.save({ useObjectStreams: true }));
+            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await newPdf.save({ useObjectStreams: true, compress: true }));
         }
         return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `Batch_Compressed.zip`, type: 'application/zip' };
     }
