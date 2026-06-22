@@ -609,12 +609,18 @@
     </div>
 
     <div id="dynamic-ui-overlay">
-        <div class="dynamic-ui-box">
+        <div class="dynamic-ui-box glass">
             
-            <div id="processing-state">
-                <h2 class="dynamic-ui-title" id="action-title">Processing...</h2>
-                <div class="accent-loader"></div>
-                <p class="dynamic-ui-text">Please keep the app open.<br>This might take a moment.</p>
+            <div id="processing-state" style="width: 100%;">
+                <h2 class="dynamic-ui-title" id="action-title">Reading Files...</h2>
+                
+                <div id="loading-bar-container" style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin: 15px 0;">
+                    <div id="loading-bar-fill" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear;"></div>
+                </div>
+                <p id="loading-text" class="dynamic-ui-text" style="margin-bottom: 20px;">0%</p>
+
+                <div id="processing-spinner" class="accent-loader" style="display: none;"></div>
+                <p id="processing-msg" class="dynamic-ui-text" style="display: none;">Please keep the app open.<br>This might take a moment.</p>
             </div>
 
             <div id="success-state">
@@ -1115,7 +1121,7 @@
         });
     </script>
 
-    <script type="module" src="app.js?v=9"></script>
+    <script type="module" src="app.js?v=10"></script>
 
     <script>
     // 1. Disable Right Click (Context Menu)
