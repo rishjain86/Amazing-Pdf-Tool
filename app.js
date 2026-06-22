@@ -3198,9 +3198,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 2. PINCH TO ZOOM LOGIC (FIXED: SAFE DELEGATION) ---
+       // --- 2. PINCH TO ZOOM LOGIC (FIXED: RACE CONDITION & DEBOUNCE) ---
     const overlayCanvas = document.getElementById('pdf-overlay-canvas');
     let initialPinchDistance = null;
+    let zoomTimeout = null; // Flicker aur takrav ko rokne ke liye timer
 
     if (overlayCanvas) {
         overlayCanvas.addEventListener('touchstart', (e) => {
@@ -3210,11 +3211,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.touches[0].pageY - e.touches[1].pageY
                 );
             }
-        }, { passive: true }); // Passive true rakha hai taaki scrolling block na ho
+        }, { passive: true });
 
         overlayCanvas.addEventListener('touchmove', (e) => {
             if (e.touches.length === 2 && initialPinchDistance !== null) {
-                // Pinching ke waqt hi sirf preventDefault
                 e.preventDefault(); 
                 
                 const currentDistance = Math.hypot(
@@ -3230,19 +3230,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         editScale = Math.max(0.4, editScale - 0.2);
                     }
-                    if(typeof renderEditPage === 'function') {
-                        renderEditPage(editPageNum);
-                    }
+                    
                     initialPinchDistance = currentDistance; 
+
+                    // FIX 2: PDF ab har mili-second mein redraw nahi hogi. 
+                    // Jab user fingers rokega (150ms pause), tabhi ek final smooth render hoga.
+                    clearTimeout(zoomTimeout);
+                    zoomTimeout = setTimeout(() => {
+                        if(typeof renderEditPage === 'function') {
+                            renderEditPage(editPageNum);
+                        }
+                    }, 150); 
                 }
             }
-        }, { passive: false }); // Pinch ke liye false rakha hai taaki flicker na ho
+        }, { passive: false });
 
         overlayCanvas.addEventListener('touchend', (e) => {
-            initialPinchDistance = null;
+            if (e.touches.length < 2) {
+                initialPinchDistance = null;
+            }
         }, { passive: true });
     }
-});
 
 // Network Connectivity Checker & Ad Reloader
 function checkNetworkStatus() {
