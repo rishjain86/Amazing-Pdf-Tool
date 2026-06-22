@@ -59,6 +59,21 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
+    # 👇 YAHAN OBFUSCATION ADD KIYA HAI 👇
+    - name: 🔐 Secure & Obfuscate Premium Code
+      run: |
+        echo "Starting Obfuscation..."
+        npm install -g javascript-obfuscator
+        
+        echo "Securing app.js..."
+        javascript-obfuscator app.js --output app.js --compact true --control-flow-flattening true --control-flow-flattening-threshold 0.7 --string-array true --string-array-encoding 'base64' --identifier-names-generator hexadecimal
+        
+        echo "Securing adManager.js..."
+        javascript-obfuscator adManager.js --output adManager.js --compact true --string-array true --string-array-encoding 'base64' --identifier-names-generator hexadecimal
+        
+        echo "✅ Obfuscation Complete!"
+    # 👆 OBFUSCATION COMPLETE 👆
+
     - name: Auto-Copy Files to Public for App Build
       run: |
         mkdir -p public
