@@ -10,7 +10,7 @@ import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 // ==========================================
 // APP VERSION CHECKER
 // ==========================================
-const CURRENT_APP_VERSION = 1.9;
+const CURRENT_APP_VERSION = 1.0;
 
 function checkForUpdates() {
     const versionUrl = 'https://amazingpdf.in/version.json?time=' + new Date().getTime();
@@ -3196,24 +3196,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-
-    // --- 2. PINCH TO ZOOM LOGIC (2 fingers zooming) ---
+    // --- 2. PINCH TO ZOOM LOGIC (FIXED: SAFE DELEGATION) ---
     const overlayCanvas = document.getElementById('pdf-overlay-canvas');
     let initialPinchDistance = null;
 
     if (overlayCanvas) {
         overlayCanvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
-                e.preventDefault(); 
                 initialPinchDistance = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
                 );
             }
-        }, { passive: false });
+        }, { passive: true }); // Passive true rakha hai taaki scrolling block na ho
 
         overlayCanvas.addEventListener('touchmove', (e) => {
             if (e.touches.length === 2 && initialPinchDistance !== null) {
+                // Pinching ke waqt hi sirf preventDefault
                 e.preventDefault(); 
                 
                 const currentDistance = Math.hypot(
@@ -3225,22 +3224,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (Math.abs(distanceDifference) > 40) {
                     if (distanceDifference > 0) {
-                        const zoomInButton = document.getElementById('btn-zoom-in');
-                        if(zoomInButton) zoomInButton.click();
+                        editScale += 0.2;
                     } else {
-                        const zoomOutButton = document.getElementById('btn-zoom-out');
-                        if(zoomOutButton) zoomOutButton.click();
+                        editScale = Math.max(0.4, editScale - 0.2);
+                    }
+                    if(typeof renderEditPage === 'function') {
+                        renderEditPage(editPageNum);
                     }
                     initialPinchDistance = currentDistance; 
                 }
             }
-        }, { passive: false });
+        }, { passive: false }); // Pinch ke liye false rakha hai taaki flicker na ho
 
         overlayCanvas.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                initialPinchDistance = null;
-            }
-        });
+            initialPinchDistance = null;
+        }, { passive: true });
     }
 });
 
