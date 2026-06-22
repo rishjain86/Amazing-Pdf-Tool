@@ -2566,7 +2566,9 @@ function normalizeBox(box) {
 }
 
 overlayCanvas?.addEventListener('touchstart', (e) => { 
-    if (e.touches.length === 1 && (currentTool !== 'none' || currentVisualMode === 'pagenumbers')) {
+    // Sirf Draw aur Whiteout ke time par scroll block hoga
+    // Text ya Image tool me empty space par touch karke user Up/Down Scroll kar payega
+    if (e.touches.length === 1 && (currentTool === 'draw' || currentTool === 'whiteout')) {
         e.preventDefault(); 
     }
 }, {passive: false});
