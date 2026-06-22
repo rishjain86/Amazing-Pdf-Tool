@@ -13,10 +13,17 @@ import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 const forceScrollStyle = document.createElement('style');
 forceScrollStyle.innerHTML = `
     body.is-editing { touch-action: auto !important; }
-    .canvas-container { touch-action: auto !important; -webkit-overflow-scrolling: touch !important; }
+    .canvas-container { 
+        touch-action: auto !important; 
+        -webkit-overflow-scrolling: touch !important; 
+        min-height: 0 !important; /* FIX: Container ko infinitely lamba hone se rokega */
+        max-height: 100% !important; /* FIX: Zabardasti internal UP-DOWN scroll on karega */
+        overflow: auto !important;
+    }
     #pdf-overlay-canvas { touch-action: auto !important; }
 `;
 document.head.appendChild(forceScrollStyle);
+
 
 // ==========================================
 // APP VERSION CHECKER
