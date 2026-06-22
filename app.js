@@ -8,6 +8,17 @@ import { Share } from 'https://cdn.jsdelivr.net/npm/@capacitor/share@6.0.0/+esm'
 import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 
 // ==========================================
+// FORCE SCROLL PATCH (Overrides any CSS bugs)
+// ==========================================
+const forceScrollStyle = document.createElement('style');
+forceScrollStyle.innerHTML = `
+    body.is-editing { touch-action: auto !important; }
+    .canvas-container { touch-action: auto !important; -webkit-overflow-scrolling: touch !important; }
+    #pdf-overlay-canvas { touch-action: auto !important; }
+`;
+document.head.appendChild(forceScrollStyle);
+
+// ==========================================
 // APP VERSION CHECKER
 // ==========================================
 const CURRENT_APP_VERSION = 1.0;
@@ -216,7 +227,6 @@ function showSuccessResult(originalBytes, compressedBytes, successTitle, downloa
         downloadCallback(); 
     };
 }
-// ==========================================
 
 let lastBackPress = 0;
 if (window.Capacitor && window.Capacitor.isNativePlatform()) {
@@ -3190,7 +3200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isDrawActive || isWhiteoutActive) {
                     overlayCanvas.style.touchAction = 'none';
                 } else {
-                    overlayCanvas.style.touchAction = 'pan-x pan-y';
+                    overlayCanvas.style.touchAction = 'auto'; // FIXED: Ab yaha 'auto' hai, 'pan-x pan-y' ka jhamela nahi
                 }
             }, 100); 
         });
