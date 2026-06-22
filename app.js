@@ -3264,3 +3264,8 @@ window.addEventListener('online', checkNetworkStatus);
 window.addEventListener('offline', checkNetworkStatus);
 
 setTimeout(checkNetworkStatus, 1000);
+
+// Close Button Logic for Dynamic UI
+document.getElementById('dynamic-ui-close')?.addEventListener('click', () => {
+    document.getElementById('dynamic-ui-overlay').style.display = 'none';
+});
