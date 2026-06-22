@@ -142,7 +142,6 @@ async function simulateLoadingAndProcess(title, processCallback) {
 }
 
 function showProcessingUI(title = "Processing") {
-    // Only used for places where simulateLoadingAndProcess is not ideal
     const overlay = document.getElementById('dynamic-ui-overlay');
     const processingState = document.getElementById('processing-state');
     const successState = document.getElementById('success-state');
@@ -3177,7 +3176,6 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
 document.addEventListener('DOMContentLoaded', () => {
     
     // --- 1. SMART SCROLL (Only block scroll when Drawing) ---
-    // User jab koi Tool button click karega tab scroll check hoga
     const toolbarButtons = document.querySelectorAll('.edit-toolbar-btn');
     
     toolbarButtons.forEach(button => {
@@ -3198,7 +3196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-       // --- 2. PINCH TO ZOOM LOGIC (FIXED: RACE CONDITION & DEBOUNCE) ---
+    // --- 2. PINCH TO ZOOM LOGIC (FIXED: RACE CONDITION & DEBOUNCE) ---
     const overlayCanvas = document.getElementById('pdf-overlay-canvas');
     let initialPinchDistance = null;
     let zoomTimeout = null; // Flicker aur takrav ko rokne ke liye timer
@@ -3215,6 +3213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         overlayCanvas.addEventListener('touchmove', (e) => {
             if (e.touches.length === 2 && initialPinchDistance !== null) {
+                // Pinching ke waqt hi sirf preventDefault
                 e.preventDefault(); 
                 
                 const currentDistance = Math.hypot(
@@ -3233,24 +3232,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     initialPinchDistance = currentDistance; 
 
-                    // FIX 2: PDF ab har mili-second mein redraw nahi hogi. 
-                    // Jab user fingers rokega (150ms pause), tabhi ek final smooth render hoga.
+                    // FIX: PDF ab har mili-second mein redraw nahi hogi. 
+                    // Jab user zoom karke slightly rukega (100ms pause), tabhi smooth render hoga.
                     clearTimeout(zoomTimeout);
                     zoomTimeout = setTimeout(() => {
                         if(typeof renderEditPage === 'function') {
                             renderEditPage(editPageNum);
                         }
-                    }, 150); 
+                    }, 100); 
                 }
             }
         }, { passive: false });
 
         overlayCanvas.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                initialPinchDistance = null;
-            }
+            initialPinchDistance = null;
         }, { passive: true });
     }
+});
 
 // Network Connectivity Checker & Ad Reloader
 function checkNetworkStatus() {
