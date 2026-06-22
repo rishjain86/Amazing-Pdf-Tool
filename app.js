@@ -81,6 +81,88 @@ function handleError(error) {
     }
 }
 
+// ==========================================
+// DYNAMIC UI HELPERS (PROCESSING & SUCCESS)
+// ==========================================
+function formatBytes(bytes, decimals = 2) {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+function showProcessingUI(title = "Processing") {
+    const overlay = document.getElementById('dynamic-ui-overlay');
+    const processingState = document.getElementById('processing-state');
+    const successState = document.getElementById('success-state');
+    const actionTitle = document.getElementById('action-title');
+    
+    if (overlay && processingState && successState && actionTitle) {
+        overlay.style.display = 'flex';
+        processingState.style.display = 'block';
+        successState.style.display = 'none';
+        actionTitle.innerText = title + '...';
+    }
+}
+
+function hideProcessingUI() {
+    const overlay = document.getElementById('dynamic-ui-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function showSuccessResult(originalBytes, compressedBytes, successTitle, downloadCallback) {
+    const overlay = document.getElementById('dynamic-ui-overlay');
+    const processingState = document.getElementById('processing-state');
+    const successState = document.getElementById('success-state');
+    const successTitleEl = document.getElementById('success-title');
+    const percentCircleUi = document.getElementById('percent-circle-ui');
+    const sizeStatsUi = document.getElementById('size-stats-ui');
+    const successMsgUi = document.getElementById('success-message');
+    const downloadBtn = document.getElementById('final-download-btn');
+    
+    if (!overlay || !successState || !downloadBtn) {
+        downloadCallback();
+        return;
+    }
+
+    overlay.style.display = 'flex';
+    processingState.style.display = 'none';
+    successState.style.display = 'block';
+    if(successTitleEl) successTitleEl.innerText = successTitle;
+
+    let savedBytes = originalBytes - compressedBytes;
+    let percentSaved = 0;
+    
+    if (savedBytes > 0 && originalBytes > 0) {
+        percentSaved = Math.round((savedBytes / originalBytes) * 100);
+        
+        percentCircleUi.style.display = 'flex';
+        sizeStatsUi.style.display = 'block';
+        successMsgUi.style.display = 'none'; 
+        
+        document.getElementById('saved-percent').innerText = percentSaved + '%';
+        document.getElementById('old-size').innerText = formatBytes(originalBytes);
+        document.getElementById('new-size').innerText = formatBytes(compressedBytes);
+    } else {
+        percentCircleUi.style.display = 'none';
+        sizeStatsUi.style.display = 'none';
+        successMsgUi.style.display = 'block'; 
+        successMsgUi.innerText = "Your file is ready to download!";
+    }
+
+    // Clone button to prevent duplicate listeners
+    const newBtn = downloadBtn.cloneNode(true);
+    downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
+    
+    newBtn.onclick = () => {
+        overlay.style.display = 'none'; 
+        downloadCallback(); 
+    };
+}
+// ==========================================
+
 let lastBackPress = 0;
 if (window.Capacitor && window.Capacitor.isNativePlatform()) {
     App.addListener('backButton', () => {
@@ -692,6 +774,8 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
     const oldText = btn.innerHTML; 
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading PDF...';
     
+    showProcessingUI("Generating PDF");
+    
     try {
         const pdfDoc = await PDFDocument.create();
         for (let page of scannerPages) {
@@ -731,11 +815,12 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
         
         const bytes = await pdfDoc.save();
 
-        if(typeof AdManager !== 'undefined' && AdManager) {
-            await AdManager.showInterstitial();
-        }
-
-        await processAndDownload(bytes, `${scannerOriginalName}_Scanned.pdf`, 'application/pdf');
+        showSuccessResult(0, bytes.length, "Scan Completed!", async () => {
+            if(typeof AdManager !== 'undefined' && AdManager) {
+                await AdManager.showInterstitial();
+            }
+            await processAndDownload(bytes, `${scannerOriginalName}_Scanned.pdf`, 'application/pdf');
+        });
         
         document.getElementById('scanner-preview-modal').style.display = 'none'; 
         if (scannerWorkspace) {
@@ -745,6 +830,7 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
         scannerPages = [];
         
     } catch (e) { 
+        hideProcessingUI();
         handleError(e); 
     } finally { 
         btn.innerHTML = oldText; 
@@ -1060,17 +1146,22 @@ function setupSingleFileLogic(id, actionCallback) {
             const originalText = btn.innerHTML; 
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             
+            const totalOriginalSize = currentFile.size;
+            showProcessingUI("Processing File");
+            
             try {
                 const result = await actionCallback(currentFile); 
                 document.getElementById(`reset-${id}`)?.click();
 
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-
-                await processAndDownload(result.bytes, result.filename, result.type); 
+                showSuccessResult(totalOriginalSize, result.bytes.length, "Task Completed!", async () => {
+                    if(typeof AdManager !== 'undefined' && AdManager) {
+                        await AdManager.showInterstitial();
+                    }
+                    await processAndDownload(result.bytes, result.filename, result.type); 
+                });
                 
             } catch (error) { 
+                hideProcessingUI();
                 handleError(error); 
             } finally { 
                 btn.innerHTML = originalText; 
@@ -1151,18 +1242,23 @@ function setupMultipleFileLogic(id, actionCallback) {
         const originalText = btn.innerHTML; 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         
+        const totalOriginalSize = currentFiles.reduce((acc, f) => acc + f.size, 0);
+        showProcessingUI(`Processing ${currentFiles.length} File(s)`);
+        
         try {
             const result = await actionCallback(currentFiles); 
             currentFiles = []; 
             renderList(); 
             
-            if(typeof AdManager !== 'undefined' && AdManager) {
-                await AdManager.showInterstitial();
-            }
-
-            await processAndDownload(result.bytes, result.filename, result.type); 
+            showSuccessResult(totalOriginalSize, result.bytes.length, "Task Completed!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(result.bytes, result.filename, result.type); 
+            });
             
         } catch (error) { 
+            hideProcessingUI();
             handleError(error); 
         } finally { 
             btn.innerHTML = originalText; 
@@ -1550,6 +1646,7 @@ if (ui.htmltopdf) {
         
         const btn = document.getElementById('btn-htmltopdf-action'); 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+        showProcessingUI("Converting HTML");
         
         try {
             const iframe = document.createElement('iframe');
@@ -1568,13 +1665,15 @@ if (ui.htmltopdf) {
             document.getElementById('html-input').value = '';
             document.body.removeChild(iframe);
             
-            if(typeof AdManager !== 'undefined' && AdManager) {
-                await AdManager.showInterstitial();
-            }
-
-            await processAndDownload(bytes, 'HTML_Converted.pdf', 'application/pdf'); 
+            showSuccessResult(0, bytes.length, "PDF Generated!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(bytes, 'HTML_Converted.pdf', 'application/pdf'); 
+            });
             
         } catch(e) { 
+            hideProcessingUI();
             handleError(e); 
         } finally { 
             btn.innerHTML = '<i class="fas fa-code"></i> Convert to PDF'; 
@@ -1632,6 +1731,9 @@ if (ui.merge) {
         const btn = document.getElementById('btn-merge-action'); 
         btn.innerHTML = 'Processing...';
         
+        const totalOriginalSize = mergeFiles.reduce((acc, f) => acc + f.size, 0);
+        showProcessingUI("Merging Files");
+        
         try {
             const mergedPdf = await PDFDocument.create();
             for (const file of mergeFiles) { 
@@ -1646,12 +1748,15 @@ if (ui.merge) {
             mergeFiles = []; 
             renderMergeList(); 
             
-            if(typeof AdManager !== 'undefined' && AdManager) {
-                await AdManager.showInterstitial();
-            }
-
-            await processAndDownload(bytes, outputName, 'application/pdf');
+            showSuccessResult(totalOriginalSize, bytes.length, "PDF Merged!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(bytes, outputName, 'application/pdf');
+            });
+            
         } catch (e) { 
+            hideProcessingUI();
             handleError(e); 
         } finally { 
             btn.innerHTML = 'Merge Files Now'; 
@@ -1708,6 +1813,9 @@ if (ui.jpgtopdf) {
         const btn = document.getElementById('btn-jpgtopdf-action'); 
         btn.innerHTML = 'Converting...';
         
+        const totalOriginalSize = imageFiles.reduce((acc, f) => acc + f.size, 0);
+        showProcessingUI("Converting Images");
+        
         try {
             const pdfDoc = await PDFDocument.create();
             for (const file of imageFiles) {
@@ -1741,12 +1849,15 @@ if (ui.jpgtopdf) {
             imageFiles = []; 
             renderImgList(); 
             
-            if(typeof AdManager !== 'undefined' && AdManager) {
-                await AdManager.showInterstitial();
-            }
-
-            await processAndDownload(bytes, outputName, 'application/pdf');
+            showSuccessResult(totalOriginalSize, bytes.length, "PDF Generated!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(bytes, outputName, 'application/pdf');
+            });
+            
         } catch (e) { 
+            hideProcessingUI();
             handleError(e); 
         } finally { 
             btn.innerHTML = 'Convert to PDF'; 
@@ -2688,9 +2799,13 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
     const oldText = btn.innerHTML; 
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     
+    const totalOriginalSize = currentEditFile.size;
+    showProcessingUI("Applying Changes");
+    
     try {
         const freshBuffer = await currentEditFile.arrayBuffer();
         if (freshBuffer.byteLength < 100) { 
+            hideProcessingUI();
             showCustomAlert("File error."); 
             btn.innerHTML = oldText; 
             return; 
@@ -2698,10 +2813,6 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
 
         const applyModeObj = document.getElementById('edit-apply-mode'); 
         const applyMode = applyModeObj ? applyModeObj.value : 'current';
-
-        if(typeof AdManager !== 'undefined' && AdManager) {
-            await AdManager.showInterstitial();
-        }
 
         if (['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(currentVisualMode)) {
             const pdfDoc = await PDFDocument.load(freshBuffer);
@@ -2799,12 +2910,21 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                     }
                 }
             }
+            
             let outputSuffix = currentVisualMode === 'sign' ? '_Signed' : currentVisualMode.includes('watermark') ? '_Watermark' : '_Edited';
-            await processAndDownload(await pdfDoc.save(), getBaseName(editOriginalFileName) + outputSuffix + '.pdf', 'application/pdf');
+            const finalBytes = await pdfDoc.save();
+            
+            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Updated!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + outputSuffix + '.pdf', 'application/pdf');
+            });
 
         } else if (currentVisualMode === 'crop') {
             const boxData = pageEdits[editPageNum]?.find(e => e.type === 'visual-box');
             if(!boxData) { 
+                hideProcessingUI();
                 showCustomAlert("Draw a crop box first!"); 
                 btn.innerHTML = oldText; 
                 return; 
@@ -2830,11 +2950,18 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                 });
             }
             
-            await processAndDownload(await pdfDoc.save(), getBaseName(editOriginalFileName) + '_Cropped.pdf', 'application/pdf');
+            const finalBytes = await pdfDoc.save();
+            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Cropped!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Cropped.pdf', 'application/pdf');
+            });
 
         } else if (currentVisualMode === 'addmargins') {
             const boxData = pageEdits[editPageNum]?.find(e => e.type === 'visual-box');
             if(!boxData) { 
+                hideProcessingUI();
                 showCustomAlert("Draw a content box first!"); 
                 btn.innerHTML = oldText; 
                 return; 
@@ -2857,11 +2984,18 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                 p.translateContent(mL, mB); 
             });
             
-            await processAndDownload(await pdfDoc.save(), getBaseName(editOriginalFileName) + '_Margined.pdf', 'application/pdf');
+            const finalBytes = await pdfDoc.save();
+            showSuccessResult(totalOriginalSize, finalBytes.length, "Margins Added!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Margined.pdf', 'application/pdf');
+            });
 
         } else if (currentVisualMode === 'extract') {
             const boxData = pageEdits[editPageNum]?.find(e => e.type === 'visual-box');
             if(!boxData) { 
+                hideProcessingUI();
                 showCustomAlert("Draw a selection box first!"); 
                 btn.innerHTML = oldText; 
                 return; 
@@ -2889,14 +3023,22 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
             }
             
             if(!fullText) {
+                hideProcessingUI();
                 showCustomAlert("No text found in that area."); 
             } else {
-                await processAndDownload(new TextEncoder().encode(fullText), getBaseName(editOriginalFileName) + '_Extracted.txt', 'text/plain');
+                const finalBytes = new TextEncoder().encode(fullText);
+                showSuccessResult(0, finalBytes.length, "Text Extracted!", async () => {
+                    if(typeof AdManager !== 'undefined' && AdManager) {
+                        await AdManager.showInterstitial();
+                    }
+                    await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Extracted.txt', 'text/plain');
+                });
             }
 
         } else if (currentVisualMode === 'pagenumbers') {
             const dummy = pageEdits[1]?.find(e => e.type === 'pagenum-dummy');
             if(!dummy) { 
+                hideProcessingUI();
                 showCustomAlert("Position the number first."); 
                 btn.innerHTML = oldText; 
                 return; 
@@ -2928,7 +3070,13 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                 });
             });
             
-            await processAndDownload(await pdfDoc.save(), getBaseName(editOriginalFileName) + '_Numbered.pdf', 'application/pdf');
+            const finalBytes = await pdfDoc.save();
+            showSuccessResult(totalOriginalSize, finalBytes.length, "Numbers Added!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Numbered.pdf', 'application/pdf');
+            });
             
         } else if (currentVisualMode === 'rotate') {
             const pdfDoc = await PDFDocument.load(freshBuffer);
@@ -2939,7 +3087,14 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                     p.setRotation(degrees(p.getRotation().angle + rot));
                 }
             });
-            await processAndDownload(await pdfDoc.save(), getBaseName(editOriginalFileName) + '_Rotated.pdf', 'application/pdf');
+            
+            const finalBytes = await pdfDoc.save();
+            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Rotated!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Rotated.pdf', 'application/pdf');
+            });
             
         } else if (currentVisualMode === 'flatten') {
             const pdfDoc = await PDFDocument.load(freshBuffer);
@@ -2947,7 +3102,14 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
             if (form) {
                 form.flatten();
             }
-            await processAndDownload(await pdfDoc.save(), getBaseName(editOriginalFileName) + '_Flattened.pdf', 'application/pdf');
+            
+            const finalBytes = await pdfDoc.save();
+            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Flattened!", async () => {
+                if(typeof AdManager !== 'undefined' && AdManager) {
+                    await AdManager.showInterstitial();
+                }
+                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Flattened.pdf', 'application/pdf');
+            });
         }
 
         document.body.classList.remove('is-editing');
@@ -2960,6 +3122,7 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
         window.switchView('dashboard');
         
     } catch (error) { 
+        hideProcessingUI();
         handleError(error); 
         document.body.classList.remove('is-editing'); 
     } finally { 
