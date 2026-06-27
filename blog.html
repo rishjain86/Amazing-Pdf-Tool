@@ -1,144 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6519206650027176"
+     crossorigin="anonymous"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog - Amazing PDF Tool</title>
-    <meta name="description" content="Learn why you need a secure, fast, and free PDF manager in 2026. Tips and guides by Amazing PDF Tool.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Blog & Guides - Amazing PDF</title>
+    
+    <link rel="icon" type="image/png" href="assets/icon.png?v=5">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        /* Base Styles & Dark Theme */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0d1117; /* Dark background */
-            color: #c9d1d9; /* Light grey text */
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --accent: #3b82f6;
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            line-height: 1.6;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
         }
 
-        /* Navbar */
-        header {
-            background-color: #161b22;
-            padding: 15px 20px;
-            border-bottom: 2px solid #00e5ff; /* Neon Blue accent */
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
             display: flex;
-            justify-content: space-between;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        /* --- SIMPLE HEADER --- */
+        .simple-header {
+            width: 100%;
+            padding: 20px 30px;
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
             align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .brand-logo span {
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: linear-gradient(to right, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            transition: 0.3s;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: translateX(-3px);
+        }
+
+        /* --- PAGE CONTENT --- */
+        .page-container {
+            max-width: 900px;
+            margin: 100px auto 40px; 
+            padding: 30px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            line-height: 1.8;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .page-container h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--text-main);
         }
         
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffffff;
-            text-decoration: none;
-        }
-
-        .logo span {
-            color: #39ff14; /* Neon Green accent */
-        }
-
-        .nav-links a {
-            color: #c9d1d9;
-            text-decoration: none;
-            margin-left: 20px;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-            color: #00e5ff;
-        }
-
-        /* Main Content */
-        main {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-
-        article {
-            background-color: #161b22;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 229, 255, 0.1);
-        }
-
-        h1 {
-            color: #ffffff;
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
         .author-date {
-            font-size: 14px;
-            color: #8b949e;
-            margin-bottom: 30px;
-            border-bottom: 1px solid #30363d;
-            padding-bottom: 10px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 15px;
         }
 
-        h2 {
-            color: #00e5ff;
-            font-size: 22px;
+        .page-container h2 {
+            font-size: 1.3rem;
             margin-top: 30px;
+            margin-bottom: 15px;
+            color: var(--accent);
         }
 
-        p {
-            font-size: 16px;
-            margin-bottom: 20px;
+        .page-container p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            font-size: 0.95rem;
         }
 
-        /* Footer */
-        footer {
-            text-align: center;
-            padding: 20px;
-            margin-top: 40px;
-            background-color: #161b22;
-            color: #8b949e;
-            border-top: 1px solid #30363d;
+        @media (max-width: 768px) {
+            .page-container {
+                margin: 90px 15px 30px;
+                padding: 20px;
+            }
+            .page-container h1 { font-size: 1.5rem; }
+            .simple-header { padding: 15px 20px; }
+            .brand-logo span { font-size: 1.1rem; }
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <a href="index.html" class="logo">AMAZING <span>PDF TOOL</span></a>
-        <nav class="nav-links">
-            <a href="index.html">Home</a>
-            <a href="blog.html">Blog</a>
-        </nav>
+    <header class="simple-header">
+        <a href="index.html" class="brand-logo">
+            <img src="assets/icon.png?v=5" style="width: 32px; height: 32px; border-radius: 6px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); object-fit: contain;" alt="Logo">
+            <span>Amazing PDF</span>
+        </a>
+        <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Tool</a>
     </header>
 
-    <main>
-        <article>
-            <h1>5 Reasons Why You Need a Secure PDF Manager in 2026</h1>
-            <div class="author-date">By <strong>Rishit Talesara</strong> | Published on June 27, 2026</div>
+    <div class="page-container">
+        <h1>5 Reasons Why You Need a Secure PDF Manager</h1>
+        <div class="author-date">By <strong>Rishit Talesara</strong> | Educational Guide</div>
 
-            <p>In today's fast-paced digital world, PDF files are the standard format for everything from college assignments to professional business contracts. However, managing these files can often become a headache if you don't have the right tools. Here are five reasons why using a dedicated, secure PDF manager like Amazing PDF is essential for your daily workflow.</p>
+        <p>In today's fast-paced digital world, PDF files are the standard format for everything from college assignments to professional business contracts. However, managing these files can often become a headache if you don't have the right tools. Here are five reasons why using a dedicated, secure PDF manager like Amazing PDF is essential for your daily workflow.</p>
 
-            <h2>1. Uncompromised Privacy and Security</h2>
-            <p>Uploading your personal documents, ID cards, or financial invoices to random online converters can be highly risky. A secure PDF tool processes your files safely, ensuring your sensitive data doesn't fall into the wrong hands. Always choose a platform that values your privacy.</p>
+        <h2>1. Uncompromised Privacy and Security</h2>
+        <p>Uploading your personal documents or financial invoices to random online converters can be highly risky. A secure PDF tool processes your files safely, ensuring your sensitive data doesn't fall into the wrong hands. Always choose a platform that values your privacy.</p>
 
-            <h2>2. Zero Subscription Fees for Essential Tools</h2>
-            <p>Why pay expensive monthly subscriptions just to split a document or reduce its size? Modern PDF tools provide premium-grade features—such as text editing, drawing, and highlighting—absolutely free of charge. Stop paying for basic digital necessities.</p>
+        <h2>2. Zero Subscription Fees for Essential Tools</h2>
+        <p>Why pay expensive monthly subscriptions just to split a document or reduce its size? Modern PDF tools provide premium-grade features—such as text editing, drawing, and highlighting—absolutely free of charge. Stop paying for basic digital necessities.</p>
 
-            <h2>3. Lightning-Fast Compression</h2>
-            <p>We've all faced the dreaded "File is too large" error when trying to attach a PDF to an email. A smart PDF compressor reduces file size drastically without compromising the quality or readability of your text and images.</p>
+        <h2>3. Lightning-Fast Compression</h2>
+        <p>We've all faced the dreaded "File is too large" error when trying to attach a PDF to an email. A smart PDF compressor reduces file size drastically without compromising the quality or readability of your text and images.</p>
 
-            <h2>4. Easy Organization (Merge and Split)</h2>
-            <p>Organizing multiple reports or extracting a single page from a 100-page eBook shouldn't take hours. With tools to merge multiple files into one and split large documents into bite-sized chapters, you can keep your digital workspace clean and organized.</p>
+        <h2>4. Easy Organization (Merge and Split)</h2>
+        <p>Organizing multiple reports or extracting a single page from a 100-page eBook shouldn't take hours. With tools to merge multiple files into one and split large documents into bite-sized chapters, you can keep your digital workspace clean and organized.</p>
 
-            <h2>5. Scan Physical Documents on the Go</h2>
-            <p>Transforming your mobile phone into a portable scanner is a game-changer. High-quality scanning with auto-cropping and filters means you can digitize physical receipts and notes instantly, turning them into shareable PDFs in seconds.</p>
+        <h2>5. Scan Physical Documents on the Go</h2>
+        <p>Transforming your mobile phone into a portable scanner is a game-changer. High-quality scanning with auto-cropping and filters means you can digitize physical receipts and notes instantly, turning them into shareable PDFs in seconds.</p>
 
-            <h2 style="color: #39ff14;">Conclusion</h2>
-            <p>Managing your documents doesn't have to be a complicated, paid process. By switching to an all-in-one platform, you save time, protect your data, and boost your productivity.</p>
-        </article>
-    </main>
-
-    <footer>
-        &copy; 2026 Amazing PDF Tool. All rights reserved.
-    </footer>
+        <h2 style="color: #10b981;">Conclusion</h2>
+        <p>Managing your documents doesn't have to be a complicated, paid process. By switching to an all-in-one platform like Amazing PDF, you save time, protect your data, and boost your productivity effortlessly.</p>
+    </div>
 
 </body>
 </html>
