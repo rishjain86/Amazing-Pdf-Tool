@@ -1131,11 +1131,11 @@ setupSingleFileLogic('sign', null);
 setupSingleFileLogic('watermark', null);
 setupSingleFileLogic('addtext', null);
 
-// --- NEW: PDF TO WORD (No Dynamic Injection) ---
+// --- PDF TO WORD (Global Object Method) ---
 setupSingleFileLogic('pdftoword', async (file) => {
-    if (!window.docxCreator) throw new Error("Word engine missing! Please check internet and restart app.");
+    if (!window.docx) throw new Error("Word engine not loaded from index.html. Please refresh.");
     
-    const docxLib = window.docxCreator;
+    const docxLib = window.docx;
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise; 
     const mode = document.getElementById('pdftoword-mode') ? document.getElementById('pdftoword-mode').value : 'text';
     let paragraphs = [];
@@ -1190,9 +1190,9 @@ setupSingleFileLogic('pdftoword', async (file) => {
     return { bytes: new Uint8Array(await blob.arrayBuffer()), filename: `${getBaseName(file.name)}_Converted.docx`, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
 });
 
-// --- NEW: WORD TO PDF (No Dynamic Injection) ---
+// --- WORD TO PDF (Visual Render Engine) ---
 setupSingleFileLogic('wordtopdf', async (file) => {
-    if (!window.docxPreviewer) throw new Error("Preview engine missing! Please check internet and restart app.");
+    if (!window.docx || !window.docx.renderAsync) throw new Error("Visual rendering engine not loaded from index.html. Please refresh.");
     
     const arrayBuffer = await file.arrayBuffer();
     const wrapper = document.createElement('div');
@@ -1200,7 +1200,7 @@ setupSingleFileLogic('wordtopdf', async (file) => {
     wrapper.style.width = '800px'; wrapper.style.position = 'absolute'; wrapper.style.top = '-9999px';
     document.body.appendChild(wrapper);
     
-    await window.docxPreviewer.renderAsync(arrayBuffer, wrapper, null, {
+    await window.docx.renderAsync(arrayBuffer, wrapper, null, {
         className: "docx", inWrapper: true, ignoreWidth: false, ignoreHeight: false, ignoreFonts: false, breakPages: true, useBase64URL: true
     });
     
