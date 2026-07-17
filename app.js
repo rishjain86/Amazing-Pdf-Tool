@@ -28,7 +28,7 @@ document.head.appendChild(forceScrollStyle);
 // ==========================================
 // APP VERSION CHECKER
 // ==========================================
-const CURRENT_APP_VERSION = 2;
+const CURRENT_APP_VERSION = 1.9;
 
 function checkForUpdates() {
     const versionUrl = 'https://amazingpdf.in/version.json?time=' + new Date().getTime();
