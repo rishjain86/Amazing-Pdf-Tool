@@ -2134,12 +2134,24 @@ function renderEditPage(num) {
         
         if(renderCtx) {
             page.render({ canvasContext: renderCtx, viewport: viewport }).promise.then(() => {
-                // [SEJDA INLINE EDITOR LOGIC]
+                // [SEJDA INLINE EDITOR LOGIC + FONT AWARENESS]
                 if (currentVisualMode === 'edit') {
                     page.getTextContent().then(textContent => {
                         textContent.items.forEach(item => {
                             const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
                             const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                            
+                            // --- INTELLIGENT FONT DETECTION ---
+                            const fName = (item.fontName || '').toLowerCase();
+                            const isBold = fName.includes('bold') || fName.includes('black');
+                            const isItalic = fName.includes('italic') || fName.includes('oblique');
+                            
+                            let baseFont = 'sans-serif';
+                            if (fName.includes('times') || fName.includes('serif')) {
+                                baseFont = 'serif';
+                            } else if (fName.includes('courier') || fName.includes('mono')) {
+                                baseFont = 'monospace';
+                            }
                             
                             const div = document.createElement('div');
                             div.innerText = item.str;
@@ -2147,15 +2159,19 @@ function renderEditPage(num) {
                             div.style.left = tx[4] + 'px';
                             div.style.top = (tx[5] - fontHeight) + 'px'; // Baseline adjustment
                             div.style.fontSize = fontHeight + 'px';
-                            // Approximating exact font or falling back to safe defaults
-                            div.style.fontFamily = item.fontName || 'sans-serif';
+                            
+                            // Apply intelligently detected CSS styles to DOM
+                            div.style.fontFamily = baseFont;
+                            div.style.fontWeight = isBold ? 'bold' : 'normal';
+                            div.style.fontStyle = isItalic ? 'italic' : 'normal';
+                            
                             div.style.color = 'transparent'; // Invisible natively
                             div.style.cursor = 'text';
                             div.style.whiteSpace = 'pre';
                             div.style.lineHeight = '1';
                             div.style.transformOrigin = '0 0';
 
-                            // Storing data for PDF-lib reconstruction
+                            // Storing core geometric data
                             div.dataset.pdfX = item.transform[4];
                             div.dataset.pdfY = item.transform[5];
                             div.dataset.fontSize = item.transform[0];
@@ -2163,6 +2179,11 @@ function renderEditPage(num) {
                             div.dataset.height = item.height;
                             div.dataset.origText = item.str;
                             div.dataset.edited = "false";
+                            
+                            // Storing font metadata for PDF-lib reconstruction
+                            div.dataset.isBold = isBold;
+                            div.dataset.isItalic = isItalic;
+                            div.dataset.baseFont = baseFont;
                             
                             // Sejda UX - Hover effect
                             div.addEventListener('mouseenter', () => {
@@ -2665,7 +2686,7 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                 
                 let editsToApply = (applyMode === 'all') ? (pageEdits[editPageNum] || []) : (pageEdits[pIdx + 1] || []);
 
-                // [SEJDA EDITOR] Process Inline DOM Text Edits
+                // [SEJDA EDITOR] Process Inline DOM Text Edits + Exact Font Mapping
                 if (sejdaTextLayer && (applyMode === 'all' || pIdx + 1 === editPageNum)) {
                     const editedNodes = sejdaTextLayer.querySelectorAll('div[data-edited="true"]');
                     for (const node of editedNodes) {
@@ -2675,6 +2696,11 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                         const boxWidth = parseFloat(node.dataset.width);
                         const boxHeight = parseFloat(node.dataset.height) || fontSize;
                         
+                        // Retrieve font metadata generated during render
+                        const isBold = node.dataset.isBold === 'true';
+                        const isItalic = node.dataset.isItalic === 'true';
+                        const baseFont = node.dataset.baseFont;
+
                         // 1. Exact Whiteout to mask original text
                         page.drawRectangle({
                             x: pdfX,
@@ -2684,13 +2710,32 @@ document.getElementById('btn-edit-save')?.addEventListener('click', async () => 
                             color: rgb(1, 1, 1)
                         });
                         
-                        // 2. Draw edited text with safe StandardFonts matching approximate style
+                        // 2. Select Dynamic Standard Font matching original
+                        let selectedFont = StandardFonts.Helvetica;
+                        if (baseFont === 'serif') {
+                            if (isBold && isItalic) selectedFont = StandardFonts.TimesRomanBoldItalic;
+                            else if (isBold) selectedFont = StandardFonts.TimesRomanBold;
+                            else if (isItalic) selectedFont = StandardFonts.TimesRomanItalic;
+                            else selectedFont = StandardFonts.TimesRoman;
+                        } else if (baseFont === 'monospace') {
+                            if (isBold && isItalic) selectedFont = StandardFonts.CourierBoldOblique;
+                            else if (isBold) selectedFont = StandardFonts.CourierBold;
+                            else if (isItalic) selectedFont = StandardFonts.CourierOblique;
+                            else selectedFont = StandardFonts.Courier;
+                        } else {
+                            if (isBold && isItalic) selectedFont = StandardFonts.HelveticaBoldOblique;
+                            else if (isBold) selectedFont = StandardFonts.HelveticaBold;
+                            else if (isItalic) selectedFont = StandardFonts.HelveticaOblique;
+                            else selectedFont = StandardFonts.Helvetica;
+                        }
+                        
+                        // 3. Draw edited text with exact matched font
                         const newText = node.innerText;
                         page.drawText(newText, {
                             x: pdfX,
                             y: pdfY,
                             size: fontSize,
-                            font: await pdfDoc.embedFont(StandardFonts.Helvetica),
+                            font: await pdfDoc.embedFont(selectedFont),
                             color: rgb(0, 0, 0)
                         });
                     }
