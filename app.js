@@ -990,7 +990,7 @@ function setupSingleFileLogic(id, actionCallback) {
             info.innerHTML = `
                 <div style="${fileItemStyle}">
                     <div class="text-container" style="display:flex; align-items:center; gap:15px; min-width:0;">
-                        <i class="fas ${id === 'wordtopdf' ? 'fa-file-word' : 'fa-file-pdf'}" style="color:#ef4444; font-size:1.5rem; flex-shrink:0;"></i>
+                        <i class="fas ${id === 'wordtopdf' ? 'fa-file-word' : (id === 'imagecompressor' ? 'fa-file-image' : 'fa-file-pdf')}" style="color:#ef4444; font-size:1.5rem; flex-shrink:0;"></i>
                         <b class="text-ellipsis">${file.name}</b>
                     </div>
                     <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;">
@@ -1339,6 +1339,72 @@ setupSingleFileLogic('extract', async (file) => {
     return { bytes: new TextEncoder().encode(fullText), filename: `${getBaseName(file.name)}_Extracted.txt`, type: 'text/plain' };
 });
 
+// Image Compressor Tool Logic
+setupSingleFileLogic('imagecompressor', async (file) => {
+    const targetKB = parseInt(document.getElementById('image-target-size').value);
+    const targetBytes = targetKB * 1024; 
+    
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = async function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                let width = img.width;
+                let height = img.height;
+                
+                const maxDim = targetKB === 50 ? 1000 : 1500; 
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.floor(width * ratio);
+                    height = Math.floor(height * ratio);
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                ctx.fillStyle = 'white'; 
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                let minQ = 0.1;
+                let maxQ = 1.0;
+                let bestBlob = null;
+
+                const getCanvasBlob = (quality) => {
+                    return new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+                };
+
+                let attempts = 0;
+                while (minQ <= maxQ && attempts < 10) {
+                    let midQ = (minQ + maxQ) / 2;
+                    let blob = await getCanvasBlob(midQ);
+                    
+                    if (blob.size <= targetBytes) {
+                        bestBlob = blob; 
+                        minQ = midQ + 0.05; 
+                    } else {
+                        maxQ = midQ - 0.05; 
+                    }
+                    attempts++;
+                }
+                
+                if (!bestBlob) bestBlob = await getCanvasBlob(0.1); 
+                
+                const outName = getBaseName(file.name) + `_${targetKB}KB.jpg`;
+                resolve({ 
+                    bytes: new Uint8Array(await bestBlob.arrayBuffer()), 
+                    filename: outName, 
+                    type: 'image/jpeg' 
+                });
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+});
+
 setupMultipleFileLogic('compress', async (files) => {
     const compressSingleFile = async (file) => {
         const originalSize = file.size;
@@ -1595,10 +1661,9 @@ document.getElementById('desktop-search')?.addEventListener('input', handleSearc
 // UNIVERSAL PRO VISUAL EDITOR (SEJDA-STYLE UPGRADED)
 // ==========================================
 
-// [NEW] Global Style Buffer for Font Copy-Paste
-window.sejdaCopiedStyle = null;
+window.sejdaCopiedStyle = null; // Global variable for Font Copy-Paste
 
-// [NEW] Helper to extract & apply style to Div
+// Helper to extract & apply style to Div
 function applyStyleToDiv(div, styleObj) {
     div.style.fontFamily = styleObj.fontFamily;
     div.style.fontWeight = styleObj.fontWeight;
@@ -1606,57 +1671,31 @@ function applyStyleToDiv(div, styleObj) {
     div.style.fontSize = styleObj.fontSize;
 }
 
-// [NEW] Style Picker UI
+// Style Picker UI
 function showStylePicker(targetDiv) {
     let picker = document.getElementById('sejda-style-picker');
     if (!picker) {
         picker = document.createElement('div');
         picker.id = 'sejda-style-picker';
-        picker.style = 'position:absolute; z-index:9999; background:#1e293b; padding:5px; border-radius:6px; display:flex; gap:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+        picker.style.position = 'absolute';
+        picker.style.zIndex = '1001';
+        picker.style.background = '#1e293b';
+        picker.style.padding = '5px';
+        picker.style.borderRadius = '6px';
+        picker.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
+        picker.style.display = 'flex';
+        picker.style.gap = '5px';
         
-        const bCopy = document.createElement('button');
-        bCopy.innerHTML = '<i class="fas fa-copy"></i> Copy Font';
-        bCopy.style = 'background: #3b82f6; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;';
+        const btnCopy = document.createElement('button');
+        btnCopy.innerHTML = '<i class="fas fa-copy"></i> Copy Font';
+        btnCopy.style = 'background: #3b82f6; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;';
         
-        bCopy.onclick = (e) => {
-            e.preventDefault();
-            window.sejdaCopiedStyle = {
-                fontFamily: targetDiv.style.fontFamily,
-                fontWeight: targetDiv.style.fontWeight,
-                fontStyle: targetDiv.style.fontStyle,
-                fontSize: targetDiv.style.fontSize,
-                isBold: targetDiv.dataset.isBold,
-                isItalic: targetDiv.dataset.isItalic,
-                baseFont: targetDiv.dataset.baseFont,
-                rawFontSize: targetDiv.dataset.fontSize
-            };
-            bCopy.innerHTML = '<i class="fas fa-check"></i> Copied';
-            setTimeout(() => bCopy.innerHTML = '<i class="fas fa-copy"></i> Copy Font', 2000);
-        };
+        const btnPaste = document.createElement('button');
+        btnPaste.innerHTML = '<i class="fas fa-paste"></i> Paste Font';
+        btnPaste.style = 'background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;';
         
-        const bPaste = document.createElement('button');
-        bPaste.innerHTML = '<i class="fas fa-paste"></i> Paste Font';
-        bPaste.style = 'background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;';
-        
-        bPaste.onclick = (e) => {
-            e.preventDefault();
-            if(window.sejdaCopiedStyle) {
-                applyStyleToDiv(targetDiv, window.sejdaCopiedStyle);
-                targetDiv.dataset.isBold = window.sejdaCopiedStyle.isBold;
-                targetDiv.dataset.isItalic = window.sejdaCopiedStyle.isItalic;
-                targetDiv.dataset.baseFont = window.sejdaCopiedStyle.baseFont;
-                targetDiv.dataset.fontSize = window.sejdaCopiedStyle.rawFontSize;
-                targetDiv.dataset.edited = 'true';
-                
-                bPaste.innerHTML = '<i class="fas fa-check"></i> Pasted';
-                setTimeout(() => bPaste.innerHTML = '<i class="fas fa-paste"></i> Paste Font', 2000);
-            } else {
-                showCustomAlert("Please copy a font style first!");
-            }
-        };
-        
-        picker.appendChild(bCopy);
-        picker.appendChild(bPaste);
+        picker.appendChild(btnCopy);
+        picker.appendChild(btnPaste);
         document.body.appendChild(picker);
     }
     
@@ -1664,6 +1703,40 @@ function showStylePicker(targetDiv) {
     const rect = targetDiv.getBoundingClientRect();
     picker.style.top = Math.max(0, (rect.top + window.scrollY - 40)) + 'px';
     picker.style.left = (rect.left + window.scrollX) + 'px';
+    
+    picker.children[0].onclick = (e) => {
+        e.preventDefault();
+        window.sejdaCopiedStyle = {
+            fontFamily: targetDiv.style.fontFamily,
+            fontWeight: targetDiv.style.fontWeight,
+            fontStyle: targetDiv.style.fontStyle,
+            fontSize: targetDiv.style.fontSize,
+            isBold: targetDiv.dataset.isBold,
+            isItalic: targetDiv.dataset.isItalic,
+            baseFont: targetDiv.dataset.baseFont,
+            rawFontSize: targetDiv.dataset.fontSize
+        };
+        picker.children[0].innerHTML = '<i class="fas fa-check"></i> Copied';
+        setTimeout(() => picker.children[0].innerHTML = '<i class="fas fa-copy"></i> Copy Font', 2000);
+    };
+    
+    picker.children[1].onclick = (e) => {
+        e.preventDefault();
+        if(window.sejdaCopiedStyle) {
+            applyStyleToDiv(targetDiv, window.sejdaCopiedStyle);
+            
+            targetDiv.dataset.isBold = window.sejdaCopiedStyle.isBold;
+            targetDiv.dataset.isItalic = window.sejdaCopiedStyle.isItalic;
+            targetDiv.dataset.baseFont = window.sejdaCopiedStyle.baseFont;
+            targetDiv.dataset.fontSize = window.sejdaCopiedStyle.rawFontSize;
+            targetDiv.dataset.edited = 'true';
+            
+            picker.children[1].innerHTML = '<i class="fas fa-check"></i> Pasted';
+            setTimeout(() => picker.children[1].innerHTML = '<i class="fas fa-paste"></i> Paste Font', 2000);
+        } else {
+            showCustomAlert("Please copy a font style first!");
+        }
+    };
 }
 
 function hideStylePicker() {
@@ -2184,11 +2257,10 @@ document.getElementById('edit-pdf-input')?.addEventListener('change', function(e
     if (e.target.files[0]) openVisualWorkspace(e.target.files[0], 'edit'); 
 });
 
-// [UPDATED] Render function with Style Picker and Fixes applied correctly
 function renderEditPage(num) {
     if (!editPdfDoc) return;
     
-    if (sejdaTextLayer) sejdaTextLayer.innerHTML = ''; // Clear previous text items
+    if (sejdaTextLayer) sejdaTextLayer.innerHTML = ''; 
     hideStylePicker();
 
     editPdfDoc.getPage(num).then(page => {
@@ -2209,14 +2281,12 @@ function renderEditPage(num) {
         
         if(renderCtx) {
             page.render({ canvasContext: renderCtx, viewport: viewport }).promise.then(() => {
-                // [SEJDA INLINE EDITOR LOGIC + FONT AWARENESS]
                 if (currentVisualMode === 'edit') {
                     page.getTextContent().then(textContent => {
                         textContent.items.forEach(item => {
                             const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
                             const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
                             
-                            // --- INTELLIGENT FONT DETECTION ---
                             const style = textContent.styles[item.fontName];
                             const actualFontName = (style && style.fontFamily) ? style.fontFamily.toLowerCase() : '';
                             const fName = (item.fontName || '').toLowerCase();
@@ -2235,7 +2305,7 @@ function renderEditPage(num) {
                             div.innerText = item.str;
                             div.style.position = 'absolute';
                             div.style.left = tx[4] + 'px';
-                            div.style.top = (tx[5] - fontHeight) + 'px'; // Baseline adjustment
+                            div.style.top = (tx[5] - fontHeight) + 'px';
                             
                             applyStyleToDiv(div, { 
                                 fontFamily: baseFont, 
@@ -2244,13 +2314,12 @@ function renderEditPage(num) {
                                 fontSize: fontHeight + 'px'
                             });
                             
-                            // Fixed jumping issue via explicit CSS resets
                             div.style.margin = '0';
                             div.style.padding = '0';
                             div.style.border = 'none';
                             div.style.background = 'transparent';
                             
-                            div.style.color = 'transparent'; // Invisible natively
+                            div.style.color = 'transparent'; 
                             div.style.cursor = 'text';
                             div.style.whiteSpace = 'pre';
                             div.style.lineHeight = '1';
@@ -2258,12 +2327,10 @@ function renderEditPage(num) {
                             div.style.userSelect = 'text';
                             div.style.pointerEvents = 'auto';
 
-                            // KEY FIX: Prevent whiteout background from shrinking smaller than original text
                             const scaledWidth = item.width * editScale;
                             div.style.minWidth = scaledWidth + 'px';
                             div.style.minHeight = fontHeight + 'px';
 
-                            // Storing core geometric data
                             div.dataset.pdfX = item.transform[4];
                             div.dataset.pdfY = item.transform[5];
                             div.dataset.fontSize = item.transform[0];
@@ -2272,19 +2339,16 @@ function renderEditPage(num) {
                             div.dataset.origText = item.str;
                             div.dataset.edited = "false";
                             
-                            // Storing font metadata for PDF-lib reconstruction
                             div.dataset.isBold = isBold;
                             div.dataset.isItalic = isItalic;
                             div.dataset.baseFont = baseFont;
                             
-                            // Prevent rich text pasting (HTML injection)
                             div.addEventListener('paste', (e) => {
                                 e.preventDefault();
                                 const text = (e.clipboardData || window.clipboardData).getData('text/plain');
                                 document.execCommand('insertText', false, text);
                             });
                             
-                            // Sejda UX - Hover effect
                             div.addEventListener('mouseenter', () => {
                                 if (div.contentEditable !== 'true') div.style.outline = '1px dashed #3b82f6';
                             });
@@ -2292,11 +2356,10 @@ function renderEditPage(num) {
                                 if (div.contentEditable !== 'true') div.style.outline = 'none';
                             });
                             
-                            // Edit Activation
                             div.addEventListener('click', (e) => {
-                                if(currentTool !== 'none') return; // Only allow if specific tools aren't active
+                                if(currentTool !== 'none') return; 
                                 div.contentEditable = 'true';
-                                div.style.color = '#000'; // Reveal for editing
+                                div.style.color = '#000'; 
                                 div.style.backgroundColor = '#fff';
                                 div.style.outline = '2px solid #10b981';
                                 div.style.zIndex = '1000';
@@ -2304,23 +2367,22 @@ function renderEditPage(num) {
                                 showStylePicker(div); 
                             });
                             
-                            // Done Editing
                             div.addEventListener('blur', () => {
                                 div.contentEditable = 'false';
                                 div.style.outline = 'none';
                                 div.style.zIndex = '1';
-                                setTimeout(hideStylePicker, 200); // Allow click to register
+                                setTimeout(hideStylePicker, 200); 
                                 
                                 const currentText = div.innerText.replace(/\n/g, '');
                                 
                                 if (currentText !== item.str) {
                                     div.dataset.edited = 'true';
-                                    div.style.backgroundColor = '#ffffff'; // Always solid whiteout to mask original
+                                    div.style.backgroundColor = '#ffffff'; 
                                     
                                     if (currentText.trim() === '') {
-                                        div.style.color = 'transparent'; // Hide the cursor/empty space but keep mask
+                                        div.style.color = 'transparent'; 
                                     } else {
-                                        div.style.color = '#0f172a'; // Show the new typed text
+                                        div.style.color = '#0f172a'; 
                                     }
                                 } else {
                                     div.style.color = 'transparent';
