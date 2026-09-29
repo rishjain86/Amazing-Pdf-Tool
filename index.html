@@ -663,10 +663,13 @@
         </div>
         
         <div class="menu-label">Main Tools</div>
+        <div class="nav-btn" onclick="switchView('pdftoword')"><i class="fas fa-file-word" style="color: #3b82f6;"></i> PDF to Word</div>
+        <div class="nav-btn" onclick="switchView('wordtopdf')"><i class="fas fa-file-pdf" style="color: #ef4444;"></i> Word to PDF</div>
         <div class="nav-btn" onclick="switchView('edit')"><i class="fas fa-edit"></i> Edit PDF</div>
         <div class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</div>
         <div class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</div>
         <div class="nav-btn" onclick="switchView('compress')"><i class="fas fa-compress"></i> Compress PDF</div>
+        <div class="nav-btn" onclick="switchView('imagecompressor')"><i class="fas fa-file-image"></i> Compress Image</div>
         
         <div class="menu-label">Security</div>
         <div class="nav-btn" onclick="switchView('protect')"><i class="fas fa-lock"></i> Protect PDF</div>
@@ -723,6 +726,16 @@
                     <h3>My History</h3>
                     <p>Access downloaded files.</p>
                 </div>
+                <div class="tool-card" onclick="switchView('pdftoword')">
+                    <i class="fas fa-file-word tool-icon" style="color: #3b82f6;"></i>
+                    <h3>PDF to Word</h3>
+                    <p>Convert PDF to editable doc.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('wordtopdf')">
+                    <i class="fas fa-file-pdf tool-icon" style="color: #ef4444;"></i>
+                    <h3>Word to PDF</h3>
+                    <p>Convert docx to PDF format.</p>
+                </div>
                 <div class="tool-card" onclick="switchView('edit')">
                     <i class="fas fa-edit tool-icon" style="color: #10b981;"></i>
                     <h3>Edit PDF</h3>
@@ -742,6 +755,11 @@
                     <i class="fas fa-compress-arrows-alt tool-icon" style="color: #10b981;"></i>
                     <h3>Compress PDF</h3>
                     <p>Reduce file size.</p>
+                </div>
+                <div class="tool-card" onclick="switchView('imagecompressor')">
+                    <i class="fas fa-file-image tool-icon" style="color: #eab308;"></i>
+                    <h3>Compress Image</h3>
+                    <p>Reduce photo to 50KB/100KB.</p>
                 </div>
                 <div class="tool-card" onclick="switchView('protect')">
                     <i class="fas fa-lock tool-icon" style="color: #8b5cf6;"></i>
@@ -913,6 +931,7 @@
         <div id="view-addmargins" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="addmargins-ui-container"></div></div>
         <div id="view-removeannots" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="removeannots-ui-container"></div></div>
         <div id="view-pagenumbers" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="pagenumbers-ui-container"></div></div>
+        <div id="view-imagecompressor" class="view-section"><div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div><div id="imagecompressor-ui-container"></div></div>
 
         <div id="view-labs" class="view-section">
             <div class="back-btn" onclick="switchView('dashboard')"><i class="fas fa-arrow-left"></i> Back to Home</div>
