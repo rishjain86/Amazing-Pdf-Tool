@@ -663,8 +663,6 @@
         </div>
         
         <div class="menu-label">Main Tools</div>
-        <div class="nav-btn" onclick="switchView('pdftoword')"><i class="fas fa-file-word" style="color: #3b82f6;"></i> PDF to Word</div>
-        <div class="nav-btn" onclick="switchView('wordtopdf')"><i class="fas fa-file-pdf" style="color: #ef4444;"></i> Word to PDF</div>
         <div class="nav-btn" onclick="switchView('edit')"><i class="fas fa-edit"></i> Edit PDF</div>
         <div class="nav-btn" onclick="switchView('merge')"><i class="fas fa-object-group"></i> Merge PDF</div>
         <div class="nav-btn" onclick="switchView('split')"><i class="fas fa-cut"></i> Split PDF</div>
@@ -725,16 +723,6 @@
                     <i class="fas fa-history tool-icon" style="color: #3b82f6;"></i>
                     <h3>My History</h3>
                     <p>Access downloaded files.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('pdftoword')">
-                    <i class="fas fa-file-word tool-icon" style="color: #3b82f6;"></i>
-                    <h3>PDF to Word</h3>
-                    <p>Convert PDF to editable doc.</p>
-                </div>
-                <div class="tool-card" onclick="switchView('wordtopdf')">
-                    <i class="fas fa-file-pdf tool-icon" style="color: #ef4444;"></i>
-                    <h3>Word to PDF</h3>
-                    <p>Convert docx to PDF format.</p>
                 </div>
                 <div class="tool-card" onclick="switchView('edit')">
                     <i class="fas fa-edit tool-icon" style="color: #10b981;"></i>
@@ -941,6 +929,20 @@
             </div>
             
             <div class="dashboard-grid">
+                <div class="tool-card" style="opacity: 0.8; cursor: default; border: 1px dashed var(--glass-border);">
+                    <i class="fas fa-file-word tool-icon" style="color: #3b82f6;"></i>
+                    <h3>PDF to Word</h3>
+                    <p>Convert PDF to editable doc.</p>
+                    <div style="margin-top: 10px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold;">Planned</div>
+                </div>
+
+                <div class="tool-card" style="opacity: 0.8; cursor: default; border: 1px dashed var(--glass-border);">
+                    <i class="fas fa-file-pdf tool-icon" style="color: #ef4444;"></i>
+                    <h3>Word to PDF</h3>
+                    <p>Convert docx to PDF format.</p>
+                    <div style="margin-top: 10px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold;">Planned</div>
+                </div>
+
                 <div class="tool-card" style="opacity: 0.8; cursor: default; border: 1px dashed var(--glass-border);">
                     <i class="fas fa-eye tool-icon" style="color: #10b981;"></i>
                     <h3>OCR Scanner</h3>
@@ -1185,7 +1187,7 @@
         });
     </script>
 
-    <script type="module" src="app.js?v=11"></script>
+    <script type="module" src="app.js?v=3"></script>
 
     <script>
     // 1. Disable Right Click (Context Menu)
