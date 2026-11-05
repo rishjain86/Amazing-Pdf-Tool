@@ -27,7 +27,11 @@ def protect():
             writer.add_page(page)
             
         # PDF par secure password lagana
-        writer.encrypt(password)
+        if reader.is_encrypted:
+            resp = Response('This PDF is already password protected. Unlock it first.', status=400)
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            return resp
+        writer.encrypt(password, algorithm='AES-256')  # strong encryption (needs 'cryptography')
         
         # Output ko memory mein save karna
         out = io.BytesIO()

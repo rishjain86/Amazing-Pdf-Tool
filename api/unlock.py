@@ -27,12 +27,14 @@ def unlock():
             decrypted_status = reader.decrypt(password)
             
             # Agar decrypt_status 0 aata hai matlab password galat hai
-            if decrypted_status == 0:
+            if not decrypted_status:
                 resp = Response("Incorrect password", status=401)
                 resp.headers['Access-Control-Allow-Origin'] = '*'
                 return resp
                 
         writer = PdfWriter()
+        if reader.metadata:
+            writer.add_metadata({k: v for k, v in reader.metadata.items() if isinstance(v, str)})
         
         # Unlocked PDF ke saare pages naye document mein copy karna
         for page in reader.pages:

@@ -68,6 +68,9 @@ jobs:
         echo "Securing app.js..."
         javascript-obfuscator app.js --output app.js --compact true --control-flow-flattening true --control-flow-flattening-threshold 0.7 --string-array true --string-array-encoding 'base64' --identifier-names-generator hexadecimal
         
+        echo "Securing js/ modules..."
+        for f in js/*.js; do javascript-obfuscator "$f" --output "$f" --compact true --string-array true --string-array-encoding 'base64' --identifier-names-generator hexadecimal; done
+        
         echo "Securing adManager.js..."
         javascript-obfuscator adManager.js --output adManager.js --compact true --string-array true --string-array-encoding 'base64' --identifier-names-generator hexadecimal
         
@@ -82,6 +85,7 @@ jobs:
         cp *.css public/ || true
         cp *.json public/ || true
         cp -r assets public/ || true
+        cp -r js public/ || true
 
     - name: Create Android Project
       run: npx cap add android || true
@@ -114,16 +118,25 @@ jobs:
         ./gradlew assembleRelease
         cd ..
 
-    - name: Auto-Generate Keystore & Sign APK
+    - name: Sign APK (stable keystore)
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       run: |
-        keytool -genkey -v -keystore amazingpdf.jks -keyalg RSA -keysize 2048 -validity 10000 -alias amazingpdf -dname "CN=Amazing PDF, OU=App, O=Developer, L=India, ST=India, C=IN" -storepass "amazing123" -keypass "amazing123"
-        
+        # IMPORTANT: Android only allows updating an installed app when every release is signed with the SAME key.
+        # Add secrets KEYSTORE_BASE64 (base64 of your .jks) and KEYSTORE_PASSWORD in GitHub -> Settings -> Secrets.
+        PASS="${KEYSTORE_PASSWORD:-amazing123}"
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "$KEYSTORE_BASE64" | base64 -d > amazingpdf.jks
+        else
+          echo "::warning::KEYSTORE_BASE64 secret not set - generating a NEW key. Users will have to uninstall the old app before installing this one."
+          keytool -genkey -v -keystore amazingpdf.jks -keyalg RSA -keysize 2048 -validity 10000 -alias amazingpdf -dname "CN=Amazing PDF, OU=App, O=Developer, L=India, ST=India, C=IN" -storepass "$PASS" -keypass "$PASS"
+        fi
         APK_PATH="android/app/build/outputs/apk/release/app-release-unsigned.apk"
         ZIPALIGN=$(find $ANDROID_SDK_ROOT/build-tools -name zipalign | sort -r | head -n 1)
         APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools -name apksigner | sort -r | head -n 1)
-        
         $ZIPALIGN -v -p 4 $APK_PATH app-release-aligned.apk
-        $APKSIGNER sign --ks amazingpdf.jks --ks-pass pass:amazing123 --ks-key-alias amazingpdf --out AmazingPDF.apk app-release-aligned.apk
+        $APKSIGNER sign --ks amazingpdf.jks --ks-pass pass:"$PASS" --ks-key-alias amazingpdf --out AmazingPDF.apk app-release-aligned.apk
 
     - name: 📦 Auto-Publish GitHub Release
       uses: softprops/action-gh-release@v2

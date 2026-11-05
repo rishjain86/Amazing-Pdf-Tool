@@ -1,4 +1,5 @@
 import { PDFDocument, degrees, StandardFonts, rgb, PDFName } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import * as PDFLIB from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
@@ -14,14 +15,6 @@ import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@6.0.0/+esm';
 const forceScrollStyle = document.createElement('style');
 forceScrollStyle.innerHTML = `
     body.is-editing { touch-action: auto !important; }
-    .canvas-container { 
-        touch-action: auto !important; 
-        -webkit-overflow-scrolling: touch !important; 
-        min-height: 0 !important; 
-        max-height: 100% !important; 
-        overflow: auto !important;
-    }
-    #pdf-overlay-canvas { touch-action: auto !important; }
 `;
 document.head.appendChild(forceScrollStyle);
 
@@ -33,6 +26,7 @@ const CURRENT_APP_VERSION = 2.2;
 function checkForUpdates() {
     const versionUrl = 'https://amazingpdf.in/version.json?time=' + new Date().getTime();
     
+    if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return; // website visitors always get the latest version
     fetch(versionUrl)
         .then(response => response.json())
         .then(data => {
@@ -228,6 +222,7 @@ function showSuccessResult(originalBytes, compressedBytes, successTitle, downloa
 let lastBackPress = 0;
 if (window.Capacitor && window.Capacitor.isNativePlatform()) {
     App.addListener('backButton', () => {
+        if (window.__editorOpen && window.__editorOpen()) { window.__closeEditor(); return; }
         const activeView = document.querySelector('.view-section.active')?.id;
         if (activeView && activeView !== 'view-dashboard') {
             window.switchView('dashboard');
@@ -244,16 +239,18 @@ if (window.Capacitor && window.Capacitor.isNativePlatform()) {
 
 window.switchView = (viewId) => {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => 
-        btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(viewId)
-    );
-    if(activeBtn) activeBtn.classList.add('active');
-
+    const activeBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => (btn.getAttribute('onclick') || '').replace(/\s/g, '') === `switchView('${viewId}')`);
+    if (activeBtn) activeBtn.classList.add('active');
     document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
     const targetView = document.getElementById(`view-${viewId}`);
-    if(targetView) targetView.classList.add('active');
-    if(viewId === 'history') window.renderHistory();
+    if (targetView) targetView.classList.add('active');
+    if (viewId !== 'vault' && window.__lockVault) window.__lockVault();
+    if (viewId === 'vault') { loadPro().then(() => window.__openVault && window.__openVault()); }
+    if (viewId === 'history') window.renderHistory();
+    const mc = document.querySelector('.main-content'); if (mc) mc.scrollTop = 0; window.scrollTo(0, 0);
+    const sb = document.getElementById('sidebar'); if (sb && sb.classList.contains('open')) { sb.classList.remove('open'); const ov = document.getElementById('sidebar-overlay'); if (ov) ov.classList.remove('active'); }
 };
+const escapeHtml = (str) => String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const getBaseName = (filename) => filename.substring(0, filename.lastIndexOf('.')) || filename;
 
@@ -286,10 +283,10 @@ async function saveToHistory(bytes, filename, type) {
 
 window.getHistory = async () => {
     const db = await initDB();
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).getAll();
-    return new Promise(resolve => {
-        req.onsuccess = () => resolve(req.result.sort((a,b) => b.date - a.date));
+    return new Promise((resolve, reject) => {
+        const out = []; const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).openCursor();
+        req.onsuccess = () => { const c = req.result; if (c) { const v = c.value; out.push({ id: v.id, filename: v.filename, type: v.type, date: v.date, size: v.data ? v.data.byteLength : 0 }); c.continue(); } else resolve(out.sort((a, b) => b.date - a.date)); };
+        req.onerror = () => reject(req.error);
     });
 };
 
@@ -304,32 +301,19 @@ window.renderHistory = async () => {
     const list = document.getElementById('history-list');
     if (!list) return;
     list.innerHTML = '<p>Loading...</p>';
-    const items = await window.getHistory();
-    
-    if (!items.length) {
-        list.innerHTML = '<p style="color:var(--text-secondary);">No downloads history found.</p>';
-        return;
-    }
-    
-    list.innerHTML = '';
-    items.forEach(item => {
-        list.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border); gap: 10px; margin-bottom: 10px;">
-                <div class="text-container" style="flex: 1; min-width: 0;">
-                    <b class="text-ellipsis" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${item.filename}</b>
-                    <small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()}</small>
-                </div>
-                <div style="display:flex; gap:10px; flex-shrink: 0;">
-                    <button onclick="triggerHistoryDownload(${item.id})" style="background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:6px;">
-                        <i class="fas fa-share-alt"></i>
-                    </button>
-                    <button onclick="removeHistoryItem(${item.id})" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px;">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+    let items = []; try { items = await window.getHistory(); } catch (e) { }
+    if (!items.length) { list.innerHTML = '<p style="color:var(--text-secondary);">No downloads history found.</p>'; return; }
+    list.innerHTML = items.map(item => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--glass-border); gap: 10px; margin-bottom: 10px;">
+            <div class="text-container" style="flex: 1; min-width: 0;">
+                <b class="text-ellipsis" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${escapeHtml(item.filename)}</b>
+                <small style="color:var(--text-secondary);">${new Date(item.date).toLocaleString()} · ${formatBytes(item.size)}</small>
             </div>
-        `;
-    });
+            <div style="display:flex; gap:10px; flex-shrink: 0;">
+                <button onclick="triggerHistoryDownload(${Number(item.id)})" style="background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-share-alt"></i></button>
+                <button onclick="removeHistoryItem(${Number(item.id)})" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px;"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>`).join('');
 };
 
 window.removeHistoryItem = async (id) => { 
@@ -338,11 +322,9 @@ window.removeHistoryItem = async (id) => {
 };
 
 window.triggerHistoryDownload = async (id) => {
-    const items = await window.getHistory();
-    const item = items.find(i => i.id === id);
-    if(item) {
-        await processAndDownload(item.data, item.filename, item.type, false);
-    }
+    const db = await initDB();
+    const item = await new Promise(res => { const r = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(id); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+    if (item) await processAndDownload(item.data, item.filename, item.type, false);
 };
 
 function bytesToBase64(bytes) {
@@ -356,6 +338,8 @@ function bytesToBase64(bytes) {
 
 // BULK UPLOAD CHUNKED WRITER
 async function processAndDownload(bytes, filename, type, saveToDb = true) {
+    filename = String(filename).replace(/[\\/:*?"<>|]+/g, '_');
+    if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
     if(saveToDb) { 
         try { await saveToHistory(bytes, filename, type); } catch(e) { console.error("History save error:", e); } 
     }
@@ -379,23 +363,19 @@ async function processAndDownload(bytes, filename, type, saveToDb = true) {
             const savedFile = await Filesystem.getUri({ path: filename, directory: Directory.Documents });
             await Share.share({ title: filename, text: 'Processed via Amazing PDF', url: savedFile.uri });
         } catch (e) { 
-            try {
-                const blob = new Blob([bytes], { type }); 
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); 
-                a.href = url; a.download = filename; 
-                document.body.appendChild(a); a.click(); 
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-            } catch(err) { showCustomAlert("Saved to Documents & History!"); }
+            try { browserDownload(bytes, filename, type); } catch(err) { showCustomAlert("Saved to Documents & History!"); }
         }
     } else {
-        const blob = new Blob([bytes], { type }); 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); 
-        a.href = url; a.download = filename; 
-        document.body.appendChild(a); a.click(); 
-        document.body.removeChild(a); URL.revokeObjectURL(url);
+        browserDownload(bytes, filename, type);
     }
+}
+function browserDownload(bytes, filename, type) {
+    const blob = new Blob([bytes], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 60000); // revoking too early cancels the download in some browsers
 }
 
 // =======================================================
@@ -697,7 +677,7 @@ document.getElementById('btn-scanner-export')?.addEventListener('click', async (
 // UI GENERATION FOR TOOLS
 // ==========================================
 const views = [
-    'pdftoword', 'wordtopdf', 'edit', 'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
+    'pdftoword', 'wordtopdf', 'exceltopdf', 'pdftoexcel', 'edit', 'merge', 'split', 'delete', 'compress', 'rotate', 'pdftojpg', 'pagenumbers', 
     'jpgtopdf', 'extract', 'watermark', 'sign', 'protect', 'unlock', 'flatten', 
     'crop', 'metadata', 'repair', 'reorder', 'imagewatermark', 'htmltopdf',
     'addtext', 'addblank', 'resizepdf', 'splitevenodd', 'addmargins', 'removeannots',
@@ -741,14 +721,27 @@ const generateMultipleFileUI = (id, icon, color, title, btnText, extraHtml = "",
     </div>
 `;
 
-// Initialize New PDF & Word Converters
+// Document converters
+const ocrOption = (id) => `
+    <label style="display:flex; gap:8px; align-items:center; color:var(--text-secondary); font-size:0.9rem; margin-bottom:15px; cursor:pointer;"><input type="checkbox" id="${id}-ocr"> Scanned PDF? Read text with OCR (needs internet the first time)</label>
+    <select id="${id}-lang" style="${inputStyle}"><option value="eng">OCR language: English</option><option value="hin">OCR language: Hindi</option><option value="eng+hin">OCR language: English + Hindi</option><option value="guj">OCR language: Gujarati</option><option value="mar">OCR language: Marathi</option></select>`;
 if (ui.pdftoword) ui.pdftoword.innerHTML = generateSingleFileUI('pdftoword', 'fa-file-word', '#3b82f6', 'PDF to Word', 'Convert to Word', `
+    <label style="color:var(--text-secondary); font-size:0.9rem;">Conversion style:</label>
     <select id="pdftoword-mode" style="${inputStyle}">
-        <option value="text">Extract Editable Text (Basic Layout)</option>
-        <option value="exact">Keep Exact Layout (Scanned Image)</option>
-    </select>
-`);
-if (ui.wordtopdf) ui.wordtopdf.innerHTML = generateSingleFileUI('wordtopdf', 'fa-file-pdf', '#ef4444', 'Word to PDF', 'Convert to PDF', '', '.docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        <option value="layout">Editable - keeps layout, tables & images (recommended)</option>
+        <option value="flow">Editable - flowing paragraphs (easier to rewrite)</option>
+        <option value="exact">Exact look - every page as a picture (not editable)</option>
+    </select>${ocrOption('pdftoword')}`);
+if (ui.wordtopdf) ui.wordtopdf.innerHTML = generateSingleFileUI('wordtopdf', 'fa-file-pdf', '#ef4444', 'Word to PDF', 'Convert to PDF', `<p style="font-size:0.8rem; color:#94a3b8; margin-bottom:15px;">Looks exactly like your document and the text stays searchable. Works with .docx files.</p>`, '.docx, application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+if (ui.exceltopdf) ui.exceltopdf.innerHTML = generateSingleFileUI('exceltopdf', 'fa-file-excel', '#10b981', 'Excel to PDF', 'Convert to PDF', `
+    <label style="color:var(--text-secondary); font-size:0.9rem;">Page size & orientation:</label>
+    <div style="display:flex; gap:10px;"><select id="exceltopdf-size" style="${inputStyle}"><option value="A4">A4</option><option value="Letter">Letter</option><option value="Legal">Legal</option></select>
+    <select id="exceltopdf-orient" style="${inputStyle}"><option value="auto">Auto</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></div>
+    <label style="display:flex; gap:8px; align-items:center; color:var(--text-secondary); font-size:0.9rem; margin-bottom:10px; cursor:pointer;"><input type="checkbox" id="exceltopdf-fit" checked> Fit all columns on one page width</label>
+    <label style="display:flex; gap:8px; align-items:center; color:var(--text-secondary); font-size:0.9rem; margin-bottom:15px; cursor:pointer;"><input type="checkbox" id="exceltopdf-grid" checked> Show gridlines</label>`, '.xlsx,.xlsm,.xls,.ods,.csv,.tsv');
+if (ui.pdftoexcel) ui.pdftoexcel.innerHTML = generateSingleFileUI('pdftoexcel', 'fa-file-excel', '#10b981', 'PDF to Excel', 'Convert to Excel', `
+    <label style="color:var(--text-secondary); font-size:0.9rem;">Sheets:</label>
+    <select id="pdftoexcel-sheets" style="${inputStyle}"><option value="page">One sheet per PDF page</option><option value="one">Everything on a single sheet</option></select>${ocrOption('pdftoexcel')}`);
 
 // Visual Editors Initialize
 if (ui.edit) ui.edit.innerHTML = generateSingleFileUI('edit', 'fa-edit', '#10b981', 'Edit PDF', '');
@@ -871,7 +864,12 @@ setTimeout(() => {
     }
 }, 500);
 
-if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Files', '', 'application/pdf, application/zip, .zip');
+if (ui.compress) ui.compress.innerHTML = generateMultipleFileUI('compress', 'fa-compress-arrows-alt', '#10b981', 'Compress', 'Compress Files', `
+    <label style="color:var(--text-secondary); font-size:0.9rem;">Compression level:</label>
+    <select id="compress-level" style="${inputStyle}">
+        <option value="balanced">Balanced - keeps text sharp & selectable (recommended)</option>
+        <option value="extreme">Extreme - smallest size (pages become images)</option>
+    </select>`, 'application/pdf, application/zip, .zip');
 
 if (ui.split) ui.split.innerHTML = generateSingleFileUI('split', 'fa-cut', '#f59e0b', 'Split', 'Split & Download', `<input type="text" id="split-ranges" placeholder="e.g. 1-3" style="${inputStyle}">`);
 if (ui.delete) ui.delete.innerHTML = generateSingleFileUI('delete', 'fa-trash-alt', '#ef4444', 'Delete Pages', 'Remove Pages', `<input type="text" id="delete-ranges" placeholder="e.g. 2, 4-6" style="${inputStyle}">`);
@@ -926,40 +924,65 @@ document.getElementById('addblank-position')?.addEventListener('change', (e) => 
 // ==========================================
 // FILE LOGIC UTILITIES (Single/Multiple/ZIP)
 // ==========================================
-function parseRange(rangeStr) {
-    let pages = []; 
-    rangeStr.split(',').forEach(part => {
-        if (part.includes('-')) { 
-            const [start, end] = part.split('-').map(n => parseInt(n.trim()) - 1); 
-            for (let i = start; i <= end; i++) {
-                pages.push(i); 
-            }
-        } else {
-            pages.push(parseInt(part.trim()) - 1);
-        }
+function parseRange(rangeStr, maxPages) {
+    const pages = [];
+    String(rangeStr || '').split(',').forEach(raw => {
+        const part = raw.trim(); if (!part) return;
+        const m = part.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (m) { let a = parseInt(m[1]), b = parseInt(m[2]); if (a > b) [a, b] = [b, a]; for (let i = a; i <= b; i++) pages.push(i - 1); }
+        else if (/^\d+$/.test(part)) pages.push(parseInt(part) - 1);
+        else throw new Error(`"${part}" is not a valid page number or range. Use something like 1, 3-5.`);
     });
-    return [...new Set(pages)].sort((a, b) => a - b);
+    const clean = [...new Set(pages)].sort((a, b) => a - b);
+    if (maxPages != null) { const bad = clean.filter(p => p < 0 || p >= maxPages); if (bad.length) throw new Error(`This PDF has only ${maxPages} page(s). Page ${bad[0] + 1} does not exist.`); }
+    else if (clean.some(p => p < 0)) throw new Error('Page numbers start from 1.');
+    return clean;
 }
+
+// drag & drop support for any drop zone
+function enableDrop(zone, onFiles) {
+    if (!zone || zone.dataset.dropReady) return; zone.dataset.dropReady = '1';
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.style.opacity = '0.75'; }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.style.opacity = ''; }));
+    zone.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) onFiles(Array.from(e.dataTransfer.files)); });
+}
+const isPdfFile = (f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 
 // ZIP Parser Helper
 async function handleFilesOrZip(filesArray) {
     let finalFiles = [];
-    for(let file of filesArray) {
-        if(file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip') {
+    for (let file of filesArray) {
+        if (file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed') {
             const zip = new JSZip();
             const contents = await zip.loadAsync(file);
-            for(let filename of Object.keys(contents.files)) {
-                if(!contents.files[filename].dir && filename.toLowerCase().endsWith('.pdf')) {
+            for (let filename of Object.keys(contents.files)) {
+                const base = filename.split('/').pop();
+                if (!contents.files[filename].dir && /\.pdf$/i.test(base) && !base.startsWith('.') && !filename.startsWith('__MACOSX')) {
                     const blob = await contents.files[filename].async('blob');
-                    finalFiles.push(new File([blob], filename, { type: 'application/pdf' }));
+                    finalFiles.push(new File([blob], base, { type: 'application/pdf' }));
                 }
             }
-        } else if (file.type === 'application/pdf') {
+        } else if (isPdfFile(file)) {
             finalFiles.push(file);
         }
     }
+    if (!finalFiles.length && filesArray.length) showCustomAlert('Please choose PDF files (or a ZIP containing PDFs).');
     return finalFiles;
 }
+
+const VISUAL_TOOLS = ['edit', 'crop', 'addmargins', 'pagenumbers', 'sign', 'watermark', 'addtext', 'rotate', 'flatten', 'imagewatermark'];
+const FILE_RULES = {
+    imagecompressor: { re: /^image\//, name: /\.(jpe?g|png|webp|bmp|gif)$/i, msg: 'Please choose an image (JPG / PNG / WEBP).' },
+    wordtopdf: { name: /\.docx$/i, msg: 'Please choose a .docx file. (Old .doc files: open in Word and Save As .docx first.)' },
+    exceltopdf: { name: /\.(xlsx|xlsm|xls|ods|csv|tsv)$/i, msg: 'Please choose an Excel file (.xlsx, .xls) or CSV.' }
+};
+function validateFile(id, file) {
+    const r = FILE_RULES[id];
+    if (r) { if ((r.re && r.re.test(file.type)) || (r.name && r.name.test(file.name))) return true; showCustomAlert(r.msg); return false; }
+    if (!isPdfFile(file)) { showCustomAlert('Please choose a PDF file.'); return false; }
+    return true;
+}
+const TOOL_ICON = { wordtopdf: 'fa-file-word', exceltopdf: 'fa-file-excel', imagecompressor: 'fa-file-image' };
 
 function setupSingleFileLogic(id, actionCallback) {
     const dropZone = document.getElementById(`${id}-drop-zone`); 
@@ -971,65 +994,44 @@ function setupSingleFileLogic(id, actionCallback) {
 
     if (!dropZone || !input) return;
     
-    dropZone.addEventListener('click', (e) => { 
-        if(e.target.tagName !== 'BUTTON') {
-            input.click(); 
-        }
-    });
+    dropZone.addEventListener('click', (e) => { if (e.target.tagName !== 'BUTTON') input.click(); });
 
-    input.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            currentFile = file;
-            if (['edit', 'crop', 'addmargins', 'pagenumbers', 'sign', 'watermark', 'addtext', 'rotate', 'flatten', 'imagewatermark'].includes(id) || (id === 'extract' && document.getElementById('extract-mode').value === 'visual')) {
-                openVisualWorkspace(currentFile, id); 
-                input.value = ''; 
-                return;
-            }
-            dropZone.style.display = 'none';
-            info.innerHTML = `
-                <div style="${fileItemStyle}">
-                    <div class="text-container" style="display:flex; align-items:center; gap:15px; min-width:0;">
-                        <i class="fas ${id === 'wordtopdf' ? 'fa-file-word' : (id === 'imagecompressor' ? 'fa-file-image' : 'fa-file-pdf')}" style="color:#ef4444; font-size:1.5rem; flex-shrink:0;"></i>
-                        <b class="text-ellipsis">${file.name}</b>
-                    </div>
-                    <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;">
-                        <i class="fas fa-times"></i>
-                    </button>
+    const acceptFile = (file) => {
+        if (!file || !validateFile(id, file)) return;
+        currentFile = file;
+        const extractEl = document.getElementById('extract-mode');
+        if (VISUAL_TOOLS.includes(id) || (id === 'extract' && extractEl && extractEl.value === 'visual')) {
+            openVisualWorkspace(currentFile, id); input.value = ''; currentFile = null; return;
+        }
+        dropZone.style.display = 'none';
+        info.innerHTML = `
+            <div style="${fileItemStyle}">
+                <div class="text-container" style="display:flex; align-items:center; gap:15px; min-width:0;">
+                    <i class="fas ${TOOL_ICON[id] || 'fa-file-pdf'}" style="color:#ef4444; font-size:1.5rem; flex-shrink:0;"></i>
+                    <b class="text-ellipsis">${escapeHtml(file.name)}</b>
                 </div>
-            `;
-            controls.style.display = 'block';
-            
-            document.getElementById(`reset-${id}`)?.addEventListener('click', () => { 
-                currentFile = null; 
-                input.value = ''; 
-                dropZone.style.display = 'block'; 
-                info.innerHTML = ''; 
-                controls.style.display = 'none'; 
-            });
-        }
-    });
+                <button id="reset-${id}" style="background:var(--glass-border); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>
+            </div>`;
+        controls.style.display = 'block';
+        document.getElementById(`reset-${id}`)?.addEventListener('click', () => { currentFile = null; input.value = ''; dropZone.style.display = 'block'; info.innerHTML = ''; controls.style.display = 'none'; });
+    };
+    input.addEventListener('change', (e) => acceptFile(e.target.files[0]));
+    enableDrop(dropZone, (files) => acceptFile(files[0]));
 
-    if(btn) {
+    if (btn) {
         btn.addEventListener('click', async () => {
             if (!currentFile) return; 
-            const originalText = btn.innerHTML; 
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            const totalOriginalSize = currentFile.size;
-            
+            const totalOriginalSize = currentFile.size; const fileRef = currentFile;
             simulateLoadingAndProcess(`Processing File`, async () => {
-                const result = await actionCallback(currentFile); 
+                const result = await actionCallback(fileRef);
+                if (!result) return;
                 document.getElementById(`reset-${id}`)?.click();
-                const forceStats = ['split', 'wordtopdf', 'pdftoword'].includes(id);
-
-                showSuccessResult(totalOriginalSize, result.bytes.length, "Task Completed!", async () => {
-                    if(typeof AdManager !== 'undefined' && AdManager) {
-                        await AdManager.showInterstitial();
-                    }
+                const forceStats = ['split', 'wordtopdf', 'pdftoword', 'exceltopdf', 'pdftoexcel'].includes(id);
+                showSuccessResult(totalOriginalSize, result.bytes.length, result.title || "Task Completed!", async () => {
+                    if (typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
                     await processAndDownload(result.bytes, result.filename, result.type); 
                 }, forceStats);
             });
-            btn.innerHTML = originalText;
         });
     }
 }
@@ -1043,12 +1045,7 @@ function setupMultipleFileLogic(id, actionCallback) {
     let currentFiles = [];
 
     if (!dropZone || !input || !btn) return;
-    
-    dropZone.addEventListener('click', (e) => { 
-        if(e.target.tagName !== 'BUTTON') {
-            input.click(); 
-        }
-    });
+    dropZone.addEventListener('click', (e) => { if (e.target.tagName !== 'BUTTON') input.click(); });
     
     function renderList() {
         listContainer.innerHTML = '';
@@ -1056,68 +1053,37 @@ function setupMultipleFileLogic(id, actionCallback) {
             const itemDiv = document.createElement('div'); 
             itemDiv.style = fileItemStyle;
             itemDiv.innerHTML = `
-                <div class="text-container">
-                    <b class="text-ellipsis">${f.name}</b>
-                </div>
-                <button class="remove-btn" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
+                <div class="text-container"><b class="text-ellipsis">${escapeHtml(f.name)}</b></div>
+                <button class="remove-btn" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-times"></i></button>`;
             listContainer.appendChild(itemDiv);
         });
-        
         listContainer.querySelectorAll('.remove-btn').forEach(button => { 
-            button.addEventListener('click', (e) => { 
-                const idx = parseInt(e.currentTarget.getAttribute('data-index')); 
-                currentFiles.splice(idx, 1); 
-                renderList(); 
-            }); 
+            button.addEventListener('click', (e) => { currentFiles.splice(parseInt(e.currentTarget.getAttribute('data-index')), 1); renderList(); }); 
         });
-        
-        if(currentFiles.length > 0) {
-            controls.style.display = 'block'; 
-            dropZone.style.display = 'none';
-            if(!document.getElementById(`add-more-${id}`)) {
-               const addMoreBtn = document.createElement('button'); 
-               addMoreBtn.id = `add-more-${id}`; 
-               addMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Add More PDFs';
-               addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer; font-weight:600;`;
-               addMoreBtn.addEventListener('click', () => input.click()); 
-               listContainer.appendChild(addMoreBtn);
-            }
-        } else { 
-            controls.style.display = 'none'; 
-            dropZone.style.display = 'block'; 
-        }
+        if (currentFiles.length > 0) {
+            controls.style.display = 'block'; dropZone.style.display = 'none';
+            const addMoreBtn = document.createElement('button'); 
+            addMoreBtn.id = `add-more-${id}`; addMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Add More PDFs';
+            addMoreBtn.style = `background:var(--surface-color); color:var(--text-main); border:1px dashed var(--glass-border); padding:10px; width:100%; border-radius:8px; margin-bottom:15px; cursor:pointer; font-weight:600;`;
+            addMoreBtn.addEventListener('click', () => input.click()); 
+            listContainer.appendChild(addMoreBtn);
+        } else { controls.style.display = 'none'; dropZone.style.display = 'block'; }
     }
-
-    input.addEventListener('change', async (e) => {
-        const files = await handleFilesOrZip(Array.from(e.target.files));
-        currentFiles = [...currentFiles, ...files]; 
-        renderList(); 
-        input.value = ''; 
-    });
+    const addFiles = async (list) => { const files = await handleFilesOrZip(list); currentFiles = [...currentFiles, ...files]; renderList(); };
+    input.addEventListener('change', async (e) => { await addFiles(Array.from(e.target.files)); input.value = ''; });
+    enableDrop(dropZone, addFiles);
 
     btn.addEventListener('click', async () => {
         if (!currentFiles.length) return; 
-        const originalText = btn.innerHTML; 
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        const totalOriginalSize = currentFiles.reduce((acc, f) => acc + f.size, 0);
-        
-        simulateLoadingAndProcess(`Processing ${currentFiles.length} File(s)`, async () => {
-            const result = await actionCallback(currentFiles); 
-            currentFiles = []; 
-            renderList(); 
-            const forceStats = id === 'compress';
-
+        const filesRef = currentFiles; const totalOriginalSize = filesRef.reduce((acc, f) => acc + f.size, 0);
+        simulateLoadingAndProcess(`Processing ${filesRef.length} File(s)`, async () => {
+            const result = await actionCallback(filesRef); 
+            currentFiles = []; renderList(); 
             showSuccessResult(totalOriginalSize, result.bytes.length, "Task Completed!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
+                if (typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
                 await processAndDownload(result.bytes, result.filename, result.type); 
-            }, forceStats);
+            }, id === 'compress');
         });
-        btn.innerHTML = originalText;
     });
 }
 
@@ -1143,89 +1109,35 @@ setupSingleFileLogic('sign', null);
 setupSingleFileLogic('watermark', null);
 setupSingleFileLogic('addtext', null);
 
-// --- PDF TO WORD (Global Object Method) ---
+// --- Document converters (modules are loaded on first use) ---
+const withProgress = (label) => (i, n) => { const t = document.getElementById('action-title'); if (t) t.textContent = `${label}: page ${i} of ${n}`; };
+async function prepOcr(on) { if (on) { const pro = await loadPro(true); ctx.ocrCanvas = pro.ocrCanvas; } }
 setupSingleFileLogic('pdftoword', async (file) => {
-    if (!window.docx) throw new Error("Word engine not loaded from index.html. Please refresh.");
-    
-    const docxLib = window.docx;
-    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise; 
-    const mode = document.getElementById('pdftoword-mode') ? document.getElementById('pdftoword-mode').value : 'text';
-    let paragraphs = [];
-    
-    if (mode === 'text') {
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i); 
-            const textContent = await page.getTextContent();
-            let lastY = -1;
-            let currentLine = "";
-            textContent.items.forEach(item => {
-                if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 5) {
-                    if(currentLine.trim()) paragraphs.push(new docxLib.Paragraph({ children: [new docxLib.TextRun(currentLine)] }));
-                    currentLine = item.str;
-                } else {
-                    currentLine += (currentLine ? " " : "") + item.str;
-                }
-                lastY = item.transform[5];
-            });
-            if (currentLine.trim()) paragraphs.push(new docxLib.Paragraph({ children: [new docxLib.TextRun(currentLine)] }));
-            if (i < pdf.numPages) paragraphs.push(new docxLib.Paragraph({ children: [new docxLib.PageBreak()] }));
-        }
-    } else {
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i); 
-            const viewport = page.getViewport({ scale: 2.0 });
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width; canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            
-            const imgData = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-            const binaryString = window.atob(imgData);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let j = 0; j < len; j++) bytes[j] = binaryString.charCodeAt(j);
-            
-            paragraphs.push(new docxLib.Paragraph({
-                children: [new docxLib.ImageRun({ data: bytes, transformation: { width: 600, height: Math.floor(viewport.height * (600 / viewport.width)) } })]
-            }));
-        }
-    }
-    
-    const docObj = new docxLib.Document({
-        sections: [{
-            properties: mode === 'exact' ? { margin: { top: 0, right: 0, bottom: 0, left: 0 } } : {},
-            children: paragraphs.length ? paragraphs : [new docxLib.Paragraph("No content found.")]
-        }]
-    });
-    const blob = await docxLib.Packer.toBlob(docObj);
-    return { bytes: new Uint8Array(await blob.arrayBuffer()), filename: `${getBaseName(file.name)}_Converted.docx`, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+    const cv = await getConvert(); const ocr = document.getElementById('pdftoword-ocr')?.checked; await prepOcr(ocr);
+    const r = await cv.pdfToWord(file, { mode: document.getElementById('pdftoword-mode').value, ocr, lang: document.getElementById('pdftoword-lang').value }, ctx, withProgress('Converting'));
+    if (r.scanned && !ocr) showCustomAlert(`${r.scanned} page(s) have no selectable text (scanned), so they were inserted as pictures. Tick the OCR option to get editable text.`);
+    return { bytes: r.bytes, filename: `${getBaseName(file.name)}.docx`, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', title: 'Word File Ready!' };
+});
+setupSingleFileLogic('wordtopdf', async (file) => {
+    const cv = await getConvert(); const bytes = await cv.wordToPdf(file, ctx, withProgress('Rendering'));
+    return { bytes, filename: `${getBaseName(file.name)}.pdf`, type: 'application/pdf', title: 'PDF Ready!' };
+});
+setupSingleFileLogic('exceltopdf', async (file) => {
+    const cv = await getConvert(); const g = (i) => document.getElementById('exceltopdf-' + i);
+    const bytes = await cv.excelToPdf(file, { size: g('size').value, orient: g('orient').value, margin: 28, fit: g('fit').checked, grid: g('grid').checked, quality: 2.5 }, ctx);
+    return { bytes, filename: `${getBaseName(file.name)}.pdf`, type: 'application/pdf', title: 'PDF Ready!' };
+});
+setupSingleFileLogic('pdftoexcel', async (file) => {
+    const cv = await getConvert(); const ocr = document.getElementById('pdftoexcel-ocr')?.checked; await prepOcr(ocr);
+    const bytes = await cv.pdfToExcel(file, { perPage: document.getElementById('pdftoexcel-sheets').value === 'page', ocr, lang: document.getElementById('pdftoexcel-lang').value }, ctx, withProgress('Reading'));
+    return { bytes, filename: `${getBaseName(file.name)}.xlsx`, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', title: 'Excel File Ready!' };
 });
 
-// --- WORD TO PDF (Visual Render Engine) ---
-setupSingleFileLogic('wordtopdf', async (file) => {
-    if (!window.docx || !window.docx.renderAsync) throw new Error("Visual rendering engine not loaded from index.html. Please refresh.");
-    
-    const arrayBuffer = await file.arrayBuffer();
-    const wrapper = document.createElement('div');
-    wrapper.style.padding = '0'; wrapper.style.color = '#000000'; wrapper.style.background = '#ffffff'; 
-    wrapper.style.width = '800px'; wrapper.style.position = 'absolute'; wrapper.style.top = '-9999px';
-    document.body.appendChild(wrapper);
-    
-    await window.docx.renderAsync(arrayBuffer, wrapper, null, {
-        className: "docx", inWrapper: true, ignoreWidth: false, ignoreHeight: false, ignoreFonts: false, breakPages: true, useBase64URL: true
-    });
-    
-    const opt = { margin: 0, filename: 'temp.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-    const pdfBlob = await window.html2pdf().set(opt).from(wrapper).output('blob');
-    document.body.removeChild(wrapper);
-    return { bytes: new Uint8Array(await pdfBlob.arrayBuffer()), filename: `${getBaseName(file.name)}_Converted.pdf`, type: 'application/pdf' };
-});
 
 setupSingleFileLogic('split', async (file) => {
-    const pagesToExtract = parseRange(document.getElementById('split-ranges').value);
-    if (!pagesToExtract.length) throw new Error("Range required");
     const sourcePdf = await PDFDocument.load(await file.arrayBuffer()); 
+    const pagesToExtract = parseRange(document.getElementById('split-ranges').value, sourcePdf.getPageCount());
+    if (!pagesToExtract.length) throw new Error("Please enter the pages to extract, e.g. 1-3, 5");
     const newPdf = await PDFDocument.create();
     const copiedPages = await newPdf.copyPages(sourcePdf, pagesToExtract); 
     copiedPages.forEach(p => newPdf.addPage(p));
@@ -1233,9 +1145,11 @@ setupSingleFileLogic('split', async (file) => {
 });
 
 setupSingleFileLogic('delete', async (file) => {
-    const pagesToDelete = parseRange(document.getElementById('delete-ranges').value);
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
-    pagesToDelete.sort((a, b) => b - a).forEach(i => { if (i >= 0 && i < pdfDoc.getPageCount()) pdfDoc.removePage(i); });
+    const pagesToDelete = parseRange(document.getElementById('delete-ranges').value, pdfDoc.getPageCount());
+    if (!pagesToDelete.length) throw new Error("Please enter the pages to delete, e.g. 2, 4-6");
+    if (pagesToDelete.length >= pdfDoc.getPageCount()) throw new Error("You cannot delete every page of the PDF.");
+    pagesToDelete.sort((a, b) => b - a).forEach(i => pdfDoc.removePage(i));
     return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Deleted.pdf`, type: 'application/pdf' };
 });
 
@@ -1244,14 +1158,14 @@ setupSingleFileLogic('reorder', async (file) => {
     const srcDoc = await PDFDocument.load(await file.arrayBuffer()); 
     const maxPages = srcDoc.getPageCount();
     let indices = [];
-    rawInput.split(',').forEach(part => {
-        if (part.includes('-')) { 
-            const nums = part.split('-').map(n => parseInt(n.trim()) - 1).filter(n => !isNaN(n) && n >= 0 && n < maxPages); indices.push(...nums); 
-        } else { 
-            const n = parseInt(part.trim()) - 1; if (!isNaN(n) && n >= 0 && n < maxPages) indices.push(n); 
-        }
+    rawInput.split(',').forEach(raw => {
+        const part = raw.trim(); if (!part) return;
+        const nums = part.split('-').map(n => parseInt(n.trim()) - 1);
+        if (nums.some(n => isNaN(n) || n < 0 || n >= maxPages)) throw new Error(`"${part}" is invalid. This PDF has ${maxPages} page(s).`);
+        if (nums.length === 2) { const [a, b] = nums; if (a <= b) for (let i = a; i <= b; i++) indices.push(i); else for (let i = a; i >= b; i--) indices.push(i); } // 5-3 => 5,4,3
+        else indices.push(...nums); // 33-32-31 style chains keep the typed order
     });
-    if (!indices.length) throw new Error("Invalid page numbers.");
+    if (!indices.length) throw new Error("Please enter the new page order, e.g. 3, 1, 2 or 5-1");
     const newPdf = await PDFDocument.create(); 
     const copied = await newPdf.copyPages(srcDoc, indices); copied.forEach(p => newPdf.addPage(p));
     return { bytes: await newPdf.save(), filename: `${getBaseName(file.name)}_Reordered.pdf`, type: 'application/pdf' };
@@ -1266,19 +1180,28 @@ setupSingleFileLogic('metadata', async (file) => {
 });
 
 setupSingleFileLogic('repair', async (file) => {
-    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-    return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Repaired.pdf`, type: 'application/pdf' };
+    const buf = await file.arrayBuffer();
+    try {
+        const pdfDoc = await PDFDocument.load(buf, { ignoreEncryption: true, throwOnInvalidObject: false, updateMetadata: false });
+        return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_Repaired.pdf`, type: 'application/pdf' };
+    } catch (e) { // structure too damaged: rebuild from rendered pages
+        const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise; const out = await PDFDocument.create();
+        for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const base = page.getViewport({ scale: 1 }); const vp = page.getViewport({ scale: 2 }); const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height); await page.render({ canvasContext: c, viewport: vp }).promise; const img = await out.embedJpg(cv.toDataURL('image/jpeg', 0.9)); out.addPage([base.width, base.height]).drawImage(img, { x: 0, y: 0, width: base.width, height: base.height }); cv.width = 0; }
+        return { bytes: await out.save(), filename: `${getBaseName(file.name)}_Repaired.pdf`, type: 'application/pdf' };
+    }
 });
 
 setupSingleFileLogic('addblank', async (file) => {
     const pos = document.getElementById('addblank-position').value;
     const afterNum = parseInt(document.getElementById('addblank-after-num').value);
-    const count = parseInt(document.getElementById('addblank-count').value) || 1;
+    const count = Math.min(500, Math.max(1, parseInt(document.getElementById('addblank-count').value) || 1));
     const pdfDoc = await PDFDocument.load(await file.arrayBuffer());
-    for(let i=0; i<count; i++) {
-        if (pos === 'start') pdfDoc.insertPage(0); 
-        else if (pos === 'after' && afterNum > 0 && afterNum <= pdfDoc.getPageCount()) pdfDoc.insertPage(afterNum);
-        else pdfDoc.addPage();
+    if (pos === 'after' && !(afterNum > 0 && afterNum <= pdfDoc.getPageCount())) throw new Error(`Enter a valid page number (1-${pdfDoc.getPageCount()}).`);
+    const ref = pdfDoc.getPage(pos === 'start' ? 0 : pos === 'after' ? afterNum - 1 : pdfDoc.getPageCount() - 1).getSize();
+    for (let i = 0; i < count; i++) { // new pages take the size of the neighbouring page
+        if (pos === 'start') pdfDoc.insertPage(0, [ref.width, ref.height]); 
+        else if (pos === 'after') pdfDoc.insertPage(afterNum, [ref.width, ref.height]);
+        else pdfDoc.addPage([ref.width, ref.height]);
     }
     return { bytes: await pdfDoc.save(), filename: `${getBaseName(file.name)}_AddedPages.pdf`, type: 'application/pdf' };
 });
@@ -1293,7 +1216,7 @@ setupSingleFileLogic('resizepdf', async (file) => {
     pdfDoc.getPages().forEach(page => {
         const { width, height } = page.getSize();
         const scale = Math.min(targetW / width, targetH / height);
-        page.scaleContent(scale, scale); page.setSize(targetW, targetH);
+        page.scaleContent(scale, scale); page.setSize(targetW, targetH); page.setCropBox(0, 0, targetW, targetH);
         const newX = (targetW - (width * scale)) / 2; const newY = (targetH - (height * scale)) / 2;
         page.translateContent(newX, newY);
     });
@@ -1302,7 +1225,7 @@ setupSingleFileLogic('resizepdf', async (file) => {
 
 setupSingleFileLogic('removeannots', async (file) => {
     const doc = await PDFDocument.load(await file.arrayBuffer());
-    doc.getPages().forEach(page => { if(page.node.Annots) page.node.delete(PDFName.of('Annots')); });
+    doc.getPages().forEach(page => page.node.delete(PDFName.of('Annots')));
     return { bytes: await doc.save(), filename: `${getBaseName(file.name)}_Cleaned.pdf`, type: 'application/pdf' };
 });
 
@@ -1322,9 +1245,10 @@ setupSingleFileLogic('pdftojpg', async (file) => {
     const zip = new JSZip();
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i); const canvas = document.createElement('canvas'); const viewport = page.getViewport({ scale: 2.0 });
-        canvas.height = viewport.height; canvas.width = viewport.width; 
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        canvas.height = viewport.height; canvas.width = viewport.width; const c2 = canvas.getContext('2d'); c2.fillStyle = '#fff'; c2.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: c2, viewport }).promise;
         zip.file(`Page_${i}.jpg`, canvas.toDataURL('image/jpeg', 0.9).split(',')[1], {base64: true});
+        canvas.width = canvas.height = 0;
     }
     return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `${getBaseName(file.name)}_Images.zip`, type: 'application/zip' };
 });
@@ -1334,8 +1258,11 @@ setupSingleFileLogic('extract', async (file) => {
     let fullText = "";
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i); const textContent = await page.getTextContent();
-        fullText += `--- Page ${i} ---\n${textContent.items.map(item => item.str).join(" ")}\n\n`;
+        let pageText = '', lastY = null;
+        textContent.items.forEach(item => { if (!item.str && !item.hasEOL) return; const y = item.transform[5]; if (lastY !== null && Math.abs(y - lastY) > 3) pageText += '\n'; else if (pageText && !/\s$/.test(pageText) && item.str && !/^\s/.test(item.str)) pageText += ' '; pageText += item.str; if (item.hasEOL) { pageText += '\n'; lastY = null; } else lastY = y; });
+        fullText += `--- Page ${i} ---\n${pageText.trim()}\n\n`;
     }
+    if (!fullText.replace(/--- Page \d+ ---/g, '').trim()) throw new Error("No selectable text found. This looks like a scanned PDF - use the OCR Scanner tool.");
     return { bytes: new TextEncoder().encode(fullText), filename: `${getBaseName(file.name)}_Extracted.txt`, type: 'text/plain' };
 });
 
@@ -1390,7 +1317,10 @@ setupSingleFileLogic('imagecompressor', async (file) => {
                     attempts++;
                 }
                 
-                if (!bestBlob) bestBlob = await getCanvasBlob(0.1); 
+                if (!bestBlob) {
+                    bestBlob = await getCanvasBlob(0.1); let guard = 0; let cw = canvas.width, ch = canvas.height;
+                    while (bestBlob.size > targetBytes && guard++ < 8 && cw > 120) { cw = Math.floor(cw * 0.8); ch = Math.floor(ch * 0.8); const c2 = document.createElement('canvas'); c2.width = cw; c2.height = ch; const x2 = c2.getContext('2d'); x2.fillStyle = 'white'; x2.fillRect(0, 0, cw, ch); x2.drawImage(canvas, 0, 0, cw, ch); bestBlob = await new Promise(r => c2.toBlob(r, 'image/jpeg', 0.5)); }
+                }
                 
                 const outName = getBaseName(file.name) + `_${targetKB}KB.jpg`;
                 resolve({ 
@@ -1405,60 +1335,40 @@ setupSingleFileLogic('imagecompressor', async (file) => {
     });
 });
 
-setupMultipleFileLogic('compress', async (files) => {
-    const compressSingleFile = async (file) => {
-        const originalSize = file.size;
-        let standardBytes = new Uint8Array();
-        try {
-            const tempDoc = await PDFDocument.load(await file.arrayBuffer(), { updateMetadata: false });
-            standardBytes = await tempDoc.save({ useObjectStreams: true, compress: true });
-        } catch(e) { }
-
-        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-        const newPdf = await PDFDocument.create();
-        let dynamicScale = 1.0; let quality = 0.7;
-
-        if (originalSize > 50 * 1024 * 1024) { dynamicScale = 0.4; quality = 0.5; } 
-        else if (originalSize > 15 * 1024 * 1024) { dynamicScale = 0.6; quality = 0.6; } 
-        else if (originalSize > 5 * 1024 * 1024) { dynamicScale = 0.8; quality = 0.65; } 
-        else if (originalSize > 1 * 1024 * 1024) { dynamicScale = 1.0; quality = 0.7; } 
-        else { dynamicScale = 1.2; quality = 0.6; }
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const baseViewport = page.getViewport({ scale: 1.0 });
-            let finalScale = dynamicScale;
-            if (baseViewport.width * dynamicScale > 1500) finalScale = 1500 / baseViewport.width;
-
-            const viewport = page.getViewport({ scale: finalScale }); 
-            const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-
-            const imgData = canvas.toDataURL('image/jpeg', quality).split(',')[1];
-            const pdfImage = await newPdf.embedJpg(imgData);
-            const newPage = newPdf.addPage([baseViewport.width, baseViewport.height]);
-            newPage.drawImage(pdfImage, { x: 0, y: 0, width: baseViewport.width, height: baseViewport.height });
-        }
-        
-        let extremeBytes = await newPdf.save();
-        let bestBytes = new Uint8Array(await file.arrayBuffer());
-        if (standardBytes.length > 0 && standardBytes.length < bestBytes.length) bestBytes = standardBytes;
-        if (extremeBytes.length > 0 && extremeBytes.length < bestBytes.length) bestBytes = extremeBytes;
-        return bestBytes;
-    };
-
-    if (files.length === 1) {
-        const bytes = await compressSingleFile(files[0]);
-        return { bytes, filename: `${getBaseName(files[0].name)}_Compressed.pdf`, type: 'application/pdf' };
-    } else {
-        const zip = new JSZip();
-        for (const file of files) {
-            const bytes = await compressSingleFile(file);
-            zip.file(`${getBaseName(file.name)}_Compressed.pdf`, bytes);
-        }
-        return { bytes: await zip.generateAsync({type: 'uint8array'}), filename: `Batch_Compressed.zip`, type: 'application/zip' };
+const compressSingleFile = async (file, level) => {
+    const originalBytes = new Uint8Array(await file.arrayBuffer()); const originalSize = originalBytes.length;
+    let standardBytes = null;
+    try { const tempDoc = await PDFDocument.load(originalBytes, { updateMetadata: false }); standardBytes = await tempDoc.save({ useObjectStreams: true }); } catch (e) { }
+    let best = originalBytes; if (standardBytes && standardBytes.length < best.length) best = standardBytes;
+    if (level === 'balanced' && best.length <= originalSize * 0.8) return best; // structural optimisation was enough
+    const pdf = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise; const newPdf = await PDFDocument.create();
+    let dynamicScale, quality;
+    if (level === 'extreme') {
+        if (originalSize > 50 * 1024 * 1024) { dynamicScale = 0.4; quality = 0.5; } else if (originalSize > 15 * 1024 * 1024) { dynamicScale = 0.6; quality = 0.6; } else if (originalSize > 5 * 1024 * 1024) { dynamicScale = 0.8; quality = 0.65; } else if (originalSize > 1024 * 1024) { dynamicScale = 1.0; quality = 0.7; } else { dynamicScale = 1.2; quality = 0.6; }
+    } else { dynamicScale = originalSize > 15 * 1024 * 1024 ? 1.0 : 1.5; quality = 0.78; } // balanced fallback keeps pages readable
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i); const baseViewport = page.getViewport({ scale: 1.0 });
+        let finalScale = dynamicScale; if (baseViewport.width * dynamicScale > 1600) finalScale = 1600 / baseViewport.width;
+        const viewport = page.getViewport({ scale: finalScale }); const canvas = document.createElement('canvas'); canvas.width = viewport.width; canvas.height = viewport.height;
+        const c = canvas.getContext('2d'); c.fillStyle = 'white'; c.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: c, viewport }).promise;
+        const pdfImage = await newPdf.embedJpg(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+        newPdf.addPage([baseViewport.width, baseViewport.height]).drawImage(pdfImage, { x: 0, y: 0, width: baseViewport.width, height: baseViewport.height });
+        canvas.width = canvas.height = 0;
     }
+    const rasterBytes = await newPdf.save();
+    if (level === 'extreme' ? rasterBytes.length < best.length : rasterBytes.length < best.length * 0.7) best = rasterBytes; // balanced: only trade text for size when it really pays off
+    return best;
+};
+setupMultipleFileLogic('compress', async (files) => {
+    const level = (document.getElementById('compress-level') || {}).value || 'balanced';
+    if (files.length === 1) {
+        const bytes = await compressSingleFile(files[0], level);
+        return { bytes, filename: `${getBaseName(files[0].name)}_Compressed.pdf`, type: 'application/pdf' };
+    }
+    const zip = new JSZip();
+    for (const file of files) zip.file(`${getBaseName(file.name)}_Compressed.pdf`, await compressSingleFile(file, level));
+    return { bytes: await zip.generateAsync({ type: 'uint8array' }), filename: `Batch_Compressed.zip`, type: 'application/zip' };
 });
 
 setupMultipleFileLogic('unlock', async (files) => {
@@ -1472,13 +1382,15 @@ setupMultipleFileLogic('unlock', async (files) => {
     
     const unlockSingleFile = async (file, pwd) => {
         try { 
-            const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { password: pwd }); 
+            const buf = await file.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(buf); // works only if the file is not actually encrypted
             return await pdfDoc.save(); 
         } catch (err) {
             if (!navigator.onLine) throw new Error("Please turn on internet to unlock via Cloud.");
             const formData = new FormData(); formData.append('file', file); formData.append('password', pwd);
             const response = await fetch("https://amazing-pdf-tool.vercel.app/api/unlock", { method: 'POST', body: formData });
-            if (!response.ok) throw new Error("Unlock Failed"); 
+            if (response.status === 401 || response.status === 400) throw new Error("Wrong password, or this PDF is not password protected.");
+            if (!response.ok) throw new Error("Unlock failed (server error). Please try again."); 
             return new Uint8Array(await (await response.blob()).arrayBuffer());
         }
     };
@@ -1532,7 +1444,7 @@ if (ui.htmltopdf) {
         const btn = document.getElementById('btn-htmltopdf-action'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
         
         simulateLoadingAndProcess("Converting HTML", async () => {
-            const iframe = document.createElement('iframe'); iframe.style.position = 'absolute'; iframe.style.top = '-9999px'; iframe.style.width = '800px'; document.body.appendChild(iframe);
+            const iframe = document.createElement('iframe'); iframe.setAttribute('sandbox', 'allow-same-origin'); iframe.style.position = 'absolute'; iframe.style.top = '-9999px'; iframe.style.width = '800px'; document.body.appendChild(iframe);
             iframe.contentDocument.open(); iframe.contentDocument.write(htmlContent); iframe.contentDocument.close();
             const opt = { margin: 1, jsPDF: { format: 'letter' } };
             const blob = await window.html2pdf().set(opt).from(iframe.contentDocument.body).output('blob');
@@ -1558,7 +1470,7 @@ if (ui.merge) {
         mergeFiles.forEach((f, i) => { 
             list.innerHTML += `
                 <div style="${fileItemStyle}">
-                    <div class="text-container"><b class="text-ellipsis">${f.name}</b></div>
+                    <div class="text-container"><b class="text-ellipsis">${escapeHtml(f.name)}</b></div>
                     <button class="remove-merge" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
                 </div>
             `; 
@@ -1569,9 +1481,9 @@ if (ui.merge) {
         const actionBtn = document.getElementById('btn-merge-action'); if (actionBtn) actionBtn.style.display = mergeFiles.length > 1 ? 'block' : 'none';
     }
     
-    mergeInput?.addEventListener('change', async (e) => { 
-        const files = await handleFilesOrZip(Array.from(e.target.files)); mergeFiles = [...mergeFiles, ...files]; renderMergeList(); mergeInput.value = ''; 
-    });
+    const addMerge = async (list) => { const files = await handleFilesOrZip(list); mergeFiles = [...mergeFiles, ...files]; renderMergeList(); };
+    mergeInput?.addEventListener('change', async (e) => { await addMerge(Array.from(e.target.files)); mergeInput.value = ''; });
+    enableDrop(document.getElementById('merge-drop-zone'), addMerge);
     
     document.getElementById('btn-merge-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-merge-action'); btn.innerHTML = 'Processing...';
@@ -1607,7 +1519,7 @@ if (ui.jpgtopdf) {
         imageFiles.forEach((f, i) => { 
             list.innerHTML += `
                 <div style="${fileItemStyle}">
-                    <div class="text-container"><b class="text-ellipsis">${f.name}</b></div>
+                    <div class="text-container"><b class="text-ellipsis">${escapeHtml(f.name)}</b></div>
                     <button class="remove-img" data-index="${i}" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-times"></i></button>
                 </div>
             `; 
@@ -1618,9 +1530,9 @@ if (ui.jpgtopdf) {
         const actionBtn = document.getElementById('btn-jpgtopdf-action'); if (actionBtn) actionBtn.style.display = imageFiles.length > 0 ? 'block' : 'none';
     }
     
-    imgInput?.addEventListener('change', (e) => { 
-        imageFiles = [...imageFiles, ...Array.from(e.target.files).filter(f => f.type.startsWith('image/'))]; renderImgList(); imgInput.value = ''; 
-    });
+    const addImgs = (list) => { imageFiles = [...imageFiles, ...list.filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|gif)$/i.test(f.name))]; renderImgList(); };
+    imgInput?.addEventListener('change', (e) => { addImgs(Array.from(e.target.files)); imgInput.value = ''; });
+    enableDrop(document.getElementById('jpgtopdf-drop-zone'), addImgs);
     
     document.getElementById('btn-jpgtopdf-action')?.addEventListener('click', async () => {
         const btn = document.getElementById('btn-jpgtopdf-action'); btn.innerHTML = 'Converting...';
@@ -1630,8 +1542,8 @@ if (ui.jpgtopdf) {
             const pdfDoc = await PDFDocument.create();
             for (const file of imageFiles) {
                 const dataUrl = await new Promise(resolve => { const reader = new FileReader(); reader.onload = e => resolve(e.target.result); reader.readAsDataURL(file); });
-                const imgObj = new Image(); imgObj.src = dataUrl; await new Promise(resolve => imgObj.onload = resolve);
-                const canvas = document.createElement('canvas'); canvas.width = imgObj.width; canvas.height = imgObj.height; const ctx = canvas.getContext('2d'); ctx.drawImage(imgObj, 0, 0);
+                const imgObj = new Image(); imgObj.src = dataUrl; await new Promise((resolve, reject) => { imgObj.onload = resolve; imgObj.onerror = () => reject(new Error('Could not read image ' + file.name)); });
+                const k = Math.min(1, 3000 / Math.max(imgObj.width, imgObj.height)); const canvas = document.createElement('canvas'); canvas.width = Math.round(imgObj.width * k); canvas.height = Math.round(imgObj.height * k); const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(imgObj, 0, 0, canvas.width, canvas.height);
                 const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]; const pdfImage = await pdfDoc.embedJpg(optimizedBase64);
                 const dims = pdfImage.scale(1); const page = pdfDoc.addPage([dims.width, dims.height]); page.drawImage(pdfImage, { x: 0, y: 0, width: dims.width, height: dims.height });
             }
@@ -1658,1648 +1570,42 @@ document.getElementById('mobile-search')?.addEventListener('input', handleSearch
 document.getElementById('desktop-search')?.addEventListener('input', handleSearch);
 
 // ==========================================
-// UNIVERSAL PRO VISUAL EDITOR (SEJDA-STYLE UPGRADED)
+// MODULES: editor, converters, pro tools (loaded on demand)
 // ==========================================
-
-window.sejdaCopiedStyle = null; // Global variable for Font Copy-Paste
-
-// Helper to extract & apply style to Div
-function applyStyleToDiv(div, styleObj) {
-    div.style.fontFamily = styleObj.fontFamily;
-    div.style.fontWeight = styleObj.fontWeight;
-    div.style.fontStyle = styleObj.fontStyle;
-    div.style.fontSize = styleObj.fontSize;
+const APP_VER = (document.querySelector('script[src*="app.js"]')?.getAttribute('src') || '').match(/v=([\w.]+)/)?.[1] || '';
+const modUrl = (n) => `./js/${n}.js${APP_VER ? '?v=' + APP_VER : ''}`;
+const ops = {
+    compressPdf: (file) => compressSingleFile(file, 'balanced'),
+    async resizePdf(file, profile) {
+        const pdfDoc = await PDFDocument.load(await file.arrayBuffer()); const sizes = { A4: [595.28, 841.89], Letter: [612, 792], Legal: [612, 1008] }; const [tw, th] = sizes[profile] || sizes.A4;
+        pdfDoc.getPages().forEach(page => { const { width, height } = page.getSize(); const sc = Math.min(tw / width, th / height); page.scaleContent(sc, sc); page.setSize(tw, th); page.setCropBox(0, 0, tw, th); page.translateContent((tw - width * sc) / 2, (th - height * sc) / 2); });
+        return pdfDoc.save();
+    },
+    async imageToPdf(file) {
+        const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(file); });
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Unreadable image')); i.src = url; });
+        const k = Math.min(1, 3000 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height); c.drawImage(img, 0, 0, cv.width, cv.height);
+        const doc = await PDFDocument.create(); const im = await doc.embedJpg(cv.toDataURL('image/jpeg', 0.88)); doc.addPage([im.width, im.height]).drawImage(im, { x: 0, y: 0, width: im.width, height: im.height }); return doc.save();
+    }
+};
+const ctx = { PDFLIB, pdfjsLib, JSZip, showCustomAlert, handleError, simulateLoadingAndProcess, showProcessingUI, hideProcessingUI, showSuccessResult, processAndDownload, AdManager, getBaseName, enableDrop, ops };
+let _editor = null, _convert = null, _pro = null;
+async function getEditor() { if (!_editor) { _editor = await import(modUrl('editor')); ctx.closeEditor = _editor.closeEditor; window.__editorOpen = _editor.isEditorOpen; } return _editor; }
+async function getConvert() { if (!_convert) { _convert = await import(modUrl('convert')); ctx.convert = _convert; } return _convert; }
+async function loadPro(noInit) { if (!_pro) { _pro = await import(modUrl('pro')); await getConvert(); _pro.initPro(ctx); } return _pro; }
+async function openVisualWorkspace(file, mode) {
+    try { const m = await getEditor(); await m.openEditor(file, mode, ctx); } catch (e) { console.error(e); handleError(e); }
 }
+// OCR Scanner / Batch tools initialise when their page is first opened
+const _sv = window.switchView;
+window.switchView = (viewId) => { _sv(viewId); if (viewId === 'ocr' || viewId === 'batch') loadPro().catch(e => handleError(e)); };
 
-// Style Picker UI
-function showStylePicker(targetDiv) {
-    let picker = document.getElementById('sejda-style-picker');
-    if (!picker) {
-        picker = document.createElement('div');
-        picker.id = 'sejda-style-picker';
-        picker.style.position = 'absolute';
-        picker.style.zIndex = '1001';
-        picker.style.background = '#1e293b';
-        picker.style.padding = '5px';
-        picker.style.borderRadius = '6px';
-        picker.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
-        picker.style.display = 'flex';
-        picker.style.gap = '5px';
-        
-        const btnCopy = document.createElement('button');
-        btnCopy.innerHTML = '<i class="fas fa-copy"></i> Copy Font';
-        btnCopy.style = 'background: #3b82f6; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;';
-        
-        const btnPaste = document.createElement('button');
-        btnPaste.innerHTML = '<i class="fas fa-paste"></i> Paste Font';
-        btnPaste.style = 'background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;';
-        
-        picker.appendChild(btnCopy);
-        picker.appendChild(btnPaste);
-        document.body.appendChild(picker);
-    }
-    
-    picker.style.display = 'flex';
-    const rect = targetDiv.getBoundingClientRect();
-    picker.style.top = Math.max(0, (rect.top + window.scrollY - 40)) + 'px';
-    picker.style.left = (rect.left + window.scrollX) + 'px';
-    
-    picker.children[0].onclick = (e) => {
-        e.preventDefault();
-        window.sejdaCopiedStyle = {
-            fontFamily: targetDiv.style.fontFamily,
-            fontWeight: targetDiv.style.fontWeight,
-            fontStyle: targetDiv.style.fontStyle,
-            fontSize: targetDiv.style.fontSize,
-            isBold: targetDiv.dataset.isBold,
-            isItalic: targetDiv.dataset.isItalic,
-            baseFont: targetDiv.dataset.baseFont,
-            rawFontSize: targetDiv.dataset.fontSize
-        };
-        picker.children[0].innerHTML = '<i class="fas fa-check"></i> Copied';
-        setTimeout(() => picker.children[0].innerHTML = '<i class="fas fa-copy"></i> Copy Font', 2000);
-    };
-    
-    picker.children[1].onclick = (e) => {
-        e.preventDefault();
-        if(window.sejdaCopiedStyle) {
-            applyStyleToDiv(targetDiv, window.sejdaCopiedStyle);
-            
-            targetDiv.dataset.isBold = window.sejdaCopiedStyle.isBold;
-            targetDiv.dataset.isItalic = window.sejdaCopiedStyle.isItalic;
-            targetDiv.dataset.baseFont = window.sejdaCopiedStyle.baseFont;
-            targetDiv.dataset.fontSize = window.sejdaCopiedStyle.rawFontSize;
-            targetDiv.dataset.edited = 'true';
-            
-            picker.children[1].innerHTML = '<i class="fas fa-check"></i> Pasted';
-            setTimeout(() => picker.children[1].innerHTML = '<i class="fas fa-paste"></i> Paste Font', 2000);
-        } else {
-            showCustomAlert("Please copy a font style first!");
-        }
-    };
-}
 
-function hideStylePicker() {
-    const picker = document.getElementById('sejda-style-picker');
-    if(picker) picker.style.display = 'none';
-}
-
-let editPdfDoc = null;
-let currentEditFile = null; 
-let editOriginalFileName = "";
-let editPageNum = 1;
-let editScale = 1.5; 
-
-const renderCanvas = document.getElementById('pdf-render-canvas');
-const renderCtx = renderCanvas ? renderCanvas.getContext('2d') : null;
-const overlayCanvas = document.getElementById('pdf-overlay-canvas');
-const overlayCtx = overlayCanvas ? overlayCanvas.getContext('2d') : null;
-
-// [SEJDA EDITOR] Creating the DOM Text Layer
-let sejdaTextLayer = document.getElementById('sejda-text-layer');
-if (!sejdaTextLayer) {
-    sejdaTextLayer = document.createElement('div');
-    sejdaTextLayer.id = 'sejda-text-layer';
-    sejdaTextLayer.style.position = 'absolute';
-    sejdaTextLayer.style.top = '0';
-    sejdaTextLayer.style.left = '0';
-    sejdaTextLayer.style.width = '100%';
-    sejdaTextLayer.style.height = '100%';
-    sejdaTextLayer.style.pointerEvents = 'none'; // Click-through by default
-    
-    const initLayer = setInterval(() => {
-        const wrapper = document.querySelector('.canvas-wrapper');
-        if (wrapper) {
-            wrapper.appendChild(sejdaTextLayer);
-            clearInterval(initLayer);
-        }
-    }, 500);
-}
-
-let currentTool = 'none'; 
-let currentVisualMode = 'edit';
-let visualData = {};
-let editColor = '#000000'; 
-let editSize = 20;
-let isDrawing = false; 
-let startX = 0; 
-let startY = 0; 
-let currentPath = null; 
-let activeDragIndex = -1; 
-let dragOffsetX = 0; 
-let dragOffsetY = 0; 
-let hasMovedDuringClick = false; 
-let selectedEditIndex = -1; 
-let activeResizeHandle = null; 
-let originalEditState = null;
-let isHoveringTrash = false; 
-const trashZone = document.getElementById('drag-trash-zone');
-let pageEdits = {}; 
-let pageRotations = {}; 
-
-document.getElementById('btn-zoom-in')?.addEventListener('click', () => { 
-    editScale += 0.2; 
-    renderEditPage(editPageNum); 
-});
-
-document.getElementById('btn-zoom-out')?.addEventListener('click', () => { 
-    editScale = Math.max(0.4, editScale - 0.2); 
-    renderEditPage(editPageNum); 
-});
-
-document.getElementById('btn-zoom-fit')?.addEventListener('click', () => {
-    if (!editPdfDoc) return;
-    editPdfDoc.getPage(editPageNum).then(page => {
-        const baseViewport = page.getViewport({ scale: 1 });
-        const sidebarWidth = window.innerWidth > 768 ? 280 : 20;
-        const cWidth = window.innerWidth - sidebarWidth;
-        const cHeight = window.innerHeight - 200; 
-        const scaleW = cWidth / baseViewport.width;
-        const scaleH = cHeight / baseViewport.height;
-        editScale = Math.min(scaleW, scaleH, 2.0);
-        renderEditPage(editPageNum);
-    });
-});
-
-let pendingTextAction = null; 
-let tmState = { bold: false, italic: false, underline: false, align: 'left', bgColor: 'transparent' };
-
-function openTextModal(initialText = "", actionData) {
-    pendingTextAction = actionData;
-    const modal = document.getElementById('custom-text-modal'); 
-    const input = document.getElementById('custom-text-input');
-    
-    if(document.getElementById('text-modal-title')) {
-        document.getElementById('text-modal-title').innerText = actionData.type === 'new' ? "Add New Text" : "Edit Text";
-    }
-    if(input) {
-        input.value = initialText; 
-    }
-
-    if (actionData.type === 'edit') {
-        const edit = pageEdits[editPageNum][actionData.index];
-        tmState.bold = edit.bold || false; 
-        tmState.italic = edit.italic || false; 
-        tmState.underline = edit.underline || false; 
-        tmState.align = edit.align || 'left'; 
-        tmState.bgColor = edit.bgColor || 'transparent';
-        
-        if(document.getElementById('tm-size')) document.getElementById('tm-size').value = edit.size || 20;
-        if(document.getElementById('tm-color')) document.getElementById('tm-color').value = edit.color || '#000000';
-        if(document.getElementById('tm-bg-color')) document.getElementById('tm-bg-color').value = (tmState.bgColor === 'transparent') ? '#ffffff' : tmState.bgColor;
-        if(document.getElementById('tm-opacity')) document.getElementById('tm-opacity').value = edit.opacity || 1;
-    } else {
-        tmState = { bold: false, italic: false, underline: false, align: 'left', bgColor: 'transparent' };
-        
-        if(document.getElementById('tm-size')) document.getElementById('tm-size').value = editSize;
-        if(document.getElementById('tm-color')) document.getElementById('tm-color').value = editColor;
-        if(document.getElementById('tm-bg-color')) document.getElementById('tm-bg-color').value = '#ffffff';
-        if(document.getElementById('tm-opacity')) document.getElementById('tm-opacity').value = (currentVisualMode === 'watermark') ? 0.5 : 1;
-    }
-    
-    updateTmUI();
-    
-    if(modal) { 
-        modal.style.display = 'flex'; 
-        if(input) input.focus(); 
-    }
-}
-
-['bold', 'italic', 'underline'].forEach(prop => { 
-    document.getElementById(`tm-${prop}`)?.addEventListener('click', () => { 
-        tmState[prop] = !tmState[prop]; 
-        updateTmUI(); 
-    }); 
-});
-
-['left', 'center', 'right'].forEach(align => { 
-    document.getElementById(`tm-align-${align}`)?.addEventListener('click', () => { 
-        tmState.align = align; 
-        updateTmUI(); 
-    }); 
-});
-
-document.getElementById('tm-bg-color')?.addEventListener('input', (e) => { 
-    tmState.bgColor = e.target.value; 
-});
-
-document.getElementById('tm-clear-bg')?.addEventListener('click', () => { 
-    tmState.bgColor = 'transparent'; 
-    const bg = document.getElementById('tm-bg-color'); 
-    if(bg) bg.value = '#ffffff'; 
-});
-
-function updateTmUI() {
-    ['bold', 'italic', 'underline'].forEach(prop => { 
-        const btn = document.getElementById(`tm-${prop}`); 
-        if(btn) { 
-            if (tmState[prop]) btn.classList.add('edit-tool-active'); 
-            else btn.classList.remove('edit-tool-active'); 
-        } 
-    });
-    
-    ['left', 'center', 'right'].forEach(align => { 
-        const btn = document.getElementById(`tm-align-${align}`); 
-        if(btn) { 
-            if (tmState.align === align) btn.classList.add('edit-tool-active'); 
-            else btn.classList.remove('edit-tool-active'); 
-        } 
-    });
-}
-
-document.getElementById('btn-text-cancel')?.addEventListener('click', () => { 
-    const m = document.getElementById('custom-text-modal'); 
-    if(m) m.style.display = 'none'; 
-    pendingTextAction = null; 
-});
-
-document.getElementById('btn-text-save')?.addEventListener('click', () => {
-    const valObj = document.getElementById('custom-text-input'); 
-    const colorObj = document.getElementById('tm-color'); 
-    const sizeObj = document.getElementById('tm-size'); 
-    const opacityObj = document.getElementById('tm-opacity');
-    
-    const val = valObj ? valObj.value : ""; 
-    const color = colorObj ? colorObj.value : "#000000"; 
-    const size = sizeObj ? (parseInt(sizeObj.value) || 20) : 20; 
-    const opacity = opacityObj ? parseFloat(opacityObj.value) : 1;
-    
-    editSize = size; 
-
-    if(val && val.trim() !== '' && pendingTextAction) {
-        if(pendingTextAction.type === 'new') {
-            if (!pageEdits[editPageNum]) pageEdits[editPageNum] = [];
-            
-            pageEdits[editPageNum].push({ 
-                type: 'text', 
-                x: pendingTextAction.pos.x, 
-                y: pendingTextAction.pos.y, 
-                text: val, 
-                color: color, 
-                size: size, 
-                bold: tmState.bold, 
-                italic: tmState.italic, 
-                underline: tmState.underline, 
-                align: tmState.align, 
-                bgColor: tmState.bgColor, 
-                opacity: opacity 
-            });
-        } else if(pendingTextAction.type === 'edit') {
-            const edit = pageEdits[editPageNum][pendingTextAction.index];
-            
-            edit.text = val; 
-            edit.color = color; 
-            edit.size = size; 
-            edit.bold = tmState.bold; 
-            edit.italic = tmState.italic; 
-            edit.underline = tmState.underline; 
-            edit.align = tmState.align; 
-            edit.bgColor = tmState.bgColor; 
-            edit.opacity = opacity;
-        }
-        drawOverlay();
-    }
-    
-    const m = document.getElementById('custom-text-modal'); 
-    if(m) m.style.display = 'none'; 
-    pendingTextAction = null;
-});
-
-function setToolActive(btnId, toolName) {
-    document.querySelectorAll('.edit-toolbar-btn').forEach(b => {
-        b.classList.remove('edit-tool-active');
-    });
-    
-    if(btnId) { 
-        const btn = document.getElementById(btnId); 
-        if(btn) btn.classList.add('edit-tool-active'); 
-    }
-    
-    currentTool = toolName; 
-    selectedEditIndex = -1; 
-    
-    if (sejdaTextLayer) {
-        if (toolName === 'none' && currentVisualMode === 'edit') {
-            sejdaTextLayer.style.pointerEvents = 'auto';
-        } else {
-            sejdaTextLayer.style.pointerEvents = 'none';
-        }
-    }
-    
-    drawOverlay(); 
-}
-
-document.getElementById('edit-color-picker')?.addEventListener('input', (e) => {
-    editColor = e.target.value;
-});
-
-document.getElementById('edit-size-picker')?.addEventListener('input', (e) => {
-    editSize = parseInt(e.target.value) || 20;
-});
-
-document.getElementById('btn-edit-text')?.addEventListener('click', () => {
-    setToolActive('btn-edit-text', 'text');
-});
-document.getElementById('btn-edit-whiteout')?.addEventListener('click', () => setToolActive('btn-edit-whiteout', 'whiteout'));
-document.getElementById('btn-edit-draw')?.addEventListener('click', () => setToolActive('btn-edit-draw', 'draw'));
-
-document.getElementById('btn-edit-clear')?.addEventListener('click', () => { 
-    pageEdits[editPageNum] = []; 
-    selectedEditIndex = -1; 
-    if(sejdaTextLayer) {
-        const edits = sejdaTextLayer.querySelectorAll('div[data-edited="true"]');
-        edits.forEach(div => {
-            div.innerText = div.dataset.origText;
-            div.dataset.edited = "false";
-            div.style.color = 'transparent';
-            div.style.backgroundColor = 'transparent';
-        });
-    }
-    drawOverlay(); 
-    showCustomAlert("Cleared!"); 
-});
-
-document.getElementById('btn-edit-image')?.addEventListener('click', () => { 
-    setToolActive('btn-edit-image', 'image'); 
-    document.getElementById('edit-image-input')?.click(); 
-});
-
-document.getElementById('edit-image-input')?.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file && (file.type === 'image/png' || file.type === 'image/jpeg')) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const dataUrl = event.target.result; 
-            const img = new Image();
-            img.onload = function() {
-                if (!pageEdits[editPageNum]) pageEdits[editPageNum] = [];
-                
-                let w = img.width; 
-                let h = img.height; 
-                const maxDim = 200;
-                
-                if(w > maxDim || h > maxDim) { 
-                    const ratio = Math.min(maxDim/w, maxDim/h); 
-                    w = w * ratio; 
-                    h = h * ratio; 
-                }
-                
-                pageEdits[editPageNum].push({ 
-                    type: 'image', 
-                    x: overlayCanvas.width/2 - w/2, 
-                    y: overlayCanvas.height/2 - h/2, 
-                    w: w, 
-                    h: h, 
-                    dataUrl: dataUrl, 
-                    imgType: file.type, 
-                    imgObj: img 
-                });
-                
-                selectedEditIndex = pageEdits[editPageNum].length - 1; 
-                drawOverlay(); 
-                document.getElementById('edit-image-input').value = ""; 
-            }
-            img.src = dataUrl;
-        }
-        reader.readAsDataURL(file);
-    }
-});
-
-document.getElementById('watermark-opacity')?.addEventListener('input', (e) => {
-    if(selectedEditIndex !== -1 && pageEdits[editPageNum][selectedEditIndex].type === 'image') {
-        pageEdits[editPageNum][selectedEditIndex].opacity = parseFloat(e.target.value); 
-        drawOverlay();
-    }
-});
-
-function openVisualWorkspace(file, mode) {
-    currentEditFile = file; 
-    editOriginalFileName = file.name; 
-    currentVisualMode = mode;
-    pageEdits = {}; 
-    pageRotations = {}; 
-    selectedEditIndex = -1;
-    hideStylePicker();
-
-    const title = document.getElementById('workspace-title'); 
-    const headerHelp = document.getElementById('visual-tool-header');
-    const btnText = document.getElementById('btn-edit-text'); 
-    const btnDraw = document.getElementById('btn-edit-draw'); 
-    const btnErase = document.getElementById('btn-edit-whiteout'); 
-    const btnImage = document.getElementById('btn-edit-image');
-    const toolSettings = document.querySelector('.tool-settings'); 
-    const btnClear = document.getElementById('btn-edit-clear');
-    const applyModeSelector = document.getElementById('edit-apply-mode');
-    
-    const btnRotLeft = document.getElementById('btn-rotate-left'); 
-    const btnRotRight = document.getElementById('btn-rotate-right');
-    const btnFlatten = document.getElementById('btn-flatten-apply'); 
-    const watermarkSettings = document.getElementById('watermark-settings');
-
-    if(headerHelp) headerHelp.style.display = 'none';
-    if(btnRotLeft) btnRotLeft.style.display = 'none'; 
-    if(btnRotRight) btnRotRight.style.display = 'none';
-    if(btnFlatten) btnFlatten.style.display = 'none'; 
-    if(watermarkSettings) watermarkSettings.style.display = 'none';
-    if(sejdaTextLayer) {
-        sejdaTextLayer.innerHTML = '';
-        sejdaTextLayer.style.pointerEvents = 'none';
-    }
-    
-    document.body.classList.add('is-editing'); 
-    
-    if(applyModeSelector) {
-        applyModeSelector.value = ['pagenumbers', 'watermark', 'imagewatermark'].includes(mode) ? 'all' : 'current';
-    }
-
-    if (['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(mode)) {
-        if(title) {
-            title.innerHTML = mode === 'sign' ? '<i class="fas fa-signature"></i> Signature' : 
-                              mode === 'watermark' ? '<i class="fas fa-stamp"></i> Watermark' : 
-                              mode === 'imagewatermark' ? '<i class="fas fa-images"></i> Image Watermark' : 
-                              mode === 'addtext' ? '<i class="fas fa-font"></i> Add Text' : 
-                              '<i class="fas fa-edit"></i> Visual Editor';
-        }
-        
-        if(btnText) btnText.style.display = (mode !== 'imagewatermark') ? 'inline-flex' : 'none'; 
-        if(btnDraw) btnDraw.style.display = 'inline-flex'; 
-        if(btnErase) btnErase.style.display = 'inline-flex'; 
-        if(btnImage) btnImage.style.display = 'inline-flex'; 
-        if(toolSettings) toolSettings.style.display = 'flex'; 
-        if(btnClear) btnClear.style.display = 'inline-flex';
-        
-        if (mode === 'edit') {
-            if(headerHelp) { 
-                headerHelp.style.display = 'block'; 
-                headerHelp.innerHTML = "<i class='fas fa-magic'></i> Click on existing text to edit it, or use top tools."; 
-            }
-        }
-        
-        if (mode === 'imagewatermark') { 
-            if(watermarkSettings) watermarkSettings.style.display = 'flex'; 
-            setToolActive('btn-edit-image', 'image'); 
-            document.getElementById('edit-image-input')?.click(); 
-        } else if (mode === 'sign' || mode === 'watermark' || mode === 'addtext') { 
-            setToolActive('btn-edit-text', 'text'); 
-        } else { 
-            currentTool = 'none'; 
-            if (mode === 'edit' && sejdaTextLayer) sejdaTextLayer.style.pointerEvents = 'auto';
-        }
-
-    } else {
-        if(btnText) btnText.style.display = 'none'; 
-        if(btnDraw) btnDraw.style.display = 'none'; 
-        if(btnErase) btnErase.style.display = 'none'; 
-        if(btnImage) btnImage.style.display = 'none'; 
-        if(toolSettings) toolSettings.style.display = 'none'; 
-        if(btnClear) btnClear.style.display = 'none';
-        
-        if (mode === 'crop') { 
-            if(title) title.innerHTML = '<i class="fas fa-crop"></i> Visual Crop'; 
-            if(headerHelp) { headerHelp.style.display = 'block'; headerHelp.innerText = "Draw a box to crop the page."; } 
-            currentTool = 'visual-box'; 
-        }
-        else if (mode === 'addmargins') { 
-            if(title) title.innerHTML = '<i class="fas fa-border-all"></i> Visual Margin'; 
-            if(headerHelp) { headerHelp.style.display = 'block'; headerHelp.innerText = "Draw content area (Margins will be added outside)"; } 
-            currentTool = 'visual-box'; 
-        }
-        else if (mode === 'extract') { 
-            if(title) title.innerHTML = '<i class="fas fa-file-alt"></i> Select Text Area'; 
-            if(headerHelp) { headerHelp.style.display = 'block'; headerHelp.innerText = "Draw a box to extract text from that area."; } 
-            currentTool = 'visual-box'; 
-        }
-        else if (mode === 'rotate') { 
-            if(title) title.innerHTML = '<i class="fas fa-sync-alt"></i> Rotate Pages'; 
-            if(btnRotLeft) btnRotLeft.style.display = 'inline-flex'; 
-            if(btnRotRight) btnRotRight.style.display = 'inline-flex';
-            currentTool = 'none'; 
-        }
-        else if (mode === 'flatten') {
-            if(title) title.innerHTML = '<i class="fas fa-layer-group"></i> Flatten Form'; 
-            if(btnFlatten) btnFlatten.style.display = 'inline-flex';
-            if(headerHelp) { headerHelp.style.display = 'block'; headerHelp.innerText = "Preview the form. Click Flatten Content to make fields uneditable."; }
-            currentTool = 'none';
-        }
-        else if (mode === 'pagenumbers') {
-            if(title) title.innerHTML = '<i class="fas fa-sort-numeric-down"></i> Place Number'; 
-            currentTool = 'none';
-            if (!pageEdits[1]) pageEdits[1] = [];
-            const fmtObj = document.getElementById('pagenumbers-format'); 
-            visualData.format = fmtObj ? fmtObj.value : "1";
-            pageEdits[1].push({ type: 'pagenum-dummy', x: 50, y: 50, text: visualData.format.replace('10', 'MAX'), color: '#3b82f6', size: 16 });
-            selectedEditIndex = 0;
-            if(headerHelp) { headerHelp.style.display = 'block'; headerHelp.innerText = "Drag the blue text to position it"; }
-        }
-    }
-
-    const fileReader = new FileReader();
-    fileReader.onload = function() {
-        const tempPdfBytes = new Uint8Array(this.result);
-        pdfjsLib.getDocument(tempPdfBytes).promise.then(pdf => {
-            editPdfDoc = pdf; 
-            editPageNum = 1; 
-            const countObj = document.getElementById('page-count'); 
-            if(countObj) countObj.textContent = pdf.numPages;
-            
-            window.switchView('edit'); 
-            const upl = document.getElementById('edit-upload-section'); 
-            if(upl) upl.style.display = 'none'; 
-            
-            const wrk = document.getElementById('edit-workspace'); 
-            if(wrk) wrk.style.display = 'flex';
-            
-            pdf.getPage(1).then(page => {
-                 const baseViewport = page.getViewport({ scale: 1 });
-                 const sidebarWidth = window.innerWidth > 768 ? 280 : 20;
-                 const cWidth = window.innerWidth - sidebarWidth;
-                 const cHeight = window.innerHeight - 200;
-                 const scaleW = cWidth / baseViewport.width;
-                 const scaleH = cHeight / baseViewport.height;
-                 editScale = Math.min(scaleW, scaleH, 2.0); 
-                 renderEditPage(editPageNum);
-            });
-            
-        }).catch(error => { 
-            showCustomAlert("Error loading PDF."); 
-            document.body.classList.remove('is-editing'); 
-        });
-    };
-    fileReader.readAsArrayBuffer(file);
-}
-
-document.getElementById('btn-rotate-left')?.addEventListener('click', () => { 
-    pageRotations[editPageNum] = (pageRotations[editPageNum] || 0) - 90; 
-    renderEditPage(editPageNum); 
-});
-
-document.getElementById('btn-rotate-right')?.addEventListener('click', () => { 
-    pageRotations[editPageNum] = (pageRotations[editPageNum] || 0) + 90; 
-    renderEditPage(editPageNum); 
-});
-
-document.getElementById('btn-flatten-apply')?.addEventListener('click', () => { 
-    document.getElementById('btn-edit-save').click(); 
-});
-
-document.getElementById('btn-close-editor')?.addEventListener('click', () => {
-    document.body.classList.remove('is-editing');
-    const wrk = document.getElementById('edit-workspace'); 
-    if(wrk) wrk.style.display='none'; 
-    const upl = document.getElementById('edit-upload-section'); 
-    if(upl) upl.style.display='block'; 
-    if(sejdaTextLayer) sejdaTextLayer.innerHTML = '';
-    hideStylePicker();
-    window.switchView('dashboard');
-});
-
-document.getElementById('edit-pdf-input')?.addEventListener('change', function(e) { 
-    if (e.target.files[0]) openVisualWorkspace(e.target.files[0], 'edit'); 
-});
-
-function renderEditPage(num) {
-    if (!editPdfDoc) return;
-    
-    if (sejdaTextLayer) sejdaTextLayer.innerHTML = ''; 
-    hideStylePicker();
-
-    editPdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: editScale, rotation: pageRotations[num] || 0 });
-        
-        if(renderCanvas) { 
-            renderCanvas.height = viewport.height; 
-            renderCanvas.width = viewport.width; 
-        }
-        if(overlayCanvas) { 
-            overlayCanvas.height = viewport.height; 
-            overlayCanvas.width = viewport.width; 
-        }
-        if (sejdaTextLayer) {
-            sejdaTextLayer.style.width = viewport.width + 'px';
-            sejdaTextLayer.style.height = viewport.height + 'px';
-        }
-        
-        if(renderCtx) {
-            page.render({ canvasContext: renderCtx, viewport: viewport }).promise.then(() => {
-                if (currentVisualMode === 'edit') {
-                    page.getTextContent().then(textContent => {
-                        textContent.items.forEach(item => {
-                            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                            const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
-                            
-                            const style = textContent.styles[item.fontName];
-                            const actualFontName = (style && style.fontFamily) ? style.fontFamily.toLowerCase() : '';
-                            const fName = (item.fontName || '').toLowerCase();
-                            
-                            const isBold = actualFontName.includes('bold') || actualFontName.includes('black') || fName.includes('bold') || fName.includes('black');
-                            const isItalic = actualFontName.includes('italic') || actualFontName.includes('oblique') || fName.includes('italic');
-                            
-                            let baseFont = 'sans-serif';
-                            if (actualFontName.includes('times') || actualFontName.includes('serif') || fName.includes('serif')) {
-                                baseFont = 'serif';
-                            } else if (actualFontName.includes('courier') || actualFontName.includes('mono') || fName.includes('mono')) {
-                                baseFont = 'monospace';
-                            }
-                            
-                            const div = document.createElement('div');
-                            div.innerText = item.str;
-                            div.style.position = 'absolute';
-                            div.style.left = tx[4] + 'px';
-                            div.style.top = (tx[5] - fontHeight) + 'px';
-                            
-                            applyStyleToDiv(div, { 
-                                fontFamily: baseFont, 
-                                fontWeight: isBold ? 'bold' : 'normal', 
-                                fontStyle: isItalic ? 'italic' : 'normal',
-                                fontSize: fontHeight + 'px'
-                            });
-                            
-                            div.style.margin = '0';
-                            div.style.padding = '0';
-                            div.style.border = 'none';
-                            div.style.background = 'transparent';
-                            
-                            div.style.color = 'transparent'; 
-                            div.style.cursor = 'text';
-                            div.style.whiteSpace = 'pre';
-                            div.style.lineHeight = '1';
-                            div.style.transformOrigin = '0 0';
-                            div.style.userSelect = 'text';
-                            div.style.pointerEvents = 'auto';
-
-                            const scaledWidth = item.width * editScale;
-                            div.style.minWidth = scaledWidth + 'px';
-                            div.style.minHeight = fontHeight + 'px';
-
-                            div.dataset.pdfX = item.transform[4];
-                            div.dataset.pdfY = item.transform[5];
-                            div.dataset.fontSize = item.transform[0];
-                            div.dataset.width = item.width;
-                            div.dataset.height = item.height;
-                            div.dataset.origText = item.str;
-                            div.dataset.edited = "false";
-                            
-                            div.dataset.isBold = isBold;
-                            div.dataset.isItalic = isItalic;
-                            div.dataset.baseFont = baseFont;
-                            
-                            div.addEventListener('paste', (e) => {
-                                e.preventDefault();
-                                const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-                                document.execCommand('insertText', false, text);
-                            });
-                            
-                            div.addEventListener('mouseenter', () => {
-                                if (div.contentEditable !== 'true') div.style.outline = '1px dashed #3b82f6';
-                            });
-                            div.addEventListener('mouseleave', () => {
-                                if (div.contentEditable !== 'true') div.style.outline = 'none';
-                            });
-                            
-                            div.addEventListener('click', (e) => {
-                                if(currentTool !== 'none') return; 
-                                div.contentEditable = 'true';
-                                div.style.color = '#000'; 
-                                div.style.backgroundColor = '#fff';
-                                div.style.outline = '2px solid #10b981';
-                                div.style.zIndex = '1000';
-                                div.focus();
-                                showStylePicker(div); 
-                            });
-                            
-                            div.addEventListener('blur', () => {
-                                div.contentEditable = 'false';
-                                div.style.outline = 'none';
-                                div.style.zIndex = '1';
-                                setTimeout(hideStylePicker, 200); 
-                                
-                                const currentText = div.innerText.replace(/\n/g, '');
-                                
-                                if (currentText !== item.str) {
-                                    div.dataset.edited = 'true';
-                                    div.style.backgroundColor = '#ffffff'; 
-                                    
-                                    if (currentText.trim() === '') {
-                                        div.style.color = 'transparent'; 
-                                    } else {
-                                        div.style.color = '#0f172a'; 
-                                    }
-                                } else {
-                                    div.style.color = 'transparent';
-                                    div.style.backgroundColor = 'transparent';
-                                }
-                            });
-
-                            sejdaTextLayer.appendChild(div);
-                        });
-                    });
-                }
-            });
-        }
-        
-        const pNum = document.getElementById('page-num'); 
-        if(pNum) pNum.textContent = num; 
-        
-        drawOverlay(); 
-    });
-}
-
-function getHandleRects(edit) {
-    const hs = 16; 
-    const half = hs / 2; 
-    const {x, y, w, h} = edit;
-    
-    return {
-        nw: {x: x - half, y: y - half, w: hs, h: hs}, 
-        ne: {x: x + w - half, y: y - half, w: hs, h: hs}, 
-        se: {x: x + w - half, y: y + h - half, w: hs, h: hs}, 
-        sw: {x: x - half, y: y + h - half, w: hs, h: hs},
-        n:  {x: x + w/2 - half, y: y - half, w: hs, h: hs}, 
-        s:  {x: x + w/2 - half, y: y + h - half, w: hs, h: hs}, 
-        e:  {x: x + w - half, y: y + h/2 - half, w: hs, h: hs}, 
-        w:  {x: x - half, y: y + h/2 - half, w: hs, h: hs}
-    };
-}
-
-function drawOverlay() {
-    if (!overlayCtx || !overlayCanvas) return;
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    const edits = pageEdits[editPageNum] || [];
-    
-    edits.forEach((edit, i) => {
-        if (edit.type === 'whiteout') {
-            overlayCtx.fillStyle = 'white'; 
-            overlayCtx.fillRect(edit.x, edit.y, edit.w, edit.h);
-        } else if (edit.type === 'text') {
-            overlayCtx.save(); 
-            overlayCtx.globalAlpha = edit.opacity || 1;
-            
-            const fontStyle = `${edit.italic ? 'italic ' : ''}${edit.bold ? 'bold ' : ''}${edit.size}px Arial`; 
-            overlayCtx.font = fontStyle;
-            
-            const textWidth = overlayCtx.measureText(edit.text).width;
-            let drawX = edit.x; 
-            
-            if (edit.align === 'center') drawX = edit.x - textWidth/2; 
-            if (edit.align === 'right') drawX = edit.x - textWidth;
-
-            if (edit.bgColor && edit.bgColor !== 'transparent') { 
-                overlayCtx.fillStyle = edit.bgColor; 
-                overlayCtx.fillRect(drawX - 5, edit.y - edit.size, textWidth + 10, edit.size + 10); 
-            }
-            
-            overlayCtx.fillStyle = edit.color; 
-            overlayCtx.fillText(edit.text, drawX, edit.y);
-            
-            if (edit.underline) { 
-                overlayCtx.beginPath(); 
-                overlayCtx.moveTo(drawX, edit.y + 2); 
-                overlayCtx.lineTo(drawX + textWidth, edit.y + 2); 
-                overlayCtx.strokeStyle = edit.color; 
-                overlayCtx.lineWidth = Math.max(1, edit.size/15); 
-                overlayCtx.stroke(); 
-            }
-
-            if (i === selectedEditIndex) { 
-                overlayCtx.strokeStyle = 'rgba(59, 130, 246, 0.5)'; 
-                overlayCtx.lineWidth = 1; 
-                overlayCtx.strokeRect(drawX - 5, edit.y - edit.size, textWidth + 10, edit.size + 10); 
-            }
-            overlayCtx.restore();
-            
-        } else if (edit.type === 'draw') {
-            overlayCtx.strokeStyle = edit.color; 
-            overlayCtx.lineWidth = edit.size; 
-            overlayCtx.lineCap = 'round'; 
-            overlayCtx.lineJoin = 'round'; 
-            overlayCtx.beginPath();
-            if(edit.points.length > 0) { 
-                overlayCtx.moveTo(edit.points[0].x, edit.points[0].y); 
-                for(let k=1; k<edit.points.length; k++) { 
-                    overlayCtx.lineTo(edit.points[k].x, edit.points[k].y); 
-                } 
-                overlayCtx.stroke(); 
-            }
-        } else if (edit.type === 'image' && edit.imgObj) {
-            overlayCtx.save(); 
-            overlayCtx.globalAlpha = edit.opacity || 1; 
-            overlayCtx.drawImage(edit.imgObj, edit.x, edit.y, edit.w, edit.h); 
-            overlayCtx.restore();
-            
-            if (i === selectedEditIndex) {
-                overlayCtx.strokeStyle = '#3b82f6'; 
-                overlayCtx.lineWidth = 2; 
-                overlayCtx.strokeRect(edit.x, edit.y, edit.w, edit.h);
-                overlayCtx.fillStyle = 'white'; 
-                
-                const rects = getHandleRects(edit); 
-                for (let key in rects) { 
-                    const r = rects[key]; 
-                    overlayCtx.fillRect(r.x, r.y, r.w, r.h); 
-                    overlayCtx.strokeRect(r.x, r.y, r.w, r.h); 
-                }
-            }
-        } else if (edit.type === 'visual-box') {
-            overlayCtx.fillStyle = 'rgba(59, 130, 246, 0.2)'; 
-            overlayCtx.fillRect(edit.x, edit.y, edit.w, edit.h);
-            overlayCtx.strokeStyle = '#3b82f6'; 
-            overlayCtx.lineWidth = 2; 
-            overlayCtx.setLineDash([5, 5]); 
-            overlayCtx.strokeRect(edit.x, edit.y, edit.w, edit.h); 
-            overlayCtx.setLineDash([]);
-        } else if (edit.type === 'pagenum-dummy') {
-            overlayCtx.font = `bold ${edit.size}px Arial`; 
-            overlayCtx.fillStyle = edit.color; 
-            overlayCtx.fillText(edit.text, edit.x, edit.y);
-            
-            if (i === selectedEditIndex) { 
-                overlayCtx.strokeStyle = 'blue'; 
-                overlayCtx.strokeRect(edit.x - 5, edit.y - edit.size, overlayCtx.measureText(edit.text).width + 10, edit.size + 10); 
-            }
-        }
-    });
-}
-
-function getCursorPos(e) {
-    if(!overlayCanvas) return {x:0, y:0};
-    
-    const rect = overlayCanvas.getBoundingClientRect(); 
-    const scaleX = overlayCanvas.width / rect.width; 
-    const scaleY = overlayCanvas.height / rect.height;
-    
-    let clientX = e.clientX; 
-    let clientY = e.clientY;
-    
-    if(e.touches && e.touches.length > 0) { 
-        clientX = e.touches[0].clientX; 
-        clientY = e.touches[0].clientY; 
-    }
-    
-    return { 
-        x: (clientX - rect.left) * scaleX, 
-        y: (clientY - rect.top) * scaleY 
-    };
-}
-
-function normalizeBox(box) { 
-    return { 
-        x: box.w < 0 ? box.x + box.w : box.x, 
-        y: box.h < 0 ? box.y + box.h : box.y, 
-        w: Math.abs(box.w), 
-        h: Math.abs(box.h) 
-    }; 
-}
-
-overlayCanvas?.addEventListener('touchstart', (e) => { 
-    if (e.touches.length === 1 && (currentTool === 'draw' || currentTool === 'whiteout' || currentTool === 'visual-box')) {
-        e.preventDefault(); 
-    }
-}, {passive: false});
-
-overlayCanvas?.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'touch' && e.isPrimary === false) return; 
-    if (currentTool === 'none' && currentVisualMode !== 'pagenumbers') return;
-    if (e.target.closest('#custom-text-modal')) return;
-    
-    const pos = getCursorPos(e); 
-    const edits = pageEdits[editPageNum] || []; 
-    hasMovedDuringClick = false; 
-    hideStylePicker();
-    
-    if (selectedEditIndex !== -1 && edits[selectedEditIndex]?.type === 'image') {
-        const edit = edits[selectedEditIndex]; 
-        const rects = getHandleRects(edit);
-        for (let key in rects) { 
-            const r = rects[key]; 
-            if (pos.x >= r.x && pos.x <= r.x + r.w && pos.y >= r.y && pos.y <= r.y + r.h) { 
-                activeResizeHandle = key; 
-                dragOffsetX = pos.x; 
-                dragOffsetY = pos.y; 
-                originalEditState = { ...edit }; 
-                return; 
-            } 
-        }
-    }
-    
-    for (let i = edits.length - 1; i >= 0; i--) {
-        const edit = edits[i]; 
-        let isHit = false;
-        
-        if (edit.type === 'whiteout' || edit.type === 'image' || edit.type === 'visual-box') {
-            const nBox = normalizeBox(edit); 
-            if (pos.x >= nBox.x && pos.x <= nBox.x + nBox.w && pos.y >= nBox.y && pos.y <= nBox.y + nBox.h) {
-                isHit = true;
-            }
-        } else if (edit.type === 'text' || edit.type === 'pagenum-dummy') {
-            if(overlayCtx) { 
-                overlayCtx.font = `${edit.italic ? 'italic ' : ''}${edit.bold ? 'bold ' : ''}${edit.size}px Arial`; 
-                const textWidth = overlayCtx.measureText(edit.text).width;
-                let drawX = edit.x; 
-                
-                if(edit.align === 'center') drawX = edit.x - textWidth/2; 
-                if(edit.align === 'right') drawX = edit.x - textWidth;
-                
-                if (pos.x >= drawX - 5 && pos.x <= drawX + textWidth + 5 && pos.y >= edit.y - edit.size && pos.y <= edit.y + 10) {
-                    isHit = true; 
-                }
-            }
-        } else if (edit.type === 'draw') {
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity; 
-            edit.points.forEach(p => { 
-                if(p.x < minX) minX = p.x; 
-                if(p.x > maxX) maxX = p.x; 
-                if(p.y < minY) minY = p.y; 
-                if(p.y > maxY) maxY = p.y; 
-            });
-            if (pos.x >= minX - 10 && pos.x <= maxX + 10 && pos.y >= minY - 10 && pos.y <= maxY + 10) {
-                isHit = true;
-            }
-        }
-        
-        if (isHit && (currentTool !== 'draw' || edit.type === 'draw')) { 
-            activeDragIndex = i; 
-            if(edit.type === 'draw') { 
-                dragOffsetX = pos.x; 
-                dragOffsetY = pos.y; 
-            } else { 
-                dragOffsetX = pos.x - edit.x; 
-                dragOffsetY = pos.y - edit.y; 
-            }
-            
-            const item = edits.splice(i, 1)[0]; 
-            edits.push(item); 
-            activeDragIndex = edits.length - 1; 
-            selectedEditIndex = activeDragIndex; 
-            
-            if(['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(currentVisualMode) && trashZone) {
-                trashZone.style.display = 'flex';
-            }
-            
-            if(currentVisualMode === 'imagewatermark') {
-                document.getElementById('watermark-opacity').value = edit.opacity || 1;
-            }
-            
-            drawOverlay(); 
-            return; 
-        }
-    }
-
-    selectedEditIndex = -1; 
-    drawOverlay();
-
-    if (currentTool === 'text') {
-        openTextModal("", { type: 'new', pos: { x: pos.x, y: pos.y } });
-    } else if (currentTool === 'whiteout') { 
-        isDrawing = true; 
-        startX = pos.x; 
-        startY = pos.y; 
-    } else if (currentTool === 'draw') { 
-        isDrawing = true; 
-        if (!pageEdits[editPageNum]) pageEdits[editPageNum] = []; 
-        currentPath = { type: 'draw', color: editColor, size: editSize, points: [ {x: pos.x, y: pos.y} ] }; 
-        pageEdits[editPageNum].push(currentPath); 
-    } else if (currentTool === 'visual-box') { 
-        isDrawing = true; 
-        startX = pos.x; 
-        startY = pos.y; 
-        pageEdits[editPageNum] = [{ type: 'visual-box', x: pos.x, y: pos.y, w: 0, h: 0 }]; 
-    }
-});
-
-window.addEventListener('pointermove', (e) => {
-    if (activeDragIndex === -1 && !activeResizeHandle && !isDrawing) return;
-    if (e.pointerType === 'touch') { 
-        if (!e.isPrimary) return; 
-        e.preventDefault(); 
-    }
-    
-    const pos = getCursorPos(e);
-    
-    if (activeResizeHandle) {
-        hasMovedDuringClick = true; 
-        const edit = pageEdits[editPageNum][selectedEditIndex]; 
-        const dx = pos.x - dragOffsetX; 
-        const dy = pos.y - dragOffsetY; 
-        const orig = originalEditState;
-        
-        let newX = orig.x, newY = orig.y, newW = orig.w, newH = orig.h;
-        
-        if (activeResizeHandle.includes('e')) newW = orig.w + dx; 
-        if (activeResizeHandle.includes('s')) newH = orig.h + dy;
-        if (activeResizeHandle.includes('w')) { newX = orig.x + dx; newW = orig.w - dx; } 
-        if (activeResizeHandle.includes('n')) { newY = orig.y + dy; newH = orig.h - dy; }
-        
-        if (newW >= 20) { edit.x = newX; edit.w = newW; } 
-        if (newH >= 20) { edit.y = newY; edit.h = newH; }
-        
-        drawOverlay(); 
-        return;
-    }
-
-    if (activeDragIndex !== -1) {
-        hasMovedDuringClick = true; 
-        const edit = pageEdits[editPageNum][activeDragIndex];
-        
-        if(edit.type === 'draw') { 
-            const dx = pos.x - dragOffsetX; 
-            const dy = pos.y - dragOffsetY; 
-            edit.points.forEach(p => { p.x += dx; p.y += dy; }); 
-            dragOffsetX = pos.x; 
-            dragOffsetY = pos.y; 
-        } else { 
-            edit.x = pos.x - dragOffsetX; 
-            edit.y = pos.y - dragOffsetY; 
-        }
-        
-        if(['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(currentVisualMode) && trashZone) {
-            const tRect = trashZone.getBoundingClientRect(); 
-            const clientX = e.clientX; 
-            const clientY = e.clientY;
-            
-            if (clientX >= tRect.left && clientX <= tRect.right && clientY >= tRect.top && clientY <= tRect.bottom) { 
-                isHoveringTrash = true; 
-                trashZone.style.transform = 'translateX(-50%) scale(1.1)'; 
-                trashZone.style.background = 'rgba(220, 38, 38, 1)'; 
-            } else { 
-                isHoveringTrash = false; 
-                trashZone.style.transform = 'translateX(-50%) scale(1)'; 
-                trashZone.style.background = 'rgba(239, 68, 68, 0.95)'; 
-            }
-        }
-        
-        drawOverlay(); 
-        return;
-    }
-    
-    if (!isDrawing) return;
-    
-    if (currentTool === 'whiteout' && overlayCtx) { 
-        drawOverlay(); 
-        overlayCtx.fillStyle = 'rgba(255, 255, 255, 0.8)'; 
-        overlayCtx.fillRect(startX, startY, pos.x - startX, pos.y - startY); 
-        overlayCtx.strokeStyle = 'red'; 
-        overlayCtx.lineWidth = 1; 
-        overlayCtx.setLineDash([]); 
-        overlayCtx.strokeRect(startX, startY, pos.x - startX, pos.y - startY); 
-    } else if (currentTool === 'draw') { 
-        currentPath.points.push({x: pos.x, y: pos.y}); 
-        drawOverlay(); 
-    } else if (currentTool === 'visual-box') { 
-        const box = pageEdits[editPageNum][0]; 
-        box.w = pos.x - startX; 
-        box.h = pos.y - startY; 
-        drawOverlay(); 
-    }
-});
-
-window.addEventListener('pointerup', (e) => {
-    if (activeResizeHandle) { 
-        activeResizeHandle = null; 
-        return; 
-    }
-    
-    if (activeDragIndex !== -1) {
-        if(trashZone) trashZone.style.display = 'none';
-        
-        if (isHoveringTrash && ['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(currentVisualMode)) { 
-            pageEdits[editPageNum].splice(activeDragIndex, 1); 
-            isHoveringTrash = false; 
-            selectedEditIndex = -1; 
-            showCustomAlert("Deleted."); 
-        } else if (!hasMovedDuringClick) {
-            const edit = pageEdits[editPageNum][activeDragIndex]; 
-            if (edit.type === 'text' && currentTool === 'text') {
-                openTextModal(edit.text, { type: 'edit', index: activeDragIndex });
-            }
-        }
-        
-        activeDragIndex = -1; 
-        drawOverlay(); 
-        return;
-    }
-    
-    if (!isDrawing) return;
-    
-    isDrawing = false; 
-    currentPath = null;
-    
-    if (currentTool === 'whiteout' && overlayCanvas) {
-        const pos = getCursorPos(e); 
-        let clientX = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : 0); 
-        let clientY = e.clientY || (e.changedTouches ? e.changedTouches[0].clientY : 0);
-        
-        const rect = overlayCanvas.getBoundingClientRect(); 
-        const scaleX = overlayCanvas.width / rect.width; 
-        const scaleY = overlayCanvas.height / rect.height;
-        
-        const endX = (clientX - rect.left) * scaleX; 
-        const endY = (clientY - rect.top) * scaleY; 
-        const w = endX - startX; 
-        const h = endY - startY;
-        
-        if (Math.abs(w) > 5 && Math.abs(h) > 5) { 
-            if (!pageEdits[editPageNum]) pageEdits[editPageNum] = []; 
-            pageEdits[editPageNum].push({ type: 'whiteout', x: w < 0 ? endX : startX, y: h < 0 ? endY : startY, w: Math.abs(w), h: Math.abs(h) }); 
-        }
-        
-        drawOverlay();
-    }
-});
-
-document.getElementById('prev-page')?.addEventListener('click', () => { 
-    if (editPageNum > 1) { 
-        editPageNum--; 
-        selectedEditIndex = -1; 
-        renderEditPage(editPageNum); 
-    } 
-});
-
-document.getElementById('next-page')?.addEventListener('click', () => { 
-    if (editPageNum < editPdfDoc?.numPages) { 
-        editPageNum++; 
-        selectedEditIndex = -1; 
-        renderEditPage(editPageNum); 
-    } 
-});
-
-// ==========================================
-// VISUAL EDITOR SAVE & RENDER LOGIC
-// ==========================================
-document.getElementById('btn-edit-save')?.addEventListener('click', async () => {
-    if (!currentEditFile) return;
-    
-    const btn = document.getElementById('btn-edit-save'); 
-    const oldText = btn.innerHTML; 
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    hideStylePicker();
-    
-    const totalOriginalSize = currentEditFile.size;
-    
-    simulateLoadingAndProcess("Applying Changes", async () => {
-        const freshBuffer = await currentEditFile.arrayBuffer();
-        if (freshBuffer.byteLength < 100) { 
-            hideProcessingUI();
-            showCustomAlert("File error."); 
-            return; 
-        }
-
-        const applyModeObj = document.getElementById('edit-apply-mode'); 
-        const applyMode = applyModeObj ? applyModeObj.value : 'current';
-
-        if (['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(currentVisualMode)) {
-            const pdfDoc = await PDFDocument.load(freshBuffer);
-            
-            // Register fontkit to handle dynamic fonts safely
-            if(window.fontkit) pdfDoc.registerFontkit(window.fontkit);
-
-            const pages = pdfDoc.getPages();
-            
-            for (let pIdx = 0; pIdx < pages.length; pIdx++) {
-                const page = pages[pIdx]; 
-                const { width, height } = page.getSize();
-                
-                let editsToApply = (applyMode === 'all') ? (pageEdits[editPageNum] || []) : (pageEdits[pIdx + 1] || []);
-
-                // [SEJDA EDITOR] Process Inline DOM Text Edits + Exact Font Mapping
-                if (sejdaTextLayer && (applyMode === 'all' || pIdx + 1 === editPageNum)) {
-                    const editedNodes = sejdaTextLayer.querySelectorAll('div[data-edited="true"]');
-                    for (const node of editedNodes) {
-                        const pdfX = parseFloat(node.dataset.pdfX);
-                        const pdfY = parseFloat(node.dataset.pdfY);
-                        const fontSize = parseFloat(node.dataset.fontSize);
-                        const boxWidth = parseFloat(node.dataset.width);
-                        const boxHeight = parseFloat(node.dataset.height) || fontSize;
-                        
-                        // Retrieve font metadata generated during render
-                        const isBold = node.dataset.isBold === 'true';
-                        const isItalic = node.dataset.isItalic === 'true';
-                        const baseFont = node.dataset.baseFont;
-
-                        // 1. Exact Whiteout to mask original text
-                        page.drawRectangle({
-                            x: pdfX,
-                            y: pdfY - (boxHeight * 0.2), // Baseline offset
-                            width: boxWidth + 5,
-                            height: boxHeight * 1.2,
-                            color: rgb(1, 1, 1)
-                        });
-                        
-                        // 2. Select Dynamic Standard Font matching original
-                        let selectedFont = StandardFonts.Helvetica;
-                        if (baseFont === 'serif') {
-                            if (isBold && isItalic) selectedFont = StandardFonts.TimesRomanBoldItalic;
-                            else if (isBold) selectedFont = StandardFonts.TimesRomanBold;
-                            else if (isItalic) selectedFont = StandardFonts.TimesRomanItalic;
-                            else selectedFont = StandardFonts.TimesRoman;
-                        } else if (baseFont === 'monospace') {
-                            if (isBold && isItalic) selectedFont = StandardFonts.CourierBoldOblique;
-                            else if (isBold) selectedFont = StandardFonts.CourierBold;
-                            else if (isItalic) selectedFont = StandardFonts.CourierOblique;
-                            else selectedFont = StandardFonts.Courier;
-                        } else {
-                            if (isBold && isItalic) selectedFont = StandardFonts.HelveticaBoldOblique;
-                            else if (isBold) selectedFont = StandardFonts.HelveticaBold;
-                            else if (isItalic) selectedFont = StandardFonts.HelveticaOblique;
-                            else selectedFont = StandardFonts.Helvetica;
-                        }
-                        
-                        // 3. Draw edited text with exact matched font
-                        const newText = node.innerText.replace(/\n/g, '').trim();
-                        if (newText !== '') {
-                            page.drawText(newText, {
-                                x: pdfX,
-                                y: pdfY,
-                                size: fontSize,
-                                font: await pdfDoc.embedFont(selectedFont),
-                                color: rgb(0, 0, 0)
-                            });
-                        }
-                    }
-                }
-
-                // Apply Overlay Edits
-                for (const edit of editsToApply) {
-                    const pdfX = edit.x / editScale; 
-                    const pdfY = height - (edit.y / editScale); 
-                    
-                    if (edit.type === 'whiteout') { 
-                        page.drawRectangle({ 
-                            x: pdfX, 
-                            y: pdfY - (edit.h / editScale), 
-                            width: edit.w / editScale, 
-                            height: edit.h / editScale, 
-                            color: rgb(1, 1, 1) 
-                        }); 
-                    } else if (edit.type === 'text') { 
-                        let font;
-                        if (edit.bold && edit.italic) font = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique); 
-                        else if (edit.bold) font = await pdfDoc.embedFont(StandardFonts.HelveticaBold); 
-                        else if (edit.italic) font = await pdfDoc.embedFont(StandardFonts.HelveticaOblique); 
-                        else font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-                        
-                        const fontSize = edit.size / editScale; 
-                        const textWidth = font.widthOfTextAtSize(edit.text, fontSize);
-                        
-                        let drawX = pdfX; 
-                        if (edit.align === 'center') drawX = pdfX - textWidth/2; 
-                        if (edit.align === 'right') drawX = pdfX - textWidth;
-
-                        if (edit.bgColor && edit.bgColor !== 'transparent') { 
-                            page.drawRectangle({ 
-                                x: drawX - 5, 
-                                y: pdfY - fontSize, 
-                                width: textWidth + 10, 
-                                height: fontSize + 10, 
-                                color: hexToRgbPdf(edit.bgColor), 
-                                opacity: edit.opacity || 1 
-                            }); 
-                        }
-                        
-                        page.drawText(edit.text, { 
-                            x: drawX, 
-                            y: pdfY, 
-                            size: fontSize, 
-                            font: font, 
-                            color: hexToRgbPdf(edit.color), 
-                            opacity: edit.opacity || 1 
-                        }); 
-                        
-                        if (edit.underline) { 
-                            page.drawLine({ 
-                                start: {x: drawX, y: pdfY - 2}, 
-                                end: {x: drawX + textWidth, y: pdfY - 2}, 
-                                thickness: Math.max(1, fontSize/15), 
-                                color: hexToRgbPdf(edit.color), 
-                                opacity: edit.opacity || 1 
-                            }); 
-                        }
-                    } else if (edit.type === 'draw') { 
-                        for(let k=0; k < edit.points.length - 1; k++) { 
-                            const p1 = edit.points[k]; 
-                            const p2 = edit.points[k+1]; 
-                            
-                            page.drawLine({ 
-                                start: { x: p1.x / editScale, y: height - (p1.y / editScale) }, 
-                                end: { x: p2.x / editScale, y: height - (p2.y / editScale) }, 
-                                thickness: edit.size / editScale, 
-                                color: hexToRgbPdf(edit.color) 
-                            }); 
-                        } 
-                    } else if (edit.type === 'image') { 
-                        const res = await fetch(edit.dataUrl); 
-                        const imageBytes = await res.arrayBuffer(); 
-                        
-                        let pdfImage = edit.imgType === 'image/png' ? await pdfDoc.embedPng(imageBytes) : await pdfDoc.embedJpg(imageBytes); 
-                        
-                        const pdfW = edit.w / editScale; 
-                        const pdfH = edit.h / editScale; 
-                        
-                        page.drawImage(pdfImage, { 
-                            x: pdfX, 
-                            y: pdfY - pdfH, 
-                            width: pdfW, 
-                            height: pdfH, 
-                            opacity: edit.opacity || 1 
-                        }); 
-                    }
-                }
-            }
-            
-            let outputSuffix = currentVisualMode === 'sign' ? '_Signed' : currentVisualMode.includes('watermark') ? '_Watermark' : '_Edited';
-            const finalBytes = await pdfDoc.save();
-            
-            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Updated!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + outputSuffix + '.pdf', 'application/pdf');
-            }, true);
-
-        } else if (currentVisualMode === 'crop') {
-            const boxData = pageEdits[editPageNum]?.find(e => e.type === 'visual-box');
-            if(!boxData) { 
-                hideProcessingUI();
-                showCustomAlert("Draw a crop box first!"); 
-                btn.innerHTML = oldText; 
-                return; 
-            }
-            
-            const nBox = normalizeBox(boxData); 
-            const pdfDoc = await PDFDocument.load(freshBuffer);
-            
-            if (applyMode === 'current') {
-                const pageCount = pdfDoc.getPageCount();
-                for (let i = pageCount - 1; i >= 0; i--) { 
-                    if (i !== editPageNum - 1) {
-                        pdfDoc.removePage(i); 
-                    }
-                }
-                const p = pdfDoc.getPage(0); 
-                const { height } = p.getSize(); 
-                p.setCropBox(nBox.x / editScale, height - ((nBox.y + nBox.h) / editScale), nBox.w / editScale, nBox.h / editScale);
-            } else {
-                pdfDoc.getPages().forEach((p) => { 
-                    const { height } = p.getSize(); 
-                    p.setCropBox(nBox.x / editScale, height - ((nBox.y + nBox.h) / editScale), nBox.w / editScale, nBox.h / editScale); 
-                });
-            }
-            
-            const finalBytes = await pdfDoc.save();
-            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Cropped!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Cropped.pdf', 'application/pdf');
-            }, true);
-
-        } else if (currentVisualMode === 'addmargins') {
-            const boxData = pageEdits[editPageNum]?.find(e => e.type === 'visual-box');
-            if(!boxData) { 
-                hideProcessingUI();
-                showCustomAlert("Draw a content box first!"); 
-                btn.innerHTML = oldText; 
-                return; 
-            }
-            
-            const nBox = normalizeBox(boxData); 
-            const pdfDoc = await PDFDocument.load(freshBuffer); 
-            const pages = pdfDoc.getPages();
-            
-            const { width: pW, height: pH } = pages[0].getSize();
-            const mL = nBox.x / editScale; 
-            const mT = nBox.y / editScale; 
-            const mR = pW - ((nBox.x + nBox.w) / editScale); 
-            const mB = pH - ((nBox.y + nBox.h) / editScale);
-            
-            pages.forEach((p, i) => { 
-                if (applyMode === 'current' && i !== editPageNum - 1) return;
-                const { width, height } = p.getSize(); 
-                p.setSize(width + mL + mR, height + mT + mB); 
-                p.translateContent(mL, mB); 
-            });
-            
-            const finalBytes = await pdfDoc.save();
-            showSuccessResult(totalOriginalSize, finalBytes.length, "Margins Added!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Margined.pdf', 'application/pdf');
-            }, true);
-
-        } else if (currentVisualMode === 'extract') {
-            const boxData = pageEdits[editPageNum]?.find(e => e.type === 'visual-box');
-            if(!boxData) { 
-                hideProcessingUI();
-                showCustomAlert("Draw a selection box first!"); 
-                btn.innerHTML = oldText; 
-                return; 
-            }
-            
-            const nBox = normalizeBox(boxData); 
-            const pdf = await pdfjsLib.getDocument(freshBuffer).promise; 
-            let fullText = "";
-            
-            for (let i = 1; i <= pdf.numPages; i++) {
-                if (applyMode === 'current' && i !== editPageNum) continue;
-                
-                const page = await pdf.getPage(i); 
-                const textContent = await page.getTextContent(); 
-                const viewport = page.getViewport({ scale: editScale });
-                
-                const extracted = textContent.items.filter(item => { 
-                    const tx = pdfjsLib.Util.transform(viewport.transform, item.transform); 
-                    return tx[4] >= nBox.x && tx[4] <= nBox.x + nBox.w && tx[5] >= nBox.y && tx[5] <= nBox.y + nBox.h; 
-                }).map(item => item.str).join(" ");
-                
-                if(extracted.trim()) {
-                    fullText += `--- Page ${i} ---\n${extracted}\n\n`;
-                }
-            }
-            
-            if(!fullText) {
-                hideProcessingUI();
-                showCustomAlert("No text found in that area."); 
-            } else {
-                const finalBytes = new TextEncoder().encode(fullText);
-                showSuccessResult(0, finalBytes.length, "Text Extracted!", async () => {
-                    if(typeof AdManager !== 'undefined' && AdManager) {
-                        await AdManager.showInterstitial();
-                    }
-                    await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Extracted.txt', 'text/plain');
-                }, false);
-            }
-
-        } else if (currentVisualMode === 'pagenumbers') {
-            const dummy = pageEdits[1]?.find(e => e.type === 'pagenum-dummy');
-            if(!dummy) { 
-                hideProcessingUI();
-                showCustomAlert("Position the number first."); 
-                btn.innerHTML = oldText; 
-                return; 
-            }
-            
-            const pdfDoc = await PDFDocument.load(freshBuffer); 
-            const font = await pdfDoc.embedFont(StandardFonts.Helvetica); 
-            const pages = pdfDoc.getPages();
-            
-            pages.forEach((page, index) => {
-                if (applyMode === 'current' && index !== editPageNum - 1) return;
-                
-                const { height } = page.getSize(); 
-                let txt = `${index + 1}`; 
-                
-                if (visualData.format === 'Page 1') {
-                    txt = `Page ${index + 1}`; 
-                }
-                if (visualData.format === 'Page 1 of 10') {
-                    txt = `Page ${index + 1} of ${pages.length}`;
-                }
-                
-                page.drawText(txt, { 
-                    x: dummy.x / editScale, 
-                    y: height - (dummy.y / editScale), 
-                    size: 14, 
-                    font, 
-                    color: rgb(0,0,0) 
-                });
-            });
-            
-            const finalBytes = await pdfDoc.save();
-            showSuccessResult(totalOriginalSize, finalBytes.length, "Numbers Added!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Numbered.pdf', 'application/pdf');
-            }, true);
-            
-        } else if (currentVisualMode === 'rotate') {
-            const pdfDoc = await PDFDocument.load(freshBuffer);
-            pdfDoc.getPages().forEach((p, i) => {
-                if (applyMode === 'current' && i !== editPageNum - 1) return;
-                const rot = pageRotations[i + 1] || 0;
-                if (rot !== 0) {
-                    p.setRotation(degrees(p.getRotation().angle + rot));
-                }
-            });
-            
-            const finalBytes = await pdfDoc.save();
-            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Rotated!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Rotated.pdf', 'application/pdf');
-            }, true);
-            
-        } else if (currentVisualMode === 'flatten') {
-            const pdfDoc = await PDFDocument.load(freshBuffer);
-            const form = pdfDoc.getForm(); 
-            if (form) {
-                form.flatten();
-            }
-            
-            const finalBytes = await pdfDoc.save();
-            showSuccessResult(totalOriginalSize, finalBytes.length, "PDF Flattened!", async () => {
-                if(typeof AdManager !== 'undefined' && AdManager) {
-                    await AdManager.showInterstitial();
-                }
-                await processAndDownload(finalBytes, getBaseName(editOriginalFileName) + '_Flattened.pdf', 'application/pdf');
-            }, true);
-        }
-
-        document.body.classList.remove('is-editing');
-        const wrk = document.getElementById('edit-workspace'); 
-        if(wrk) wrk.style.display='none'; 
-        
-        const upl = document.getElementById('edit-upload-section'); 
-        if(upl) upl.style.display='block'; 
-        if(sejdaTextLayer) sejdaTextLayer.innerHTML = '';
-        
-        window.switchView('dashboard');
-        btn.innerHTML = oldText;
-    });
-});
-
-// ==========================================
-// MOBILE SMART SCROLL & PINCH-TO-ZOOM FIX
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- 1. SMART SCROLL (Only block scroll when Drawing) ---
-    const toolbarButtons = document.querySelectorAll('.edit-toolbar-btn');
-    
-    toolbarButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            setTimeout(() => {
-                const overlayCanvas = document.getElementById('pdf-overlay-canvas');
-                if (!overlayCanvas) return;
-
-                const isDrawActive = document.getElementById('btn-edit-draw').classList.contains('edit-tool-active');
-                const isWhiteoutActive = document.getElementById('btn-edit-whiteout').classList.contains('edit-tool-active');
-                
-                if (isDrawActive || isWhiteoutActive) {
-                    overlayCanvas.style.touchAction = 'none';
-                } else {
-                    overlayCanvas.style.touchAction = 'auto'; 
-                }
-            }, 100); 
-        });
-    });
-
-    // --- 2. PINCH TO ZOOM LOGIC (FIXED: RACE CONDITION & DEBOUNCE) ---
-    const overlayCanvas = document.getElementById('pdf-overlay-canvas');
-    let initialPinchDistance = null;
-    let zoomTimeout = null; 
-
-    if (overlayCanvas) {
-        overlayCanvas.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
-            }
-        }, { passive: true });
-
-        overlayCanvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && initialPinchDistance !== null) {
-                e.preventDefault(); 
-                
-                const currentDistance = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
-
-                const distanceDifference = currentDistance - initialPinchDistance;
-                
-                if (Math.abs(distanceDifference) > 40) {
-                    if (distanceDifference > 0) {
-                        editScale += 0.2;
-                    } else {
-                        editScale = Math.max(0.4, editScale - 0.2);
-                    }
-                    
-                    initialPinchDistance = currentDistance; 
-
-                    clearTimeout(zoomTimeout);
-                    zoomTimeout = setTimeout(() => {
-                        if(typeof renderEditPage === 'function') {
-                            renderEditPage(editPageNum);
-                        }
-                    }, 100); 
-                }
-            }
-        }, { passive: false });
-
-        overlayCanvas.addEventListener('touchend', (e) => {
-            initialPinchDistance = null;
-        }, { passive: true });
-    }
-});
 
 // Network Connectivity Checker & Ad Reloader
 function checkNetworkStatus() {
     const offlineScreen = document.getElementById('offline-screen');
-    
+    if (!offlineScreen) return;
     if (navigator.onLine) {
         offlineScreen.style.display = 'none';
         
