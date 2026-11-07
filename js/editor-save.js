@@ -129,7 +129,7 @@ export async function saveEditor() {
         }
 
         let extractedText = null;
-        if (['edit', 'sign', 'watermark', 'imagewatermark', 'addtext'].includes(mode)) {
+        if (['edit', 'sign', 'watermark', 'imagewatermark', 'addtext', 'forms'].includes(mode)) {
             const replicate = applyMode === 'all' && mode !== 'edit';
             for (const p of live) {
                 if (p.blank) continue; const e = env(p);
@@ -140,7 +140,14 @@ export async function saveEditor() {
                 }
                 for (const o of list) { if (o.type === 'rbox' || o.type === 'pagenum') continue; await drawObj(e, o, rel); }
             }
-            suffix = mode === 'sign' ? '_Signed' : mode.includes('watermark') ? '_Watermark' : mode === 'addtext' ? '_Text' : '_Edited';
+            if (mode === 'forms') {
+                const form = doc.getForm(); let skipped = 0;
+                for (const [name, val] of Object.entries(S.formVals || {})) { try { const fld = form.getField(name);
+                    if (fld instanceof L.PDFTextField) fld.setText(String(val)); else if (fld instanceof L.PDFCheckBox) { val ? fld.check() : fld.uncheck(); } else if (fld instanceof L.PDFRadioGroup || fld instanceof L.PDFDropdown || fld instanceof L.PDFOptionList) fld.select(String(val)); } catch (er) { skipped++; } }
+                if (skipped) ctx.showCustomAlert(`${skipped} field(s) could not be filled (unsupported characters). Use the Text tool for those.`);
+                if (S.formFlatten) form.flatten();
+            }
+            suffix = mode === 'sign' ? '_Signed' : mode.includes('watermark') ? '_Watermark' : mode === 'addtext' ? '_Text' : mode === 'forms' ? '_Filled' : '_Edited';
         } else if (mode === 'pagenumbers') {
             const pn = allObjs.find(o => o.type === 'pagenum'); const src = S.pages.find(p => (S.objs[p.id] || []).includes(pn)); const [sw, sh] = dispDims(src);
             const font = await getFont(pn.font || 'sans', pn.bold, pn.italic); const total = live.length;
@@ -192,6 +199,17 @@ export async function saveEditor() {
             }
             if (!txt.trim()) { ctx.hideProcessingUI(); ctx.showCustomAlert('No selectable text found in that area. If this is a scanned PDF, use the OCR Scanner tool.'); return; }
             extractedText = new TextEncoder().encode(txt);
+        } else if (mode === 'redact' || mode === 'maskaadhaar') {
+            const pdf = await ctx.pdfjsLib.getDocument({ data: new Uint8Array(S.bytes.slice(0)) }).promise; let n = 0;
+            const targets = live.filter(p => !p.blank && (S.objs[p.id] || []).some(o => o.type === 'redact'));
+            if (!targets.length) { ctx.hideProcessingUI(); ctx.showCustomAlert('Draw at least one black box first.'); return; }
+            for (const p of targets) {
+                const pgNode = srcPages[p.id]; const idx = doc.getPages().indexOf(pgNode); const page = await pdf.getPage(p.src + 1); const K = 2.6; const vp = page.getViewport({ scale: K, rotation: p.rot });
+                const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height); const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); await page.render({ canvasContext: g, viewport: vp }).promise;
+                g.fillStyle = '#000'; (S.objs[p.id] || []).filter(o => o.type === 'redact').forEach(o => g.fillRect(o.x * K, o.y * K, o.w * K, o.h * K));
+                const img = await doc.embedJpg(cv.toDataURL('image/jpeg', 0.92)); const [dw, dh] = dispDims(p); const np = doc.insertPage(idx + 1, [dw, dh]); np.drawImage(img, { x: 0, y: 0, width: dw, height: dh }); doc.removePage(idx); srcPages[p.id] = np; cv.width = 0; n++;
+            }
+            suffix = mode === 'maskaadhaar' ? '_Masked' : '_Redacted'; title = mode === 'maskaadhaar' ? 'Aadhaar Masked!' : 'Redaction Complete!';
         } else if (mode === 'rotate') { suffix = '_Rotated'; title = 'PDF Rotated!'; }
         else if (mode === 'flatten') {
             try { doc.getForm().flatten(); } catch (er) { console.warn('flatten', er); }

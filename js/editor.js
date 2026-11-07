@@ -8,12 +8,12 @@ const TOOLDEF = {
     select: ['fa-mouse-pointer', 'Select'], text: ['fa-font', 'Text'], image: ['fa-image', 'Image'], sign: ['fa-signature', 'Sign'],
     date: ['fa-calendar-day', 'Date'], whiteout: ['fa-eraser', 'Whiteout'], draw: ['fa-pen', 'Draw'], highlight: ['fa-highlighter', 'Highlight'],
     underline: ['fa-underline', 'Underline'], strike: ['fa-strikethrough', 'Strike'], rect: ['fa-square', 'Rectangle'], ellipse: ['fa-circle', 'Ellipse'],
-    line: ['fa-minus', 'Line'], arrow: ['fa-long-arrow-alt-right', 'Arrow'], link: ['fa-link', 'Link'], box: ['fa-vector-square', 'Select Area']
+    line: ['fa-minus', 'Line'], arrow: ['fa-long-arrow-alt-right', 'Arrow'], link: ['fa-link', 'Link'], box: ['fa-vector-square', 'Select Area'], redact: ['fa-square', 'Redact box']
 };
 const TOOLSETS = {
     edit: ['select', 'text', 'image', 'sign', 'whiteout', 'draw', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'arrow', 'link'],
     sign: ['sign', 'text', 'date', 'image', 'select'], watermark: ['text', 'select'], imagewatermark: ['image', 'select'],
-    addtext: ['text', 'select'], crop: ['box'], addmargins: ['box'], extract: ['box'], rotate: [], flatten: [], pagenumbers: ['select']
+    addtext: ['text', 'select'], crop: ['box'], addmargins: ['box'], extract: ['box'], rotate: [], flatten: [], pagenumbers: ['select'], redact: ['redact', 'select'], maskaadhaar: ['redact', 'select'], forms: ['text', 'sign', 'date', 'select']
 };
 const HELP = {
     edit: 'Click any text to edit it. Use the tools above to add text, images, shapes, highlights & more.',
@@ -26,9 +26,12 @@ const HELP = {
     extract: 'Drag a box around the text you want to extract.',
     rotate: 'Use the rotate buttons on each page, then press Save.',
     flatten: 'Flatten makes form fields & annotations part of the page (no longer editable). Press Save.',
+    redact: 'Drag boxes over what must be hidden. On Save those areas are burned in as black and the text underneath is removed for good.',
+    maskaadhaar: 'Press "Auto-detect" to hide the first 8 digits of the Aadhaar number, or drag black boxes yourself. Saved pages become pictures so the digits cannot be copied.',
+    forms: 'Click the highlighted fields to fill them. Use Text to type anywhere on a flat form, and Sign to add your signature.',
     pagenumbers: 'Drag the blue page number to where you want it. Choose the format in the options bar.'
 };
-const TITLES = { edit: ['fa-edit', 'Edit PDF'], sign: ['fa-signature', 'Sign PDF'], watermark: ['fa-stamp', 'Watermark'], imagewatermark: ['fa-images', 'Image Watermark'], addtext: ['fa-font', 'Add Text'], crop: ['fa-crop', 'Crop PDF'], addmargins: ['fa-border-all', 'Add Margins'], extract: ['fa-file-alt', 'Extract Text'], rotate: ['fa-sync-alt', 'Rotate Pages'], flatten: ['fa-layer-group', 'Flatten PDF'], pagenumbers: ['fa-sort-numeric-down', 'Page Numbers'] };
+const TITLES = { edit: ['fa-edit', 'Edit PDF'], sign: ['fa-signature', 'Sign PDF'], watermark: ['fa-stamp', 'Watermark'], imagewatermark: ['fa-images', 'Image Watermark'], addtext: ['fa-font', 'Add Text'], crop: ['fa-crop', 'Crop PDF'], addmargins: ['fa-border-all', 'Add Margins'], extract: ['fa-file-alt', 'Extract Text'], rotate: ['fa-sync-alt', 'Rotate Pages'], redact: ['fa-user-secret', 'Redact PDF'], maskaadhaar: ['fa-mask', 'Mask Aadhaar'], forms: ['fa-pen-square', 'Fill Forms'], flatten: ['fa-layer-group', 'Flatten PDF'], pagenumbers: ['fa-sort-numeric-down', 'Page Numbers'] };
 
 let root, scroller, pagesBox, propsBar, toolBar, helpBar, io, gesture = null, zoomTimer = null, uiReady = false;
 
@@ -60,6 +63,7 @@ function injectCSS() {
     .ed-pghead button:hover{background:var(--accent);color:#fff}
     .ed-pg{position:relative;background:#fff;box-shadow:0 8px 28px rgba(0,0,0,.7);overflow:hidden;user-select:none;-webkit-user-select:none}
     .ed-cv{position:absolute;left:0;top:0;display:block}
+    .ed-fl{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}.ed-fl input,.ed-fl textarea,.ed-fl select{position:absolute;pointer-events:auto;background:rgba(59,130,246,.16);border:1px solid #3b82f6;color:#000;font-family:Arial,sans-serif;padding:0 3px;outline:none;box-sizing:border-box}.ed-fl input:focus,.ed-fl textarea:focus,.ed-fl select:focus{background:rgba(255,255,255,.95);border-color:#10b981}.ed-fl input[type=checkbox],.ed-fl input[type=radio]{padding:0;accent-color:#10b981}
     .ed-tl,.ed-svg,.ed-ol{position:absolute;left:0;top:0;width:100%;height:100%}
     .ed-svg{pointer-events:none;overflow:visible} .ed-ol{pointer-events:none}
     .ed-tb{position:absolute;white-space:pre;color:transparent;cursor:text;pointer-events:auto;margin:0;padding:0;outline:none;overflow:visible}
@@ -141,7 +145,7 @@ export async function openEditor(file, mode, ctx) {
     let pdf;
     try { pdf = await ctx.pdfjsLib.getDocument({ data: new Uint8Array(bytes.slice(0)) }).promise; }
     catch (e) { ctx.handleError(e.name === 'PasswordException' ? new Error('password protected') : new Error('Could not open this PDF. It may be corrupt - try the Repair PDF tool.')); return; }
-    S.pdf = pdf; S.objs = {}; S.images = {}; S.undo = []; S.redo = []; S.sel = null; S.dirty = false; S.nextId = 1; S.curPage = 0;
+    S.pdf = pdf; S.objs = {}; S.images = {}; S.undo = []; S.redo = []; S.sel = null; S.dirty = false; S.nextId = 1; S.curPage = 0; S.formVals = {}; S.formFlatten = false;
     S.format = (document.getElementById('pagenumbers-format') || {}).value || '1';
     S.pages = [];
     for (let i = 0; i < pdf.numPages; i++) {
@@ -163,7 +167,7 @@ export async function openEditor(file, mode, ctx) {
     root.querySelector('#page-count').textContent = S.pages.length;
     updateUndoUI();
     const first = (TOOLSETS[mode] || [])[0];
-    setTool(mode === 'edit' ? 'text' : (first || 'none'));
+    setTool(mode === 'edit' || mode === 'forms' ? (mode === 'forms' ? 'select' : 'text') : (first || 'none'));
     if (mode === 'pagenumbers') addPageNumberObj();
     if (mode === 'imagewatermark') root.querySelector('#edit-image-input').click();
     if (mode === 'sign') setTimeout(() => pickSignature(), 250);
@@ -204,7 +208,7 @@ function onToolClick(t) {
 export function setTool(t) {
     S.tool = t; select(null);
     toolBar.querySelectorAll('.ed-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
-    scroller.classList.toggle('drawing', ['draw', 'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'arrow', 'link', 'box'].includes(t));
+    scroller.classList.toggle('drawing', ['draw', 'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'arrow', 'link', 'box', 'redact'].includes(t));
     pagesBox.querySelectorAll('.ed-pg').forEach(el => el.style.cursor = (t === 'select' || t === 'none') ? 'default' : (t === 'text' ? 'text' : 'crosshair'));
     renderProps();
 }
@@ -227,10 +231,10 @@ function buildPages() {
         wrap.innerHTML = `<div class="ed-pghead"><span>Page ${idx + 1}</span><span style="display:flex;gap:4px">
             ${canOps ? `<button data-act="rl" title="Rotate left"><i class="fas fa-undo"></i></button><button data-act="rr" title="Rotate right"><i class="fas fa-redo"></i></button>` : ''}
             ${S.mode === 'edit' ? `<button data-act="add" title="Insert blank page after"><i class="fas fa-file-medical"></i></button><button data-act="del" title="Delete page"><i class="fas fa-trash-alt"></i></button>` : ''}</span></div>
-            <div class="ed-pg"><canvas class="ed-cv"></canvas><div class="ed-tl"></div><svg class="ed-svg" xmlns="http://www.w3.org/2000/svg"></svg><div class="ed-ol"></div></div>`;
+            <div class="ed-pg"><canvas class="ed-cv"></canvas><div class="ed-tl"></div><svg class="ed-svg" xmlns="http://www.w3.org/2000/svg"></svg><div class="ed-fl"></div><div class="ed-ol"></div></div>`;
         pagesBox.appendChild(wrap);
         p.el = wrap; p.pg = wrap.querySelector('.ed-pg'); p.cv = wrap.querySelector('.ed-cv'); p.tl = wrap.querySelector('.ed-tl');
-        p.svg = wrap.querySelector('.ed-svg'); p.ol = wrap.querySelector('.ed-ol'); p.rendered = false; p.idx = idx;
+        p.svg = wrap.querySelector('.ed-svg'); p.fl = wrap.querySelector('.ed-fl'); p.ol = wrap.querySelector('.ed-ol'); p.rendered = false; p.idx = idx;
         sizePage(p);
         p.pg.addEventListener('pointerdown', (e) => onPagePointerDown(e, p));
         wrap.querySelectorAll('.ed-pghead button').forEach(b => b.onclick = () => pageOp(p, b.dataset.act));
@@ -265,6 +269,7 @@ async function renderPage(p) {
         if (token !== p.token) return;
         p.dpr = dpr;
         if (S.mode === 'edit') await buildTextLayer(p, page);
+        if (S.mode === 'forms') await buildFormLayer(p, page);
     } catch (e) { if (e && e.name !== 'RenderingCancelledException') console.warn('render', e); }
 }
 
@@ -289,6 +294,35 @@ async function buildTextLayer(p, page) {
         styleBlock(el, b, ed);
         p.tl.appendChild(el);
     });
+}
+async function buildFormLayer(p, page) {
+    p.fl.innerHTML = ''; const vp = page.getViewport({ scale: 1, rotation: p.rot }); let ann = []; try { ann = await page.getAnnotations({ intent: 'display' }); } catch (e) { }
+    ann.filter(a => a.subtype === 'Widget' && a.fieldName && !a.readOnly).forEach(a => {
+        const m = vp.transform, pt = (X, Y) => [m[0] * X + m[2] * Y + m[4], m[1] * X + m[3] * Y + m[5]]; const c1 = pt(a.rect[0], a.rect[1]), c2 = pt(a.rect[2], a.rect[3]), x = Math.min(c1[0], c2[0]), y = Math.min(c1[1], c2[1]), w = Math.abs(c2[0] - c1[0]), h = Math.abs(c2[1] - c1[1]); let el; const name = a.fieldName; const cur = S.formVals[name];
+        if (a.fieldType === 'Tx') { el = document.createElement(a.multiLine ? 'textarea' : 'input'); if (!a.multiLine) el.type = a.password ? 'password' : 'text'; el.value = cur != null ? cur : (a.fieldValue || ''); if (a.maxLen) el.maxLength = a.maxLen; el.oninput = () => { S.formVals[name] = el.value; S.dirty = true; }; }
+        else if (a.fieldType === 'Btn' && a.checkBox) { el = document.createElement('input'); el.type = 'checkbox'; el.checked = cur != null ? !!cur : (a.fieldValue && a.fieldValue !== 'Off'); el.onchange = () => { S.formVals[name] = el.checked; S.dirty = true; }; }
+        else if (a.fieldType === 'Btn' && a.radioButton) { el = document.createElement('input'); el.type = 'radio'; el.name = 'rg_' + name; el.checked = cur != null ? cur === a.buttonValue : a.fieldValue === a.buttonValue; el.onchange = () => { if (el.checked) { S.formVals[name] = a.buttonValue; S.dirty = true; } }; }
+        else if (a.fieldType === 'Ch') { el = document.createElement('select'); (a.options || []).forEach(o => { const op = document.createElement('option'); op.value = o.exportValue; op.textContent = o.displayValue; el.appendChild(op); }); el.value = cur != null ? cur : (Array.isArray(a.fieldValue) ? a.fieldValue[0] : a.fieldValue); el.onchange = () => { S.formVals[name] = el.value; S.dirty = true; }; }
+        else return;
+        el.style.cssText += `left:${x * S.scale}px;top:${y * S.scale}px;width:${w * S.scale}px;height:${h * S.scale}px;font-size:${Math.max(8, Math.min(h * 0.62, 20)) * S.scale}px;`; p.fl.appendChild(el);
+    });
+}
+// find text on every page and add redaction boxes (Aadhaar / PAN / phone / e-mail / custom words)
+const AUTO = {
+    aadhaar8: { re: /\b\d{4}\s?\d{4}\s?\d{4}\b/g, part: (m) => { let n = 0, i = 0; for (; i < m.length; i++) { if (/\d/.test(m[i])) n++; if (n === 8) { i++; break; } } return [0, i]; } },
+    aadhaar12: { re: /\b\d{4}\s?\d{4}\s?\d{4}\b/g }, pan: { re: /\b[A-Z]{5}\d{4}[A-Z]\b/g }, phone: { re: /(?:\+91[\s-]?)?\b[6-9]\d{9}\b/g }, email: { re: /[\w.+-]+@[\w-]+\.[\w.-]+/g }
+};
+async function autoFind(kind, custom) {
+    let def = AUTO[kind], re;
+    if (kind === 'custom') { const terms = custom.split(',').map(t => t.trim()).filter(Boolean); if (!terms.length) return S.ctx.showCustomAlert('Type the word(s) to hide, separated by commas.'); re = new RegExp(terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'); def = { re }; }
+    pushUndo(); let added = 0, scanned = 0;
+    for (const p of S.pages.filter(x => !x.deleted && !x.blank)) {
+        const page = await S.pdf.getPage(p.src + 1); const vp = page.getViewport({ scale: 1, rotation: p.rot }); const tc = await page.getTextContent(); let blocks = buildBlocks(tc.items, tc.styles, vp, () => ({ family: 'sans', bold: false, italic: false }));
+        if (!blocks.length && S.ctx.getOcr) { scanned++; try { const ocr = await S.ctx.getOcr(); const v2 = page.getViewport({ scale: 2, rotation: p.rot }); const cv = document.createElement('canvas'); cv.width = v2.width; cv.height = v2.height; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); await page.render({ canvasContext: g, viewport: v2 }).promise; blocks = await ocr(cv, 2, 'eng'); cv.width = 0; } catch (e) { console.warn('ocr', e); } }
+        blocks.forEach(b => { const str = b.str; def.re.lastIndex = 0; let m; while ((m = def.re.exec(str))) { let a = 0, e = m[0].length; if (def.part) [a, e] = def.part(m[0]); const i0 = m.index + a, i1 = m.index + e; const x0 = b.x + b.w * (i0 / str.length), x1 = b.x + b.w * (i1 / str.length); S.objs[p.id].push({ id: uid(), type: 'redact', x: x0 - 1.5, y: b.base - b.size * 0.95, w: x1 - x0 + 3, h: b.size * 1.3 }); added++; if (m[0].length === 0) def.re.lastIndex++; } });
+        renderObjs(p);
+    }
+    if (!added) { S.undo.pop(); updateUndoUI(); S.ctx.showCustomAlert(scanned ? 'Nothing found. For scanned images, draw the boxes by hand.' : 'No matching text found on any page.'); } else { S.dirty = true; updateUndoUI(); }
 }
 function styleBlock(el, b, ed) {
     const fam = ed ? ed.family : b.family, size = ed ? ed.size : b.size;
@@ -399,6 +433,7 @@ export function syncEl(p, o, el) {
     else if (o.type === 'strike') { el.innerHTML = `<div style="position:absolute;left:0;right:0;top:50%;height:${Math.max(1.5, o.sw * s)}px;background:${o.color}"></div>`; }
     else if (o.type === 'rect' || o.type === 'ellipse') { st.border = `${Math.max(1, o.sw * s)}px solid ${o.color}`; if (o.type === 'ellipse') st.borderRadius = '50%'; if (o.fill) st.background = o.fill; }
     else if (o.type === 'link') { st.border = '2px dashed #3b82f6'; st.background = 'rgba(59,130,246,.12)'; el.title = o.url || ''; }
+    else if (o.type === 'redact') { st.background = '#000'; st.opacity = 0.82; st.outline = '1px solid #ef4444'; }
     else if (o.type === 'rbox') { st.border = '2px dashed #3b82f6'; st.background = 'rgba(59,130,246,.2)'; }
 }
 
@@ -423,7 +458,7 @@ function showSel() {
     const f = document.createElement('div'); f.className = 'ed-sel';
     f.style.cssText = `left:${b.x * s - 2}px;top:${b.y * s - 2}px;width:${b.w * s + 4}px;height:${b.h * s + 4}px`;
     if (o.rot) { f.style.transform = `rotate(${o.rot}deg)`; }
-    const resizable = ['image', 'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'link', 'rbox', 'text'].includes(o.type);
+    const resizable = ['image', 'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'link', 'rbox', 'redact', 'text'].includes(o.type);
     if (resizable) ['nw', 'ne', 'se', 'sw'].forEach(h => { const d = document.createElement('div'); d.className = 'ed-h ' + h; d.addEventListener('pointerdown', (e) => startResize(e, p, o, h)); f.appendChild(d); });
     p.ol.appendChild(f);
 }
@@ -433,7 +468,7 @@ function refreshSel() { if (S.sel && S.sel.kind !== 'edit') showSel(); }
 function pos(e, p) { const r = p.pg.getBoundingClientRect(); return { x: (e.clientX - r.left) / S.scale, y: (e.clientY - r.top) / S.scale }; }
 
 function onObjPointerDown(e, p, o) {
-    if (['draw', 'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'arrow', 'link', 'box'].includes(S.tool) && !(S.sel && S.sel.id === o.id)) return; // let creation tools draw over objects
+    if (['draw', 'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'arrow', 'link', 'box', 'redact'].includes(S.tool) && !(S.sel && S.sel.id === o.id)) return; // let creation tools draw over objects
     if (e.target.classList && e.target.classList.contains('ed-h')) return;
     const el = elOf(p, o);
     if (el && el.classList.contains('editing')) return;
@@ -471,7 +506,7 @@ function onPagePointerDown(e, p) {
         const o = { id: uid(), type: 'draw', color: S.d.strokeC, sw: S.d.strokeW, opacity: 1, points: [{ x: q.x, y: q.y }] };
         S.objs[p.id].push(o); makeEl(p, o); gesture = { type: 'draw', p, o, pid: e.pointerId }; return;
     }
-    if (['whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'link', 'box'].includes(t)) {
+    if (['whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'link', 'box', 'redact'].includes(t)) {
         e.preventDefault(); pushUndo();
         const type = t === 'box' ? 'rbox' : t;
         if (type === 'rbox') Object.keys(S.objs).forEach(k => S.objs[k] = S.objs[k].filter(x => x.type !== 'rbox'));
@@ -526,7 +561,7 @@ function onGlobalUp(e) {
     if (g.type === 'create') {
         if (o.w < 4 || o.h < 4) { S.objs[p.id] = S.objs[p.id].filter(x => x !== o); const el = elOf(p, o); el && el.remove(); S.undo.pop(); updateUndoUI(); return; }
         S.dirty = true; if (o.type === 'link') { promptText('Link URL', 'https://', (v) => { if (v) { o.url = v.startsWith('http') || v.startsWith('mailto:') ? v : 'https://' + v; syncEl(p, o); } else { S.objs[p.id] = S.objs[p.id].filter(x => x !== o); renderObjs(p); } }); }
-        if (o.type !== 'rbox') setTool('select'); select({ pid: p.id, id: o.id, kind: o.type });
+        if (o.type !== 'rbox' && o.type !== 'redact') setTool('select'); select({ pid: p.id, id: o.id, kind: o.type });
     }
     if (g.type === 'create-line') {
         if (Math.hypot(o.x2 - o.x, o.y2 - o.y) < 4) { S.objs[p.id] = S.objs[p.id].filter(x => x !== o); renderObjs(p); S.undo.pop(); updateUndoUI(); return; }
@@ -649,6 +684,14 @@ function renderProps() {
         const map = { size: 'size', color: isText ? 'color' : 'strokeC', font: 'font', bold: 'bold', italic: 'italic', underline: 'underline', opacity: 'opacity', sw: 'strokeW', rot: 'rot' };
         if (!o || S.sel.kind !== 'edit') { if (k === 'color' && !isText) S.d[t === 'highlight' ? 'hlC' : 'strokeC'] = v; else if (map[k]) S.d[map[k]] = v; }
     };
+    if (S.mode === 'redact' || S.mode === 'maskaadhaar') {
+        const d = add(S.mode === 'maskaadhaar' ? `<button class="ed-btn save" data-k="a8"><i class="fas fa-magic"></i> Auto-detect Aadhaar (hide first 8 digits)</button>` : `<select data-k="kind"><option value="custom">Words I type</option><option value="aadhaar12">Aadhaar number</option><option value="pan">PAN number</option><option value="phone">Phone numbers</option><option value="email">E-mail addresses</option></select><input type="text" data-k="terms" placeholder="word1, word2" style="width:150px"><button class="ed-btn" data-k="find"><i class="fas fa-search"></i> Find & mark</button>`);
+        const a8 = d.querySelector('[data-k=a8]'); if (a8) a8.onclick = () => autoFind('aadhaar8');
+        const f = d.querySelector('[data-k=find]'); if (f) { const kind = d.querySelector('[data-k=kind]'), terms = d.querySelector('[data-k=terms]'); kind.onchange = () => { terms.style.display = kind.value === 'custom' ? '' : 'none'; }; f.onclick = () => autoFind(kind.value, terms.value); }
+        if (o) { propsBar.appendChild(Object.assign(document.createElement('span'), { className: 'ed-sep' })); const b = document.createElement('button'); b.className = 'ed-btn danger'; b.innerHTML = '<i class="fas fa-trash-alt"></i><span>Remove box</span>'; b.onmousedown = (e) => e.preventDefault(); b.onclick = deleteSel; propsBar.appendChild(b); }
+        return;
+    }
+    if (S.mode === 'forms' && !isText && t !== 'image') { add(`<label><input type="checkbox" data-k="flat" ${S.formFlatten ? 'checked' : ''}> Flatten after filling (cannot be edited again)</label><span style="color:#64748b;font-size:.78rem">Fields are highlighted in blue. Use Text to type anywhere.</span>`).querySelector('[data-k=flat]').onchange = (e) => { S.formFlatten = e.target.checked; }; if (!o) return; }
     if (S.mode === 'pagenumbers') {
         const d = add(`<label>Format <select data-k="fmt"><option value="1">1, 2, 3</option><option value="Page 1">Page 1</option><option value="Page 1 of 10">Page 1 of N</option><option value="1 / 10">1 / N</option></select></label><label>Size <input type="number" data-k="size" min="6" max="48" value="${o ? o.size : 14}"></label><label>Color <input type="color" data-k="color" value="${o ? o.color : '#000000'}"></label>`);
         d.querySelector('[data-k=fmt]').value = S.format;

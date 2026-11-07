@@ -158,7 +158,7 @@ export async function extractPage(pdf, pageNum, ctx, opt = {}) {
     return { page, vp, blocks, raster, scale, hasText: tc.items.some(i => i.str && i.str.trim()) || ocred };
 }
 
-async function pageImages(page, vp, raster, scale, pdfjs) {
+export async function pageImages(page, vp, raster, scale, pdfjs) {
     const out = []; if (!raster) return out; const OPS = pdfjs.OPS; const ol = await page.getOperatorList(); const stack = []; let ctm = [1, 0, 0, 1, 0, 0];
     const mul = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
     for (let i = 0; i < ol.fnArray.length; i++) {

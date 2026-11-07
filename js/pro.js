@@ -74,6 +74,7 @@ function initOCR(ctx, root) {
             bytes = await doc.save(); name = base + '.pdf'; type = 'application/pdf';
         }
         pagesRaster.forEach(p => { p.cv.width = p.cv.height = 0; }); const total = files.reduce((a, f) => a + f.size, 0); files = []; render();
+        window.__pendingShare = { bytes, filename: name, type };
         ctx.showSuccessResult(total, bytes.length, 'OCR Complete!', async () => { await ctx.AdManager.showInterstitial(); await ctx.processAndDownload(bytes, name, type); }, true);
     });
 }
@@ -125,6 +126,7 @@ function initBatch(ctx, root) {
             if (failed.length === todo.length) throw new Error('All files failed: ' + failed[0]);
             const bytes = await zip.generateAsync({ type: 'uint8array' }); const total = todo.reduce((a, f) => a + f.size, 0); files = []; draw();
             if (failed.length) ctx.showCustomAlert(`${failed.length} file(s) could not be processed:<br>${failed.slice(0, 5).map(esc).join('<br>')}`);
+            window.__pendingShare = { bytes, filename: 'Amazing_Batch_' + $('b-op').value + '.zip', type: 'application/zip' };
             ctx.showSuccessResult(total, bytes.length, `Batch complete (${todo.length - failed.length}/${todo.length})`, async () => { await ctx.AdManager.showInterstitial(); await ctx.processAndDownload(bytes, 'Amazing_Batch_' + $('b-op').value + '.zip', 'application/zip'); }, false);
         });
     };

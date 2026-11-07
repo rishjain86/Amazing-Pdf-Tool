@@ -35,3 +35,16 @@
 - Word->PDF and Excel->PDF are rendered in the browser, so fonts that are not installed on the device are substituted.
 - PDF->Word cannot recreate vector drawings; text, tables and images are rebuilt.
 - Protect PDF still uses the Vercel API (needs internet).
+
+## Round 2 - new tools (all in the sidebar / dashboard)
+- **Compress to Exact Size** (PDF or photo, target KB/MB) and **Photo & Signature Resizer** (exam presets or custom px + max KB).
+- **Redact PDF** (true redaction: pages are burned in, text underneath is removed; auto-find words, Aadhaar, PAN, phone, e-mail) and **Mask Aadhaar** (auto-hides first 8 digits; OCR fallback for scanned images).
+- **Fill Forms** (detects fillable fields, checkbox/dropdown/radio; Text + Sign for flat forms; optional flatten).
+- **Header, Footer & Bates numbering** ({page} {total} {date} {file}), **Bookmarks** (manual or auto-detected headings), **Extract Images**, **Compare PDFs** (red highlight report), **ID Card to PDF**, **Scan Enhance** (magic colour / grayscale / B&W).
+- **PDF to PowerPoint** (editable text boxes + pictures, or exact pictures) and **PowerPoint to PDF**.
+- **Invoice Maker** (GST: CGST+SGST / IGST, amount in words, Hindi names ok) and **Resume Maker** (2 templates).
+- **App Lock** (PIN, salted PBKDF2) and a **Share** button on every result (WhatsApp / Drive via the phone share sheet).
+- Fixed: sidebar did not close on mobile after choosing a tool.
+
+Not done on purpose: biometric unlock (needs a native Capacitor plugin + APK rebuild) and automatic Google Drive backup (needs your own Google Cloud OAuth client). The share sheet already lets users save to Drive.
+Hindi text in the editor is already supported (it is drawn as a picture so shaping stays correct); searchable Hindi text would need an embedded font.

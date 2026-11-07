@@ -1,5 +1,7 @@
 import { PDFDocument, degrees, StandardFonts, rgb, PDFName } from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
 import * as PDFLIB from 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm';
+import { injectTools2, TOOLS2 } from './js/registry.js';
+import { initAppLock } from './js/applock.js';
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
@@ -101,6 +103,7 @@ function formatBytes(bytes, decimals = 2) {
 }
 
 async function simulateLoadingAndProcess(title, processCallback) {
+    window.__pendingShare = null;
     const overlay = document.getElementById('dynamic-ui-overlay');
     const processingState = document.getElementById('processing-state');
     const successState = document.getElementById('success-state');
@@ -191,6 +194,7 @@ function showSuccessResult(originalBytes, compressedBytes, successTitle, downloa
     overlay.style.display = 'flex';
     processingState.style.display = 'none';
     successState.style.display = 'block';
+    const shareBtn = document.getElementById('final-share-btn'); if (shareBtn) shareBtn.style.display = window.__pendingShare ? 'block' : 'none';
     if(successTitleEl) successTitleEl.innerText = successTitle;
 
     let savedBytes = originalBytes - compressedBytes;
@@ -248,7 +252,7 @@ window.switchView = (viewId) => {
     if (viewId === 'vault') { loadPro().then(() => window.__openVault && window.__openVault()); }
     if (viewId === 'history') window.renderHistory();
     const mc = document.querySelector('.main-content'); if (mc) mc.scrollTop = 0; window.scrollTo(0, 0);
-    const sb = document.getElementById('sidebar'); if (sb && sb.classList.contains('open')) { sb.classList.remove('open'); const ov = document.getElementById('sidebar-overlay'); if (ov) ov.classList.remove('active'); }
+    const sb = document.querySelector('.sidebar'); if (sb && sb.classList.contains('active')) { sb.classList.remove('active'); const ov = document.getElementById('sidebar-overlay'); if (ov) ov.classList.remove('active'); }
 };
 const escapeHtml = (str) => String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -1025,6 +1029,7 @@ function setupSingleFileLogic(id, actionCallback) {
             simulateLoadingAndProcess(`Processing File`, async () => {
                 const result = await actionCallback(fileRef);
                 if (!result) return;
+                window.__pendingShare = result;
                 document.getElementById(`reset-${id}`)?.click();
                 const forceStats = ['split', 'wordtopdf', 'pdftoword', 'exceltopdf', 'pdftoexcel'].includes(id);
                 showSuccessResult(totalOriginalSize, result.bytes.length, result.title || "Task Completed!", async () => {
@@ -1078,6 +1083,7 @@ function setupMultipleFileLogic(id, actionCallback) {
         const filesRef = currentFiles; const totalOriginalSize = filesRef.reduce((acc, f) => acc + f.size, 0);
         simulateLoadingAndProcess(`Processing ${filesRef.length} File(s)`, async () => {
             const result = await actionCallback(filesRef); 
+            window.__pendingShare = result;
             currentFiles = []; renderList(); 
             showSuccessResult(totalOriginalSize, result.bytes.length, "Task Completed!", async () => {
                 if (typeof AdManager !== 'undefined' && AdManager) await AdManager.showInterstitial();
@@ -1589,6 +1595,10 @@ const ops = {
     }
 };
 const ctx = { PDFLIB, pdfjsLib, JSZip, showCustomAlert, handleError, simulateLoadingAndProcess, showProcessingUI, hideProcessingUI, showSuccessResult, processAndDownload, AdManager, getBaseName, enableDrop, ops };
+ctx.openVisualWorkspace = (f, m) => openVisualWorkspace(f, m);
+ctx.getOcr = async () => { const pro = await loadPro(); return pro.ocrCanvas; };
+let _tools2 = null;
+async function getTools2() { if (!_tools2) { await getConvert(); _tools2 = await import(modUrl('tools2')); } return _tools2; }
 let _editor = null, _convert = null, _pro = null;
 async function getEditor() { if (!_editor) { _editor = await import(modUrl('editor')); ctx.closeEditor = _editor.closeEditor; window.__editorOpen = _editor.isEditorOpen; } return _editor; }
 async function getConvert() { if (!_convert) { _convert = await import(modUrl('convert')); ctx.convert = _convert; } return _convert; }
@@ -1598,7 +1608,19 @@ async function openVisualWorkspace(file, mode) {
 }
 // OCR Scanner / Batch tools initialise when their page is first opened
 const _sv = window.switchView;
-window.switchView = (viewId) => { _sv(viewId); if (viewId === 'ocr' || viewId === 'batch') loadPro().catch(e => handleError(e)); };
+window.switchView = (viewId) => {
+    _sv(viewId);
+    if (viewId === 'ocr' || viewId === 'batch') loadPro().catch(e => handleError(e));
+    if (TOOLS2.some(t => t.id === viewId)) getTools2().then(m => m.mountTool(viewId, ctx)).catch(e => handleError(e));
+};
+// extra tools (sidebar, cards, views) + app lock + share button
+injectTools2(); initAppLock();
+document.getElementById('final-share-btn')?.addEventListener('click', async () => {
+    const dl = document.getElementById('final-download-btn'); const r = window.__pendingShare; const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (!r || native) { dl.click(); return; }
+    try { const file = new File([r.bytes], r.filename, { type: r.type }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: r.filename }); else dl.click(); } catch (e) { if (e && e.name !== 'AbortError') dl.click(); }
+});
+
 
 
 
