@@ -2,6 +2,7 @@
 import { S, uid, esc, CSSFONT, BASELINE, LH, detectFont, sampleBg, sampleFg, buildBlocks, rotateObj90 } from './ed-shared.js';
 import { saveEditor } from './editor-save.js';
 import { openSignatureDialog } from './signature.js';
+import { isLegacyFontName, looksLegacy, legacyToUnicode, looksEnglish } from './legacyhindi.js';
 
 const BL11 = { sans: 0.8965, serif: 0.8875, mono: 0.8165 };
 const TOOLDEF = {
@@ -92,8 +93,8 @@ function buildUI() {
         <span class="ed-title" id="ed-title"></span>
         <div style="display:flex;gap:6px;align-items:center">
             <select id="edit-apply-mode" class="ed-btn" style="display:none"><option value="current">Current Page</option><option value="all">All Pages</option></select>
-            <button class="ed-btn" id="ed-undo" title="Undo"><i class="fas fa-undo"></i></button>
-            <button class="ed-btn" id="ed-redo" title="Redo"><i class="fas fa-redo"></i></button>
+            <button class="ed-btn" id="ed-undo" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i><span>Undo</span></button>
+            <button class="ed-btn" id="ed-redo" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i><span>Redo</span></button>
             <button class="ed-btn save" id="btn-edit-save"><i class="fas fa-check"></i><span>Save</span></button>
         </div>
     </div>
@@ -282,10 +283,18 @@ async function buildTextLayer(p, page) {
         let nm = '';
         try { nm = page.commonObjs.get(fn).name || ''; } catch (e) { }
         if (!nm && tc.styles[fn]) nm = tc.styles[fn].fontFamily || '';
-        return cache[fn] = detectFont(nm);
+        return cache[fn] = { ...detectFont(nm), raw: fn, name: nm };
     };
     p.blocks = buildBlocks(tc.items, tc.styles, vp1, fontInfo);
-    p.tl.innerHTML = '';
+    markLegacy(p.blocks);
+    paintBlocks(p);
+}
+function markLegacy(blocks) { // old Hindi fonts (Kruti Dev...) look like garbage when read as text
+    const byName = {}, byText = {}; blocks.forEach(b => { if (isLegacyFontName(b.name)) byName[b.raw] = true; else if (looksLegacy(b.str)) byText[b.raw] = true; });
+    blocks.forEach(b => { b.legacy = !!byName[b.raw] || (!!byText[b.raw] && !looksEnglish(b.str)); });
+}
+function paintBlocks(p) {
+    p.tl.innerHTML = ''; if (!p.blocks) return;
     const edits = (S.objs[p.id] || []).filter(o => o.type === 'edit');
     p.blocks.forEach(b => {
         const key = Math.round(b.x * 10) + '_' + Math.round(b.base * 10);
@@ -344,7 +353,8 @@ function startBlockEdit(p, el) {
     if (!ed) {
         const sx = b.x * S.scale * p.dpr, sy = (b.base - b.size * 0.95) * S.scale * p.dpr, sw = b.w * S.scale * p.dpr, sh = b.size * 1.2 * S.scale * p.dpr;
         const bg = sampleBg(p.cv, sx, sy, sw, sh), fg = sampleFg(p.cv, sx, sy, sw, sh, bg);
-        ed = { id: uid(), type: 'edit', key, x: b.x, base: b.base, w: b.w, size: b.size, str: b.str, text: b.str, family: b.family, bold: b.bold, italic: b.italic, underline: false, color: fg, bg };
+        const shown = b.legacy ? legacyToUnicode(b.str) : b.str;
+        ed = { id: uid(), type: 'edit', key, legacy: !!b.legacy, x: b.x, base: b.base, w: b.w, size: b.size, str: shown, text: shown, family: b.legacy ? 'sans' : b.family, bold: b.bold, italic: b.italic, underline: false, color: fg, bg };
         created = true;
     }
     pushUndo();
@@ -359,7 +369,7 @@ function startBlockEdit(p, el) {
         el.contentEditable = 'false'; el.classList.remove('editing');
         ed.text = el.innerText.replace(/\n$/, '');
         const arr = S.objs[p.id];
-        if (ed.text === ed.str && ed.family === b.family && ed.bold === b.bold && ed.italic === b.italic && ed.size === b.size && !ed.underline) {
+        if (ed.text === ed.str && ed.family === (b.legacy ? 'sans' : b.family) && ed.bold === b.bold && ed.italic === b.italic && ed.size === b.size && !ed.underline) {
             const i = arr.indexOf(ed); if (i >= 0) arr.splice(i, 1); styleBlock(el, b, null);
             if (created) S.undo.pop();
         } else { S.dirty = true; styleBlock(el, b, ed); }
@@ -651,17 +661,23 @@ function pageOp(p, act) {
 const snapshot = () => JSON.stringify({ objs: S.objs, pages: S.pages.map(p => ({ id: p.id, src: p.src, native: p.native, rot: p.rot, w: p.w, h: p.h, deleted: p.deleted, blank: p.blank })) });
 function pushUndo() { S.undo.push(snapshot()); if (S.undo.length > 80) S.undo.shift(); S.redo = []; updateUndoUI(); }
 function restore(js) {
-    const st = JSON.parse(js); S.objs = st.objs;
+    const st = JSON.parse(js); const same = st.pages.length === S.pages.length && st.pages.every((d, i) => { const p = S.pages[i]; return p.id === d.id && p.rot === d.rot && p.deleted === d.deleted && p.blank === d.blank; });
+    if (same) { // only objects changed: repaint in place (no flicker / no page re-render)
+        S.objs = st.objs; S.sel = null; document.querySelectorAll('.ed-sel').forEach(e => e.remove());
+        S.pages.forEach(p => { if (p.deleted || !p.ol) return; renderObjs(p); paintBlocks(p); }); renderProps(); updateUndoUI(); return;
+    }
+    S.objs = st.objs;
     S.pages = st.pages.map(d => { const old = S.pages.find(p => p.id === d.id); return Object.assign(old || { token: 0 }, d); });
     S.sel = null; document.querySelectorAll('.ed-sel').forEach(e => e.remove()); buildPages(); renderProps(); updateUndoUI();
 }
-function undo() { if (!S.undo.length) return; S.redo.push(snapshot()); restore(S.undo.pop()); }
-function redo() { if (!S.redo.length) return; S.undo.push(snapshot()); restore(S.redo.pop()); }
+function toast(msg) { let t = document.getElementById('ed-toast'); if (!t) { t = document.createElement('div'); t.id = 'ed-toast'; t.style.cssText = 'position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:rgba(15,23,42,.95);color:#fff;padding:9px 18px;border-radius:24px;font-size:.85rem;z-index:100030;border:1px solid rgba(255,255,255,.2);pointer-events:none;transition:opacity .25s'; document.body.appendChild(t); } t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = 0, 1200); }
+function undo() { const typing = document.querySelector('.ed-tb.editing, .ed-text.editing'); if (typing) typing.blur(); if (!S.undo.length) return toast('Nothing to undo'); S.redo.push(snapshot()); restore(S.undo.pop()); S.dirty = true; toast('Undone (' + S.undo.length + ' more)'); }
+function redo() { if (!S.redo.length) return toast('Nothing to redo'); S.undo.push(snapshot()); restore(S.redo.pop()); S.dirty = true; toast('Redone'); }
 function updateUndoUI() { if (!root) return; root.querySelector('#ed-undo').disabled = !S.undo.length; root.querySelector('#ed-redo').disabled = !S.redo.length; }
 function onKey(e) {
     if (!isEditorOpen()) return;
     const typing = document.activeElement && (document.activeElement.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
-    if ((e.ctrlKey || e.metaKey) && !typing) { if (e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); } else if (e.key === 'y') { e.preventDefault(); redo(); } }
+    if ((e.ctrlKey || e.metaKey) && !typing) { if (e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); } else if (e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } }
     if (!typing && (e.key === 'Delete' || e.key === 'Backspace') && S.sel && S.sel.kind !== 'edit') { e.preventDefault(); deleteSel(); }
     if (e.key === 'Escape') { const ed = document.querySelector('.ed-tb.editing, .ed-text.editing'); if (ed) ed.blur(); else select(null); }
 }
@@ -684,6 +700,7 @@ function renderProps() {
         const map = { size: 'size', color: isText ? 'color' : 'strokeC', font: 'font', bold: 'bold', italic: 'italic', underline: 'underline', opacity: 'opacity', sw: 'strokeW', rot: 'rot' };
         if (!o || S.sel.kind !== 'edit') { if (k === 'color' && !isText) S.d[t === 'highlight' ? 'hlC' : 'strokeC'] = v; else if (map[k]) S.d[map[k]] = v; }
     };
+    if (o && o.type === 'edit' && o.legacy) add('<span style="color:#fbbf24;font-size:.78rem"><i class="fas fa-info-circle"></i> Old Hindi font (Kruti Dev) detected - converted to Unicode. Please check the spelling.</span>');
     if (S.mode === 'redact' || S.mode === 'maskaadhaar') {
         const d = add(S.mode === 'maskaadhaar' ? `<button class="ed-btn save" data-k="a8"><i class="fas fa-magic"></i> Auto-detect Aadhaar (hide first 8 digits)</button>` : `<select data-k="kind"><option value="custom">Words I type</option><option value="aadhaar12">Aadhaar number</option><option value="pan">PAN number</option><option value="phone">Phone numbers</option><option value="email">E-mail addresses</option></select><input type="text" data-k="terms" placeholder="word1, word2" style="width:150px"><button class="ed-btn" data-k="find"><i class="fas fa-search"></i> Find & mark</button>`);
         const a8 = d.querySelector('[data-k=a8]'); if (a8) a8.onclick = () => autoFind('aadhaar8');

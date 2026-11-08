@@ -2,6 +2,7 @@
 // The heavy code (tools2.js) is loaded only when one of these tools is opened.
 export const TOOLS2 = [
     { id: 'exactsize', title: 'Compress to Exact Size', icon: 'fa-compress-arrows-alt', color: '#f97316', desc: 'PDF or photo under 100 KB / 200 KB...', group: 'Smart Tools' },
+    { id: 'passport', title: 'Passport Photo Maker', icon: 'fa-user-circle', color: '#0ea5e9', desc: 'Full A4 sheet of passport photos.', group: 'Smart Tools' },
     { id: 'photosign', title: 'Photo & Signature Resizer', icon: 'fa-id-badge', color: '#06b6d4', desc: 'Exam / form size presets.', group: 'Smart Tools' },
     { id: 'redact', title: 'Redact PDF', icon: 'fa-user-secret', color: '#ef4444', desc: 'Permanently black out sensitive text.', group: 'Smart Tools', visual: 'redact' },
     { id: 'maskaadhaar', title: 'Mask Aadhaar', icon: 'fa-mask', color: '#a855f7', desc: 'Hide first 8 digits of Aadhaar.', group: 'Smart Tools', visual: 'maskaadhaar' },

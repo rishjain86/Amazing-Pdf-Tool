@@ -97,6 +97,8 @@ export function buildBlocks(items, styles, vp, fontInfo) {
         if (Math.abs(ang) > 1 || size < 2) continue;      // only upright text is editable
         const w = it.width * vp.scale;
         const fi = fontInfo(it.fontName);
+        const dup = raw.length && raw.slice(-3).some(q => q.str === it.str && Math.abs(q.x - e) < size * 0.18 && Math.abs(q.base - f) < size * 0.18); // fake-bold: same text drawn twice
+        if (dup) continue;
         raw.push({ str: it.str, x: e, base: f, size, w, ...fi, hasEOL: it.hasEOL });
     }
     raw.sort((p, q) => (Math.abs(p.base - q.base) < Math.min(p.size, q.size) * 0.3) ? p.x - q.x : p.base - q.base);
