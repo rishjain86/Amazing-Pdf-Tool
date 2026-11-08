@@ -684,7 +684,7 @@
         <a href="privacy.html" class="nav-btn" style="text-decoration: none;"><i class="fas fa-user-shield"></i> Privacy Policy</a>
         <a href="terms.html" class="nav-btn" style="text-decoration: none;"><i class="fas fa-file-contract"></i> Terms & Cond.</a>
         <div style="text-align: center; margin-top: 30px; padding-bottom: 20px; color: #888; font-size: 0.95rem; font-weight: bold; letter-spacing: 1px;">
-            <span id="app-version-text">Version 2.3</span>
+            <span id="app-version-text">Version 2.2</span>
         </div> 
     </div>
 
@@ -997,6 +997,7 @@
             <button id="btn-scanner-close" style="background: transparent; color: white; border: none; font-size: 1.2rem; cursor: pointer;"><i class="fas fa-times"></i></button>
             <div style="display: flex; gap: 15px;">
                 <button id="btn-scanner-rotate-left" class="scanner-top-btn"><i class="fas fa-undo"></i></button>
+                <button id="btn-scanner-auto" class="scanner-top-btn" title="Auto detect page edges"><i class="fas fa-magic"></i></button>
                 <button id="btn-scanner-crop-trigger" class="scanner-top-btn"><i class="fas fa-crop-alt"></i></button>
                 <button id="btn-scanner-rotate-right" class="scanner-top-btn"><i class="fas fa-redo"></i></button>
             </div>
@@ -1076,7 +1077,7 @@
         });
     </script>
 
-    <script type="module" src="app.js?v=9"></script>
+    <script type="module" src="app.js?v=10"></script>
 
     <script>
     // 1. Disable Right Click (Context Menu)
@@ -1113,7 +1114,7 @@
         const db = getFirestore(app);
 
         // Version variable for auto-update via sed
-        const CURRENT_APP_VERSION = 2.3;
+        const CURRENT_APP_VERSION = 2.2;
 
         async function checkAppVersion() {
             try {

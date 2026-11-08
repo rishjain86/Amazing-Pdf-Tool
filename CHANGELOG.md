@@ -48,3 +48,9 @@
 
 Not done on purpose: biometric unlock (needs a native Capacitor plugin + APK rebuild) and automatic Google Drive backup (needs your own Google Cloud OAuth client). The share sheet already lets users save to Drive.
 Hindi text in the editor is already supported (it is drawn as a picture so shaping stays correct); searchable Hindi text would need an embedded font.
+
+## Round 3
+- **Smart Scanner: auto edge detection** - new magic-wand button in the scanner top bar finds the page on a darker background and straightens it (perspective correction). Tap again to undo. Works best when the page contrasts with the table.
+- **Hindi / Gujarati / Punjabi / Bengali / Tamil / Telugu text is now selectable & searchable** in PDFs made by the editor, Excel/Word/PowerPoint -> PDF, OCR and the invoice/resume makers: the visible text stays a perfectly shaped picture and an invisible real-text layer (Noto font, downloaded on first use) sits behind it. Needs internet the first time; offline it silently keeps the picture only.
+- **Fingerprint / face unlock** for App Lock (Android app only, uses @aparajita/capacitor-biometric-auth, added to package.json - the GitHub workflow installs it on the next APK build). The PIN always works as backup.
+- Re-tested every older tool through the UI (compress, reorder, add blank, resize, repair, extract text, PDF->JPG, odd/even split, image compress, merge, JPG->PDF) and opened all 34 sidebar views: no errors.

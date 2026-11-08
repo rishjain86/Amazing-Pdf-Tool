@@ -1,5 +1,6 @@
 // Applies all editor changes to the real PDF with pdf-lib
 import { S, BASELINE, LH, CSSFONT, toUser, hexRgb, buildBlocks, detectFont } from './ed-shared.js';
+import { drawInvisibleUnicode } from './unifont.js';
 
 const FONTMAP = (L, family, bold, italic) => {
     const F = L.StandardFonts;
@@ -65,6 +66,7 @@ export async function saveEditor() {
                 const [bx, by] = disp({ ...o, w: o.w || rt.w, h: o.h || rt.h }, 0, rt.h);
                 const [ux, uy] = U(bx, by);
                 e.pg.drawImage(img, { x: ux, y: uy, width: rt.w, height: rt.h, rotate: L2.degrees(ang), opacity: op });
+                if (r === 0 && !rot) { const oo2 = { x: o.x, y: o.y, w: o.w || rt.w, h: o.h || rt.h, rot: 0 }; for (let i = 0; i < lines.length; i++) { const [bx2, by2] = disp(oo2, 0, BASELINE[family] * size + i * size * LH); const [ux2, uy2] = U(bx2, by2); await drawInvisibleUnicode(doc, L2, pg, lines[i], ux2, uy2, size, font); } } // selectable / searchable text behind the picture
                 return;
             }
             const w = o.w || Math.max(...lines.map(l => font.widthOfTextAtSize(l, size))), h = o.h || lines.length * size * LH;

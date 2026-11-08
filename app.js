@@ -23,7 +23,7 @@ document.head.appendChild(forceScrollStyle);
 // ==========================================
 // APP VERSION CHECKER
 // ==========================================
-const CURRENT_APP_VERSION = 2.3;
+const CURRENT_APP_VERSION = 2.2;
 
 function checkForUpdates() {
     const versionUrl = 'https://amazingpdf.in/version.json?time=' + new Date().getTime();
@@ -465,6 +465,18 @@ document.getElementById('btn-scanner-rotate-right')?.addEventListener('click', (
     if(currentScannerIndex === -1 || isCroppingMode) return; 
     scannerPages[currentScannerIndex].rotation = (scannerPages[currentScannerIndex].rotation + 90) % 360; 
     renderScannerWorkspace(); 
+});
+document.getElementById('btn-scanner-auto')?.addEventListener('click', async () => {
+    if (currentScannerIndex === -1 || isCroppingMode) return;
+    const pg = scannerPages[currentScannerIndex], btn = document.getElementById('btn-scanner-auto');
+    if (pg.rawOriginal) { pg.original = pg.rawOriginal; delete pg.rawOriginal; pg.rotation = 0; renderScannerWorkspace(); renderScannerThumbnails(); btn.style.color = ''; return; } // second tap = undo
+    const old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+        const m = await import(modUrl('docscan')); const r = await m.autoCropDataUrl(pg.original);
+        if (!r.found) showCustomAlert('Could not find the page edges. Try a photo with the page on a darker background, or use the crop tool.');
+        else { pg.rawOriginal = pg.original; pg.original = r.url; pg.rotation = 0; btn.style.color = '#10b981'; }
+    } catch (e) { handleError(e); }
+    btn.innerHTML = old; renderScannerWorkspace(); renderScannerThumbnails();
 });
 document.getElementById('btn-scanner-crop-trigger')?.addEventListener('click', () => {
     if(currentScannerIndex === -1) return;

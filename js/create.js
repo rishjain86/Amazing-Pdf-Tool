@@ -1,6 +1,7 @@
 // Invoice maker, Resume maker, PDF <-> PowerPoint
 import { inp, lbl, textDrawer, stdFonts, loadImg } from './tools2.js';
 import { extractPage, pageImages } from './convert.js';
+import { drawInvisibleUnicode, needsUnicode } from './unifont.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const btnS = 'background:linear-gradient(90deg,#10b981,#3b82f6);color:#fff;border:none;padding:14px 22px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;margin-top:10px';
@@ -198,7 +199,7 @@ DEFS.ppttopdf = {
     options: () => `<p style="font-size:.8rem;color:#94a3b8;margin-bottom:12px">Text, shapes and pictures are converted. Charts, tables, animations and special fonts may look different. Old .ppt files: save as .pptx first.</p>`,
     async run([file], g, ctx) {
         if (!/\.pptx$/i.test(file.name)) throw new Error('Please choose a .pptx file.'); const L = ctx.PDFLIB; const { pages, W, H } = await renderPptx(await file.arrayBuffer(), ctx.JSZip); const doc = await L.PDFDocument.create(); const font = await doc.embedFont(L.StandardFonts.Helvetica);
-        for (const p of pages) { const img = await doc.embedJpg(p.cv.toDataURL('image/jpeg', 0.92)); const page = doc.addPage([W, H]); page.drawImage(img, { x: 0, y: 0, width: W, height: H }); p.texts.forEach(t => { let s = t.t; try { font.encodeText(s); } catch (e) { s = s.replace(/[^\x20-\x7E]/g, '?'); } if (s.trim()) try { page.drawText(s, { x: t.x, y: H - t.y, size: Math.max(2, t.size), font, opacity: 0 }); } catch (e) { } }); p.cv.width = 0; }
+        for (const p of pages) { const img = await doc.embedJpg(p.cv.toDataURL('image/jpeg', 0.92)); const page = doc.addPage([W, H]); page.drawImage(img, { x: 0, y: 0, width: W, height: H }); for (const t of p.texts) { let s = t.t; if (needsUnicode(s) && await drawInvisibleUnicode(doc, L, page, s, t.x, H - t.y, Math.max(2, t.size), font)) continue; try { font.encodeText(s); } catch (e) { s = s.replace(/[^\x20-\x7E]/g, '?'); } if (s.trim()) try { page.drawText(s, { x: t.x, y: H - t.y, size: Math.max(2, t.size), font, opacity: 0 }); } catch (e) { } } p.cv.width = 0; }
         return { bytes: await doc.save(), filename: file.name.replace(/\.pptx$/i, '') + '.pdf', type: 'application/pdf', title: 'PDF Ready!' };
     }
 };

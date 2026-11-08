@@ -3,6 +3,7 @@
 import { TOOLS2 } from './registry.js';
 import { mountAppLockUI } from './applock.js';
 import { extractPage, pageImages } from './convert.js';
+import { drawInvisibleUnicode } from './unifont.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const inp = 'width:100%;padding:12px;border-radius:8px;border:1px solid var(--glass-border);background:rgba(0,0,0,.3);color:white;margin-bottom:12px;font-family:inherit';
@@ -25,7 +26,7 @@ export function textDrawer(doc, L, fonts) {
         const k = 4, c = document.createElement('canvas'), g = c.getContext('2d'); const f = `${bold ? 'bold ' : ''}${size * k}px Arial, "Noto Sans", "Noto Sans Devanagari", sans-serif`; g.font = f; const w = g.measureText(text).width / k;
         c.width = Math.ceil(w * k) + 8; c.height = Math.ceil(size * 1.5 * k); g.font = f; g.fillStyle = `rgb(${color.map(v => Math.round(v * 255)).join(',')})`; g.fillText(text, 4, size * 1.1 * k);
         const img = await doc.embedPng(c.toDataURL('image/png')); const px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
-        page.drawImage(img, { x: px - 1, y: y - size * 0.3, width: c.width / k, height: c.height / k }); return w;
+        page.drawImage(img, { x: px - 1, y: y - size * 0.3, width: c.width / k, height: c.height / k }); await drawInvisibleUnicode(doc, L, page, text, px, y, size, fonts.reg); return w;
     };
 }
 export async function stdFonts(doc, L) { return { reg: await doc.embedFont(L.StandardFonts.Helvetica), bold: await doc.embedFont(L.StandardFonts.HelveticaBold) }; }

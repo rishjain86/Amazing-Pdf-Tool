@@ -1,5 +1,6 @@
 // Pro tools: OCR Scanner, Batch Processing, Smart Vault (all run on-device except OCR language data download)
 import { loadScript } from './convert.js';
+import { drawInvisibleUnicode, needsUnicode } from './unifont.js';
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const card = 'background:rgba(0,0,0,.2);padding:20px;border-radius:12px;border:1px solid var(--glass-border);margin-bottom:16px';
 const inp = 'width:100%;padding:12px;border-radius:8px;border:1px solid var(--glass-border);background:rgba(0,0,0,.3);color:white;margin-bottom:12px';
@@ -70,7 +71,7 @@ function initOCR(ctx, root) {
         else {
             const doc = await L.PDFDocument.create(); const font = await doc.embedFont(L.StandardFonts.Helvetica);
             for (let i = 0; i < pagesRaster.length; i++) { const pr = pagesRaster[i]; const img = await doc.embedJpg(pr.cv.toDataURL('image/jpeg', 0.85)); const page = doc.addPage([pr.w, pr.h]); page.drawImage(img, { x: 0, y: 0, width: pr.w, height: pr.h });
-                results[i].forEach(b => { let s = b.str; try { font.encodeText(s); } catch (e) { s = Array.from(s).map(ch => { try { font.encodeText(ch); return ch; } catch (er) { return ''; } }).join(''); } if (!s.trim()) return; const size = Math.max(4, b.size); const wd = font.widthOfTextAtSize(s, size); const sx = wd > 0 ? b.w / wd : 1; try { page.drawText(s, { x: b.x, y: pr.h - b.base, size: size * Math.min(1.6, Math.max(0.5, sx)), font, opacity: 0 }); } catch (e) { } }); }
+                for (const b of results[i]) { let s = b.str; const size = Math.max(4, b.size); if (needsUnicode(s) && await drawInvisibleUnicode(doc, L, page, s, b.x, pr.h - b.base, size, font)) continue; try { font.encodeText(s); } catch (e) { s = Array.from(s).map(ch => { try { font.encodeText(ch); return ch; } catch (er) { return ''; } }).join(''); } if (!s.trim()) continue; const wd = font.widthOfTextAtSize(s, size); const sx = wd > 0 ? b.w / wd : 1; try { page.drawText(s, { x: b.x, y: pr.h - b.base, size: size * Math.min(1.6, Math.max(0.5, sx)), font, opacity: 0 }); } catch (e) { } } }
             bytes = await doc.save(); name = base + '.pdf'; type = 'application/pdf';
         }
         pagesRaster.forEach(p => { p.cv.width = p.cv.height = 0; }); const total = files.reduce((a, f) => a + f.size, 0); files = []; render();

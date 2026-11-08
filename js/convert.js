@@ -2,6 +2,7 @@
 import { buildBlocks, detectFont, sampleFg, rgbHex } from './ed-shared.js';
 import { parseXlsx, parseCsv, sheetFromRows, buildXlsx, formatValue } from './xlsx-lite.js';
 import { buildDocx, groupLines, columnsFromLines, colIndex } from './docx-lite.js';
+import { drawInvisibleUnicode, needsUnicode } from './unifont.js';
 
 const loaded = {};
 export function loadScript(urls, check) {
@@ -20,8 +21,8 @@ const PAGES = { A4: [595.28, 841.89], Letter: [612, 792], Legal: [612, 1008] };
 
 // ---- searchable (invisible) text layer helper
 function safeText(font, s) { try { font.encodeText(s); return s; } catch (e) { return Array.from(s).map(ch => { try { font.encodeText(ch); return ch; } catch (er) { return '?'; } }).join(''); } }
-function addTextLayer(page, font, texts, H) {
-    texts.forEach(t => { const s = safeText(font, t.text.replace(/[\r\n\t]/g, ' ')); if (!s.trim()) return; try { page.drawText(s, { x: t.x, y: H - t.y, size: Math.max(2, t.size), font, opacity: 0 }); } catch (e) { } });
+async function addTextLayer(page, font, texts, H, doc, L) {
+    for (const t of texts) { const raw = t.text.replace(/[\r\n\t]/g, ' '); if (!raw.trim()) continue; if (doc && needsUnicode(raw) && await drawInvisibleUnicode(doc, L, page, raw, t.x, H - t.y, Math.max(2, t.size), font)) continue; const s = safeText(font, raw); if (!s.trim()) continue; try { page.drawText(s, { x: t.x, y: H - t.y, size: Math.max(2, t.size), font, opacity: 0 }); } catch (e) { } }
 }
 const canvasJpeg = (cv, q = 0.92) => cv.toDataURL('image/jpeg', q);
 
@@ -107,7 +108,7 @@ export async function excelToPdf(file, o, ctx) {
         const pages = renderSheetPages(sh, o);
         for (const pg of pages) {
             const img = await doc.embedJpg(canvasJpeg(pg.cv)); const page = doc.addPage([pg.w, pg.h]); page.drawImage(img, { x: 0, y: 0, width: pg.w, height: pg.h });
-            addTextLayer(page, font, pg.texts, pg.h); pg.cv.width = pg.cv.height = 0; count++;
+            await addTextLayer(page, font, pg.texts, pg.h, doc, L); pg.cv.width = pg.cv.height = 0; count++;
         }
     }
     if (!count) throw new Error('Nothing to print in this spreadsheet.');
@@ -137,7 +138,7 @@ export async function wordToPdf(file, ctx, onProgress) {
             const texts = []; const tw = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
             while (tw.nextNode()) { const n = tw.currentNode; if (!n.nodeValue.trim() || !n.parentElement) continue; const fsz = parseFloat(getComputedStyle(n.parentElement).fontSize) || 12; const re = /\S+/g; let m; while ((m = re.exec(n.nodeValue))) { const rg = document.createRange(); rg.setStart(n, m.index); rg.setEnd(n, m.index + m[0].length); const b = rg.getBoundingClientRect(); if (b.width < 1) continue; texts.push({ text: m[0], x: (b.left - r.left) * PT, y: (b.top - r.top + b.height * 0.8) * PT, size: fsz * PT }); } }
             const cv = await window.html2canvas(sec, { scale: k, backgroundColor: '#ffffff', useCORS: true, logging: false });
-            const img = await doc.embedJpg(canvasJpeg(cv, 0.93)); const page = doc.addPage([W, H]); page.drawImage(img, { x: 0, y: 0, width: W, height: H }); addTextLayer(page, font, texts, H); cv.width = cv.height = 0;
+            const img = await doc.embedJpg(canvasJpeg(cv, 0.93)); const page = doc.addPage([W, H]); page.drawImage(img, { x: 0, y: 0, width: W, height: H }); await addTextLayer(page, font, texts, H, doc, L); cv.width = cv.height = 0;
         }
         doc.setTitle(file.name.replace(/\.docx$/i, '')); doc.setProducer('Amazing PDF'); return await doc.save();
     } finally { host.remove(); }
