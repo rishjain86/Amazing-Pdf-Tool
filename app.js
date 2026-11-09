@@ -23,7 +23,7 @@ document.head.appendChild(forceScrollStyle);
 // ==========================================
 // APP VERSION CHECKER
 // ==========================================
-const CURRENT_APP_VERSION = "2.2";
+const CURRENT_APP_VERSION = "2.4";
 
 // ==========================================
 // IN-APP UPDATER + "WHAT'S NEW" POPUP
