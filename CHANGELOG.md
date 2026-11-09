@@ -65,3 +65,7 @@ Hindi text in the editor is already supported (it is drawn as a picture so shapi
 - **What's new popup** shown once after each update (and for web visitors once per version), written from `whatsnew.json`; the same lines appear in the update box.
 - Release workflow: `version.json` is now published only AFTER the APK is on GitHub (before, users were told about an APK that did not exist yet), includes sha256 + notes, and versions like 2.10 compare correctly (they used to be read as the number 2.1).
 - Native updater plugin lives in `native/` and is added to the generated Android project by the workflow.
+
+## Round 6 - old installed apps
+- `version.json` now also carries `message` (feature list) and `download_url` = `update.html`, so apps installed BEFORE in-app updates show the new features in their update dialog and open a friendly download page instead of a raw APK link. New apps use `apk_url` for the in-app download.
+- New `update.html` page. Workflow rejects version names like 2.10 (old apps would read them as 2.1 and never show the update).

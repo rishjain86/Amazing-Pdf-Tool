@@ -37,6 +37,10 @@ jobs:
 
     - name: 📝 Auto-Update Versions Everywhere
       run: |
+        if ! echo "${{ github.event.inputs.version_name }}" | grep -Eq '^[0-9]+\.[0-9]$'; then
+          echo "::error::Version must look like 2.4 (one digit after the dot, e.g. 2.9 then 3.0). Apps installed before in-app updates read versions as plain numbers, so 2.10 would be invisible to them."
+          exit 1
+        fi
         # 1. index.html updates
         sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = \"${{ github.event.inputs.version_name }}\";/g" index.html
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
@@ -156,7 +160,11 @@ jobs:
         export SHA=$(sha256sum AmazingPDF.apk | cut -d' ' -f1)
         node -e "
         const fs=require('fs');const n=JSON.parse(fs.readFileSync('whatsnew.json','utf8'));
-        const v={version:'${{ github.event.inputs.version_name }}',code:${{ github.event.inputs.version_code }},download_url:'https://github.com/${{ github.repository }}/releases/latest/download/AmazingPDF.apk',sha256:process.env.SHA,title:n.title||'What is new',notes:n.items||[]};
+        const apk='https://github.com/${{ github.repository }}/releases/latest/download/AmazingPDF.apk';
+        const notes=n.items||[];
+        const msg='🚀 Amazing PDF ${{ github.event.inputs.version_name }} is ready!\\n\\n'+notes.map(x=>'• '+x).join('\\n')+'\\n\\nTap OK to open the download page.';
+        // old installed apps (before in-app updates) only understand version/message/download_url: they show message in a dialog and open download_url (our nice update page)
+        const v={version:'${{ github.event.inputs.version_name }}',code:${{ github.event.inputs.version_code }},message:msg,download_url:'https://amazingpdf.in/update.html',apk_url:apk,sha256:process.env.SHA,title:n.title||'What is new',notes:notes};
         fs.writeFileSync('version.json',JSON.stringify(v,null,2));" 
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"

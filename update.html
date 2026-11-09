@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Update Amazing PDF</title><meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+body{min-height:100vh;background:radial-gradient(900px 500px at 10% -10%,rgba(59,130,246,.25),transparent 60%),radial-gradient(700px 500px at 100% 100%,rgba(16,185,129,.2),transparent 60%),#0b1220;color:#fff;display:flex;align-items:center;justify-content:center;padding:18px}
+.card{width:100%;max-width:430px;background:linear-gradient(160deg,#18233f,#0f172a);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:28px 22px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+img{width:84px;height:84px;border-radius:20px;box-shadow:0 0 40px rgba(16,185,129,.4)}h1{font-size:1.45rem;margin:14px 0 4px}.sub{color:#94a3b8;font-size:.88rem}
+.tag{display:inline-block;margin-top:16px;font-size:.75rem;letter-spacing:.06em;color:#7dd3fc;font-weight:600}
+ul{list-style:none;text-align:left;margin:8px 0 6px}li{display:flex;gap:10px;padding:6px 0;font-size:.92rem;color:#dbe4f3;line-height:1.4}li b{color:#34d399}
+.btn{display:block;margin-top:18px;padding:16px;border-radius:16px;background:linear-gradient(90deg,#10b981,#3b82f6);color:#fff;font-weight:700;font-size:1.1rem;text-decoration:none;box-shadow:0 10px 26px rgba(16,185,129,.35)}
+ol{text-align:left;margin:18px 0 0 20px;color:#cbd5e1;font-size:.86rem;line-height:1.7}.note{margin-top:16px;font-size:.78rem;color:#94a3b8;line-height:1.5}
+</style></head><body><div class="card">
+<img src="assets/icon.png" alt="" onerror="this.style.display='none'">
+<h1>Amazing PDF update</h1><p class="sub" id="ver">Checking the latest version...</p>
+<div class="tag" id="tag" style="display:none">WHAT'S NEW</div><ul id="notes"></ul>
+<a class="btn" id="dl" href="https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk">Download the update</a>
+<ol><li style="display:list-item">Open the downloaded <b>AmazingPDF.apk</b></li><li style="display:list-item">If Android asks, allow <b>"Install unknown apps"</b> for your browser</li><li style="display:list-item">Tap <b>Update</b> - your files and settings stay</li></ol>
+<p class="note">This is a one-time manual step. After this version, updates install from inside the app with one tap.</p></div>
+<script>
+fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(d=>{
+  document.getElementById('ver').textContent='Version '+d.version+' is ready';
+  if(d.apk_url) document.getElementById('dl').href=d.apk_url;
+  if(Array.isArray(d.notes)&&d.notes.length){document.getElementById('tag').style.display='block';document.getElementById('notes').innerHTML=d.notes.map(n=>'<li><b>&#10003;</b><span>'+String(n).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</span></li>').join('');}
+}).catch(()=>{document.getElementById('ver').textContent='A new version is available';});
+</script></body></html>

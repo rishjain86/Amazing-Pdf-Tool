@@ -59,8 +59,8 @@ const AmazingUpdater = {
         m.querySelector('#upd-go').onclick = () => this.start(data, m);
     },
     async start(data, m) {
-        const $ = (id) => m.querySelector(id), st = (t) => { $('#upd-status').textContent = t; }, go = $('#upd-go'); const url = data.download_url || 'https://amazingpdf.in';
-        const fallback = (why) => { st(why + ' Opening the download page...'); setTimeout(() => { window.open(url, '_blank'); }, 900); go.disabled = false; go.textContent = 'Update now'; };
+        const $ = (id) => m.querySelector(id), st = (t) => { $('#upd-status').textContent = t; }, go = $('#upd-go'); const url = data.apk_url || data.download_url || 'https://amazingpdf.in';
+        const fallback = (why) => { st(why + ' Opening the download page...'); setTimeout(() => { window.open(data.download_url || url, '_blank'); }, 900); go.disabled = false; go.textContent = 'Update now'; };
         let P = null; try { P = window.Capacitor && window.Capacitor.registerPlugin ? (this.plugin = this.plugin || window.Capacitor.registerPlugin('ApkInstaller')) : null; } catch (e) { }
         if (!P || !P.downloadAndInstall) return fallback('Direct update is not available in this version of the app.');
         go.disabled = true; go.textContent = 'Please wait...';

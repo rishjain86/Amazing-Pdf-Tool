@@ -11,3 +11,13 @@
 * The very first time, users on an OLD app (before this feature) still download the APK in the browser and install it once. After that, all updates are in-app.
 * On first in-app update Android asks once: "Allow Amazing PDF to install unknown apps" (a normal Android rule for apps not from Play Store). The app guides the user.
 * Android never allows a *fully silent* install outside the Play Store - the user always taps "Update" once on the system screen. That is the closest possible to Play Store behaviour.
+
+## What users who ALREADY have the old app see
+The old app (2.2 and earlier) has the old update code inside it, so it can never show the new in-app box. What it does do, after you release (e.g. 2.4):
+1. A normal Android dialog appears with the **list of new features** (taken from `whatsnew.json` via `message`).
+2. Tapping OK opens **https://amazingpdf.in/update.html** - a nice page with the features and a big *Download the update* button.
+3. They install the APK once (the page explains the steps). From that version on, every update is the in-app one-tap flow.
+
+Rules that keep old users able to see updates:
+* Version names must be `X.Y` with ONE digit after the dot: 2.3, 2.4 ... 2.9, then 3.0 (never 2.10 - old apps read it as 2.1). The workflow refuses other formats.
+* Keep `update.html` and `version.json` on the website (they are in the repo root, so they deploy with the site).
