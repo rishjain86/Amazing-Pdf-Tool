@@ -38,21 +38,21 @@ jobs:
     - name: 📝 Auto-Update Versions Everywhere
       run: |
         # 1. index.html updates
-        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" index.html
+        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = \"${{ github.event.inputs.version_name }}\";/g" index.html
         sed -i "s/app.js?v=[0-9]*/app.js?v=${{ github.event.inputs.version_code }}/g" index.html
         sed -i "s/<span id=\"app-version-text\">.*<\/span>/<span id=\"app-version-text\">Version ${{ github.event.inputs.version_name }}<\/span>/g" index.html
         
         # 2. app.js update
-        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = ${{ github.event.inputs.version_name }};/g" app.js
+        sed -i "s/const CURRENT_APP_VERSION = .*/const CURRENT_APP_VERSION = \"${{ github.event.inputs.version_name }}\";/g" app.js
         
-        # 3. version.json update with "latest" link
-        echo '{"version": "${{ github.event.inputs.version_name }}", "code": ${{ github.event.inputs.version_code }}, "download_url": "https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk"}' > version.json
+        # 3. stamp whatsnew.json (edit its \"items\" before running the release - they are shown to users after the update)
+        node -e "const fs=require('fs');const p='whatsnew.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version='${{ github.event.inputs.version_name }}';fs.writeFileSync(p,JSON.stringify(j,null,2));"
 
     - name: 💾 Save Updated Files to GitHub Repo
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add index.html app.js version.json
+        git add index.html app.js whatsnew.json
         git commit -m "🚀 Auto-bump version to ${{ github.event.inputs.version_name }}" || echo "No changes to commit"
         git push
 
@@ -89,6 +89,9 @@ jobs:
 
     - name: Create Android Project
       run: npx cap add android || true
+
+    - name: 📲 Add In-App Updater (native plugin)
+      run: bash native/setup-android.sh
 
     - name: Generate App Icons & Splash
       run: npx @capacitor/assets generate || true
@@ -147,6 +150,19 @@ jobs:
         body: "🚀 Auto-generated release for Amazing PDF version ${{ github.event.inputs.version_name }}."
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 📣 Publish version.json (users get the update prompt only now, after the APK exists)
+      run: |
+        export SHA=$(sha256sum AmazingPDF.apk | cut -d' ' -f1)
+        node -e "
+        const fs=require('fs');const n=JSON.parse(fs.readFileSync('whatsnew.json','utf8'));
+        const v={version:'${{ github.event.inputs.version_name }}',code:${{ github.event.inputs.version_code }},download_url:'https://github.com/${{ github.repository }}/releases/latest/download/AmazingPDF.apk',sha256:process.env.SHA,title:n.title||'What is new',notes:n.items||[]};
+        fs.writeFileSync('version.json',JSON.stringify(v,null,2));" 
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add version.json
+        git commit -m "📣 Publish update ${{ github.event.inputs.version_name }}" || echo "nothing to commit"
+        git push || (git pull --rebase --autostash origin ${{ github.ref_name }} && git push)
 
     - name: 🔥 Update Firebase Database Automatically
       env:

@@ -23,26 +23,76 @@ document.head.appendChild(forceScrollStyle);
 // ==========================================
 // APP VERSION CHECKER
 // ==========================================
-const CURRENT_APP_VERSION = 2.2;
+const CURRENT_APP_VERSION = "2.2";
 
-function checkForUpdates() {
-    const versionUrl = 'https://amazingpdf.in/version.json?time=' + new Date().getTime();
-    
-    if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return; // website visitors always get the latest version
-    fetch(versionUrl)
-        .then(response => response.json())
-        .then(data => {
-            const liveVersion = parseFloat(data.version);
-            if (liveVersion > CURRENT_APP_VERSION) {
-                let userWantsToUpdate = confirm(data.message || "New update available! Please update the app to use new features.");
-                if (userWantsToUpdate) {
-                    window.location.href = data.download_url || "https://amazingpdf.in";
-                }
-            }
-        })
-        .catch(error => console.log("Update check failed:", error));
+// ==========================================
+// IN-APP UPDATER + "WHAT'S NEW" POPUP
+// ==========================================
+const cmpVer = (a, b) => { const x = String(a).split('.').map(n => parseInt(n) || 0), y = String(b).split('.').map(n => parseInt(n) || 0); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0 ? 1 : -1; } return 0; };
+const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const modalCss = 'position:fixed;inset:0;z-index:1000000;background:rgba(8,12,24,.88);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Poppins,sans-serif';
+const cardCss = 'background:linear-gradient(160deg,#18233f,#0f172a);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:26px 22px;width:100%;max-width:400px;max-height:88vh;overflow:auto;color:#fff;box-shadow:0 24px 60px rgba(0,0,0,.6);text-align:center';
+const listHtml = (items) => '<ul style="list-style:none;padding:0;margin:14px 0 4px;text-align:left">' + items.map(t => `<li style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:.92rem;color:#dbe4f3;line-height:1.4"><span style="color:#34d399;margin-top:1px">&#10003;</span><span>${escapeHtml(t)}</span></li>`).join('') + '</ul>';
+const AmazingUpdater = {
+    active: false, plugin: null,
+    async check(opts = {}) {
+        if (this.active || (!isNativeApp() && !opts.web)) return;
+        try {
+            const r = await fetch('https://amazingpdf.in/version.json?time=' + Date.now(), { cache: 'no-store' }); const data = await r.json();
+            if (cmpVer(data.version, CURRENT_APP_VERSION) > 0) this.show(data, !!opts.force);
+        } catch (e) { console.log('Update check failed:', e); }
+    },
+    show(data, force) {
+        if (this.active) return; this.active = true;
+        const m = document.createElement('div'); m.id = 'upd-modal'; m.style.cssText = modalCss;
+        const notes = Array.isArray(data.notes) && data.notes.length ? listHtml(data.notes) : `<p style="color:#cbd5e1;margin:14px 0">${escapeHtml(data.message || 'A new version with new features and fixes is ready.')}</p>`;
+        m.innerHTML = `<div style="${cardCss}"><div style="font-size:3.4rem;margin-bottom:6px">&#128640;</div><h2 style="font-size:1.35rem;margin-bottom:4px">Update available</h2>
+            <p style="color:#94a3b8;font-size:.85rem">Version <b style="color:#34d399">${escapeHtml(data.version)}</b> &nbsp;(you have ${escapeHtml(CURRENT_APP_VERSION)})</p>
+            <div style="font-size:.78rem;color:#7dd3fc;margin-top:12px;font-weight:600;letter-spacing:.04em">${escapeHtml((data.title || "WHAT'S NEW").toUpperCase())}</div>${notes}
+            <div id="upd-prog" style="display:none;margin-top:14px"><div style="height:10px;background:rgba(255,255,255,.12);border-radius:6px;overflow:hidden"><div id="upd-bar" style="height:100%;width:0;background:linear-gradient(90deg,#10b981,#3b82f6);transition:width .2s"></div></div><div id="upd-pct" style="font-size:.8rem;color:#94a3b8;margin-top:6px">0%</div></div>
+            <p id="upd-status" style="font-size:.82rem;color:#fbbf24;margin-top:12px;min-height:1em"></p>
+            <button id="upd-go" style="margin-top:12px;width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(90deg,#10b981,#3b82f6);color:#fff;font-weight:700;font-size:1.05rem;cursor:pointer">Update now</button>
+            ${force ? '' : '<button id="upd-later" style="margin-top:8px;width:100%;padding:11px;border:none;border-radius:14px;background:transparent;color:#94a3b8;font-size:.9rem;cursor:pointer">Later</button>'}</div>`;
+        document.body.appendChild(m);
+        const close = () => { m.remove(); this.active = false; };
+        const later = m.querySelector('#upd-later'); if (later) later.onclick = close;
+        m.querySelector('#upd-go').onclick = () => this.start(data, m);
+    },
+    async start(data, m) {
+        const $ = (id) => m.querySelector(id), st = (t) => { $('#upd-status').textContent = t; }, go = $('#upd-go'); const url = data.download_url || 'https://amazingpdf.in';
+        const fallback = (why) => { st(why + ' Opening the download page...'); setTimeout(() => { window.open(url, '_blank'); }, 900); go.disabled = false; go.textContent = 'Update now'; };
+        let P = null; try { P = window.Capacitor && window.Capacitor.registerPlugin ? (this.plugin = this.plugin || window.Capacitor.registerPlugin('ApkInstaller')) : null; } catch (e) { }
+        if (!P || !P.downloadAndInstall) return fallback('Direct update is not available in this version of the app.');
+        go.disabled = true; go.textContent = 'Please wait...';
+        try {
+            const c = await P.canInstall();
+            if (!c.allowed) { st('Allow "Install unknown apps" for Amazing PDF on the next screen, then come back and tap Update now again.'); go.disabled = false; go.textContent = 'Update now'; await P.openSettings(); return; }
+            $('#upd-prog').style.display = 'block'; st('Downloading update...'); go.textContent = 'Downloading...'; const lt = m.querySelector('#upd-later'); if (lt) lt.style.display = 'none';
+            if (!this.listening) { this.listening = true; await P.addListener('progress', (e) => { const bar = document.getElementById('upd-bar'), pct = document.getElementById('upd-pct'); if (bar) bar.style.width = e.percent + '%'; if (pct) pct.textContent = e.percent + '%  (' + (e.downloaded / 1048576).toFixed(1) + ' / ' + (e.total / 1048576).toFixed(1) + ' MB)'; }); }
+            await P.downloadAndInstall({ url, sha256: data.sha256 || '' });
+            st('Almost done! Tap "Update" on the Android screen that opened. Your files and settings stay safe - just open the app again afterwards.'); go.textContent = 'Waiting for install...'; setTimeout(() => { go.disabled = false; go.textContent = 'Update now'; }, 6000);
+        } catch (e) { fallback((e && e.message ? e.message : 'Update failed.') + ' '); }
+    }
+};
+window.AmazingUpdater = AmazingUpdater;
+AmazingUpdater.check();
+
+function showWhatsNewOnce() {
+    try {
+        if (localStorage.getItem('amazingpdf_seen_version') === CURRENT_APP_VERSION) return;
+        fetch('whatsnew.json?v=' + encodeURIComponent(CURRENT_APP_VERSION), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
+            const done = () => { try { localStorage.setItem('amazingpdf_seen_version', CURRENT_APP_VERSION); } catch (e) { } };
+            if (!d || !Array.isArray(d.items) || !d.items.length) return done();
+            if (document.getElementById('upd-modal')) return; // update dialog first
+            const m = document.createElement('div'); m.style.cssText = modalCss;
+            m.innerHTML = `<div style="${cardCss}"><div style="font-size:3.2rem;margin-bottom:4px">&#127881;</div><h2 style="font-size:1.3rem;margin-bottom:2px">${escapeHtml(d.title || "What's new")}</h2><p style="color:#94a3b8;font-size:.82rem">Version ${escapeHtml(CURRENT_APP_VERSION)}</p>${listHtml(d.items)}<button style="margin-top:14px;width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(90deg,#10b981,#3b82f6);color:#fff;font-weight:700;font-size:1.05rem;cursor:pointer">Awesome, let's go!</button></div>`;
+            m.querySelector('button').onclick = () => { m.remove(); done(); }; document.body.appendChild(m);
+        }).catch(() => { });
+    } catch (e) { }
 }
-checkForUpdates();
+const uiBusy = () => Array.from(document.querySelectorAll('[id*=overlay],[id$=-workspace],#ed-prompt')).some(e => e.id !== 'sidebar-overlay' && getComputedStyle(e).display !== 'none' && e.offsetParent !== null || (e.id.endsWith('-workspace') && getComputedStyle(e).display === 'flex'));
+(function waitIdle(n) { if (uiBusy() && n < 12) return setTimeout(() => waitIdle(n + 1), 5000); showWhatsNewOnce(); })(0); // never pops up over a running task or the editor
+
 
 // ==========================================
 // UTILITY & ALERT FUNCTIONS

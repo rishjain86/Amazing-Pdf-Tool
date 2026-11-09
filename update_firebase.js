@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 
-const latestVersion = parseFloat(process.env.NEW_VERSION);
+const latestVersion = String(process.env.NEW_VERSION || '').trim(); // keep as text so 2.10 stays 2.10
 console.log(`🚀 New version detected from Action: ${latestVersion}`);
 
 if (!latestVersion) {

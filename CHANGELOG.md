@@ -59,3 +59,9 @@ Hindi text in the editor is already supported (it is drawn as a picture so shapi
 - **Passport Photo Maker** (Smart Tools): choose a photo, drag/zoom to centre the face, pick size (35x45 mm, 2x2 in, stamp, custom), paper (A4, 4x6, 5x7, A5, Letter) and either "fill the whole sheet" or an exact number; optional small stamp photos in the leftover space, cutting lines, auto brightness. Output PDF (print-ready, 300 dpi) or JPG. Live preview. A4 with 35x45 mm gives 30 photos per sheet.
 - **Hindi editing fix**: PDFs made with old Hindi fonts (Kruti Dev / DevLys) showed garbage like "fgUnh" when editing. The editor now detects them, converts to real Hindi Unicode ("हिन्दी") for editing, and saves the result as proper Devanagari. English text in the same PDF is left alone. Fake-bold text (same word printed twice) is no longer duplicated.
 - **Undo / Redo**: now has labelled buttons, a small confirmation message, shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) and repaints in place without flicker. Covers new text, edits to existing text, drawings and shapes, images, signatures, redact boxes, page rotate / delete / insert, and property changes.
+
+## Round 5 - one-tap in-app updates
+- **Update now** downloads the APK inside the app (progress bar, checksum check, same-app + newer-version check) and opens the Android installer; installs over the old app, no uninstall needed. Needs the stable keystore secrets (see RELEASE_GUIDE.md).
+- **What's new popup** shown once after each update (and for web visitors once per version), written from `whatsnew.json`; the same lines appear in the update box.
+- Release workflow: `version.json` is now published only AFTER the APK is on GitHub (before, users were told about an APK that did not exist yet), includes sha256 + notes, and versions like 2.10 compare correctly (they used to be read as the number 2.1).
+- Native updater plugin lives in `native/` and is added to the generated Android project by the workflow.

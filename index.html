@@ -1114,7 +1114,7 @@
         const db = getFirestore(app);
 
         // Version variable for auto-update via sed
-        const CURRENT_APP_VERSION = 2.2;
+        const CURRENT_APP_VERSION = "2.2";
 
         async function checkAppVersion() {
             try {
@@ -1123,23 +1123,25 @@
                 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const latestVersionFromDB = parseFloat(data.latest_version);
-                    
-                    const versionTextElement = document.getElementById('app-version-text');
-                    if(versionTextElement) {
-                        versionTextElement.innerText = "Version " + latestVersionFromDB;
-                    }
+                    const latestVersionFromDB = String(data.latest_version);
+                    const cmp = (a, b) => { const x = String(a).split('.').map(n => parseInt(n) || 0), y = String(b).split('.').map(n => parseInt(n) || 0); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0 ? 1 : -1; } return 0; };
 
                     const hostname = window.location.hostname;
                     const isWebsite = hostname.includes("amazingpdf.in") || hostname.includes("vercel.app") || hostname.includes("github.io");
+
+                    const versionTextElement = document.getElementById('app-version-text');
+                    if(versionTextElement) {
+                        versionTextElement.innerText = "Version " + (isWebsite ? latestVersionFromDB : CURRENT_APP_VERSION);
+                    }
 
                     if (isWebsite) {
                         console.log("Website detected. Update modal blocked.");
                         return; 
                     }
 
-                    if (latestVersionFromDB > CURRENT_APP_VERSION) {
-                        document.getElementById('update-modal').style.display = 'flex';
+                    if (cmp(latestVersionFromDB, CURRENT_APP_VERSION) > 0) {
+                        if (window.AmazingUpdater) window.AmazingUpdater.check({ force: true });
+                        else document.getElementById('update-modal').style.display = 'flex';
                     }
                 }
             } catch(error) {
