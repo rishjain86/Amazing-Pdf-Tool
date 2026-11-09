@@ -1,1 +1,18 @@
-{"version": "2.2", "code": 10, "download_url": "https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk"}
+{
+  "version": "2.4",
+  "code": 9,
+  "message": "🚀 Amazing PDF 2.4 is ready!\n\n• Edit PDF like Sejda - click any text and change it (old Hindi Kruti Dev fonts converted to real Hindi)\n• Passport Photo Maker - fill a whole A4 sheet with passport photos\n• Word, Excel, PowerPoint to PDF and back, plus OCR for scanned papers\n• Compress PDF or photo to an exact size (100 KB, 200 KB...)\n• Redact PDF, Mask Aadhaar, Fill Forms, E-Signature, Invoice & Resume maker\n• Smart Vault, App Lock with PIN / fingerprint, and a Share button for WhatsApp\n• One-tap in-app updates - no more manual downloads\n\nTap OK to open the download page.",
+  "download_url": "https://amazingpdf.in/update.html",
+  "apk_url": "https://github.com/rishjain86/Amazing-Pdf-Tool/releases/latest/download/AmazingPDF.apk",
+  "sha256": "ff763a827043dad90ae6bd31b9fa8032d650df2bcd7125f17b7777ca34a1c245",
+  "title": "What's new in Amazing PDF",
+  "notes": [
+    "Edit PDF like Sejda - click any text and change it (old Hindi Kruti Dev fonts converted to real Hindi)",
+    "Passport Photo Maker - fill a whole A4 sheet with passport photos",
+    "Word, Excel, PowerPoint to PDF and back, plus OCR for scanned papers",
+    "Compress PDF or photo to an exact size (100 KB, 200 KB...)",
+    "Redact PDF, Mask Aadhaar, Fill Forms, E-Signature, Invoice & Resume maker",
+    "Smart Vault, App Lock with PIN / fingerprint, and a Share button for WhatsApp",
+    "One-tap in-app updates - no more manual downloads"
+  ]
+}
